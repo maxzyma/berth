@@ -1,6 +1,7 @@
 # Berth spec
 
-Source of truth for what Berth does. Code follows this file.
+Source of truth for what Berth does. Code follows this file; rules for
+editing the repo are in `.claude/rules/`, not here.
 
 ## 1. Problem
 

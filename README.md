@@ -6,7 +6,7 @@ each one back — conversation included — in the terminal it came from after a
 editor restart or a reboot.
 
 > Status: specification stage. Nothing is implemented yet. The spec is
-> [docs/spec.md](docs/spec.md).
+> [design/spec.md](design/spec.md).
 
 ## Pieces
 
@@ -25,8 +25,9 @@ in the core, so the two frontends cannot disagree.
 ```
 berth/
 ├── README.md              this file
-├── CLAUDE.md              rules for agents editing this repo (AGENTS.md links here)
-├── docs/
+├── AGENTS.md              entry for agents editing the repo (CLAUDE.md links here)
+├── .claude/rules/         constraints on editing the repo
+├── design/
 │   └── spec.md            product and technical spec — the source of truth
 └── packages/
     ├── core/              library + `berth` CLI
@@ -42,6 +43,7 @@ berth/
     └── iterm2/            Berth for iTerm2 (AutoLaunch script, profile template)
 ```
 
+`docs/` (user documentation) is added when there is some to write.
 Directories are created as code lands; the layout above is the plan, and the
 spec explains what each owns.
 
