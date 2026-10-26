@@ -18,7 +18,8 @@ editor restart or a reboot.
 
 Frontends only present and reopen sessions. Every decision about sessions —
 what exists, which conversation it holds, which terminal owns it — is made
-in the core, so the two frontends cannot disagree.
+in the core, so frontends cannot disagree. Each host Berth supports gets its
+own frontend, *Berth for <host>*.
 
 ## Directory layout
 

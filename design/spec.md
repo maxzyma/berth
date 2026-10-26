@@ -18,7 +18,19 @@ running, and people run many at once across projects. Three things break:
 3. **Losing the place.** Sessions are spread over terminals (VS Code, iTerm2).
    After a restart each should come back where it was opened, and only there.
 
+Agent-focused terminal apps (cmux, Warp) address these by asking people to
+move their agents into a new app, leaving behind the tools and extensions they
+already use. Berth takes the other route.
+
 ## 2. Goals
+
+Berth brings agent sessions into the hosts people already work in — VS Code
+with its whole extension ecosystem, iTerm2 — instead of replacing them. Each
+host gets a frontend named *Berth for <host>*; all of them sit on one core.
+
+A feature counts as a Berth difference only if it relies on the host: if an
+agent terminal app running beside an editor can do it equally well, it is not
+a reason for Berth to exist.
 
 - G1. List every agent session on the machine in one place, including ones
   Berth did not start.
@@ -30,6 +42,9 @@ running, and people run many at once across projects. Three things break:
   owns it.
 - G6. Ship a VS Code layout that puts the session list first.
 - G7. Depend on no directory layout, workspace structure, or private script.
+- G8. Support every agent CLI in the baseline set (§8) from the first
+  release: launch, conversation binding and resume for each. Missing resume
+  for a baseline agent is a defect, not a lower tier.
 
 ## 3. Non-goals
 
@@ -184,6 +199,9 @@ Berth runs with no config file.
 - **Startup.** On startup, for each `vscode`-origin session that no open
   terminal shows, open one terminal running attach-or-ensure. Restored
   terminals are ordinary unnamed terminals, so tab titles follow tmux.
+- **Remote workspaces.** Works the same in Remote-SSH, Dev Containers and
+  WSL: the extension runs on the workspace side, next to the tmux server it
+  manages.
 - Disabled in untrusted workspaces. Calls the core library in-process; shells
   out to tmux only through the core.
 
@@ -200,15 +218,24 @@ Berth runs with no config file.
 
 ## 8. Agent adapters
 
+The baseline set below must all be supported by milestone 1 (G8). Each row's
+launch, resume and id source is verified against the current CLI before the
+row is marked done.
+
 | Agent | Launch | Resume | Conversation id source | Status |
 |---|---|---|---|---|
-| Claude Code | `claude --name {name}` | `claude --resume {id}` | `SessionStart` hook, then name key | Behaviour proven in a private prototype |
+| Claude Code | `claude --name {name}` | `claude --resume {id}` | `SessionStart` hook, then name key | Proven in a private prototype |
 | Codex CLI | `codex` | `codex resume {id}` | Codex hooks / session index | To verify |
-| Gemini CLI and others | CLI default | none until verified | none | Process-only restore |
+| Gemini CLI | CLI default | to verify | to verify | To verify |
+| OpenCode | CLI default | to verify | to verify | To verify |
+| GitHub Copilot CLI | CLI default | to verify | to verify | To verify |
+| Cursor CLI | CLI default | to verify | to verify | To verify |
+| Kimi CLI | CLI default | to verify | to verify | To verify |
+| Qoder CLI | CLI default | to verify | to verify | To verify |
 | `shell` | user shell | — | — | — |
 
-Adding an adapter means filling that row and passing the adapter tests; no
-change elsewhere.
+Agents outside the baseline set may be added later. Adding an adapter means
+filling its row and passing the adapter tests; no change elsewhere.
 
 ## 9. Constraints
 
@@ -228,25 +255,33 @@ Checked 2026-10-25.
 - **agent-deck** (TUI / web): broad session manager outside the editor.
 - **tmux-assistant-resurrect** and similar tmux-resurrect plugins: resume
   agents by recorded id after a reboot; no editor integration.
+- **cmux** (macOS terminal app on Ghostty): vertical tabs, notifications,
+  embedded browser; restores layout and resumes 17 agent CLIs by hook-recorded
+  id. Live processes end when the app quits. No editor integration.
+- **Warp** (terminal app): vertical tabs with agent status, notifications,
+  in-terminal code review, remote control for third-party CLI agents. Restores
+  tabs and panes, not running agents. Some features need an account.
 
-Berth's difference: it adopts sessions it did not start, treats the launcher
-as replaceable, and gives each terminal its own sessions back. Ideas borrowed
+Berth's difference: agents stay inside the user's existing hosts and their
+ecosystems, including remote workspaces; sessions outlive the host process;
+Berth adopts sessions it did not start, treats the launcher as replaceable,
+and gives each host its own sessions back. Ideas borrowed
 from MIT-licensed projects keep their notices.
 
 ## 11. Milestones
 
-1. **Core + Claude adapter.** `ls`, `new`, `stamp`, `snapshot`, `ensure`,
-   `restore`, hooks; reboot test: every managed session returns, resumed into
+1. **Core + baseline adapters.** `ls`, `new`, `stamp`, `snapshot`, `ensure`,
+   `restore`, hooks, every agent in §8; reboot test: every managed session returns, resumed into
    its own conversation.
 2. **VS Code frontend.** Session view, actions, startup reopen, layout preset.
 3. **iTerm2 frontend.**
-4. **Codex adapter**, then others as verified.
-5. **Public release.** Choose license, scan history for private identifiers,
+4. **Public release.** Choose license, scan history for private identifiers,
    publish packages.
 
 ## 12. Open questions
 
-- Codex resume and conversation-id source need checking against the current
-  Codex CLI.
+- Which host-native features beyond the session view earn a place (for
+  example a per-session changes view built on VS Code's source control), judged
+  by the rule in §2.
 - Whether the VS Code extension bundles the core or requires the CLI on `PATH`
   (bundling avoids a version mismatch; the iTerm2 side needs the CLI anyway).
