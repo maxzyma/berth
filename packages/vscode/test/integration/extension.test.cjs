@@ -17,7 +17,8 @@ suite('Berth for VS Code (integration)', () => {
   test('settings writes stay in the test instance', async () => {
     const config = vscode.workspace.getConfiguration();
     await config.update('terminal.integrated.tabs.location', 'left', vscode.ConfigurationTarget.Global);
-    assert.equal(config.get('terminal.integrated.tabs.location'), 'left');
+    // A configuration object is a snapshot; read again after writing.
+    assert.equal(vscode.workspace.getConfiguration().get('terminal.integrated.tabs.location'), 'left');
     await config.update('terminal.integrated.tabs.location', undefined, vscode.ConfigurationTarget.Global);
   });
 });
