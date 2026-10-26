@@ -1,0 +1,12 @@
+{
+  "name": "berth-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/core"],
+  "scripts": {
+    "build": "tsc -b packages/core",
+    "test": "npm run build && node --test --test-concurrency=1 'packages/core/dist/test/**/*.test.js'",
+    "test:live": "npm run build && BERTH_LIVE=1 node --test 'packages/core/dist/test/live/*.test.js'"
+  },
+  "engines": { "node": ">=20" }
+}
