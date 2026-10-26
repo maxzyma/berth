@@ -25,9 +25,12 @@ const ST = '\x07';
 
 export function sequencesFor(state: string, session: string, iterm2: boolean): string {
   const glyph = GLYPH[state];
-  let out = `${OSC}9;4;${PROGRESS[state] ?? '0'};0${ST}`;
+  // iTerm2 shows state by badge and colour; older versions would read OSC 9;4 as notification text.
+  let out = iterm2 ? '' : `${OSC}9;4;${PROGRESS[state] ?? '0'};0${ST}`;
   out += `${OSC}2;${glyph ? `${glyph} ` : ''}${session}${ST}`;
   if (iterm2) {
+    // iTerm2's own notification (OSC 9 with text) when an agent needs the user or finishes.
+    if (state === 'waiting' || state === 'done') out += `${OSC}9;${session}: ${state === 'waiting' ? 'waiting for you' : 'finished'}${ST}`;
     const badge = Buffer.from(glyph ? `${glyph} ${state}` : '').toString('base64');
     out += `${OSC}1337;SetBadgeFormat=${badge}${ST}`;
     const colour = ITERM_COLOUR[state];

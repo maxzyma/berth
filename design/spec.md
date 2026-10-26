@@ -140,9 +140,9 @@ The VS Code extension is published to the Marketplace, not npm.
 | `berth stamp [--session] key=value…` | Set metadata; used by hooks and custom launchers. |
 | `berth snapshot` | Write a snapshot (§5.3). |
 | `berth ensure [--origin <o>] [<session>]` | Rebuild missing managed sessions from the newest snapshot; idempotent and lock-protected so concurrent callers rebuild once. |
-| `berth restore [--resume] [--origin <o>] [<snapshot>]` | Explicit restore from a chosen snapshot. |
+| `berth restore [--origin <o>] [--session <s>] [<snapshot>]` | Explicit restore from a chosen snapshot, same rules as `ensure`. |
 | `berth show <session> [<snapshot>]` | Print saved scrollback. |
-| `berth doctor` | Report drift: name / title / conversation mismatches, unbound sessions, missing hooks. |
+| `berth doctor` | Report unbound sessions, missing working directories, unknown agents and agents in use without hooks. |
 | `berth hooks install\|uninstall <agent>` | Agent hooks (§4.2). |
 | `berth tmux install\|uninstall` | Managed block in the user's tmux config: snapshot hooks, optional session picker key. |
 | `berth iterm2 install\|uninstall` | Install the iTerm2 frontend (§7). |
@@ -178,7 +178,7 @@ When the agent exits, the session ends — Berth does not leave a stray shell.
   - `scrollback/<name>.txt` — last N lines of each pane (default 3000), for
     reading only.
 - Triggers: `berth snapshot`; tmux hooks on session created / renamed / closed
-  (installed by `berth tmux install`); optional interval.
+  (installed by `berth tmux install`).
 - Retention: newest K snapshots (default 5).
 - Snapshots contain conversation text and are never meant for version control.
 
@@ -205,8 +205,9 @@ Berth runs with no config file.
   `terminal.integrated.tabs.location = left`,
   `workbench.sideBar.location = right`,
   `workbench.secondarySideBar.defaultVisibility = visible`.
-  Moving the Terminal view into the secondary side bar has no stable API; the
-  command attempts it and, if that fails, shows a one-step instruction.
+  It also adds `${progress}` to `terminal.integrated.tabs.description`.
+  Moving the Terminal view into the secondary side bar has no API; the command
+  ends with a one-step instruction to drag it there.
   *Revert Agent Layout* restores the previous values.
 - **Session view.** The rich session list, contributed as an ordinary view so
   the user can place it in any side bar. A tree of every session from
@@ -231,7 +232,9 @@ Berth runs with no config file.
 - **Notifications.** When an agent starts waiting for the user or finishes a
   turn: an in-editor notification through the VS Code API, and a native OS
   notification through a platform helper, because VS Code has no API for OS
-  notifications. Clicking either focuses the session.
+  notifications. "Open" in the editor notification focuses the session;
+  clicking the OS notification brings the editor forward (on macOS this needs
+  `terminal-notifier`).
 - **Actions.** New session (pick agent; runs `berth new --origin vscode` or the
   configured custom launcher in a new terminal), attach (opens a terminal and
   re-stamps origin), detach, rename, kill (with confirmation), adopt.
@@ -257,8 +260,8 @@ Berth runs with no config file.
   absolute paths to `tmux` and `berth`.
 - **Agent state on tabs.** iTerm2 lets a running session change its tab
   colour, title and badge, so `@berth_state` is shown there directly.
-- **Notifications** through iTerm2's own notification support when an agent
-  starts waiting or finishes.
+- **Notifications** through iTerm2's own notification sequence (OSC 9) when an
+  agent starts waiting or finishes.
 - **Coexistence.** Berth uses iTerm2's documented surfaces only and leaves room
   for other iTerm2 extensions; it does not take over profiles it did not write.
 - A session list in the toolbelt is optional, added only if users manage many

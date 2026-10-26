@@ -82,9 +82,11 @@ test('state sequences: progress and title for every terminal, badge and colour f
   assert.ok(plain.includes('\x1b]2;● web\x07'));
   assert.ok(!plain.includes('1337'));
   const iterm = sequencesFor('waiting', 'web', true);
-  assert.ok(iterm.includes('\x1b]9;4;4;0\x07'));
+  assert.ok(!iterm.includes(']9;4;'), 'no progress sequence for iTerm2');
   assert.ok(iterm.includes(`1337;SetBadgeFormat=${Buffer.from('◐ waiting').toString('base64')}`));
   assert.ok(iterm.includes('6;1;bg;red;brightness;235'));
+  assert.ok(iterm.includes('\x1b]9;web: waiting for you\x07'), 'iTerm2 notification');
+  assert.ok(!plain.includes(']9;web'), 'no notification text for other terminals');
   assert.ok(sequencesFor('', 'web', true).includes('6;1;bg;*;default'));
 });
 

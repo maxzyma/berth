@@ -1,5 +1,5 @@
 /** Berth for VS Code: glue between the editor API and the controller (spec §6). */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { platform } from 'node:os';
 import * as vscode from 'vscode';
 import { ADAPTERS, createContext } from '@berthdev/berth';
@@ -20,9 +20,26 @@ const ICONS: Record<RowView['icon'], vscode.ThemeIcon> = {
   unmanaged: new vscode.ThemeIcon('terminal'),
 };
 
+const MAC_BUNDLES: Record<string, string> = {
+  'Visual Studio Code': 'com.microsoft.VSCode',
+  'Visual Studio Code - Insiders': 'com.microsoft.VSCodeInsiders',
+  Cursor: 'com.todesktop.230313mzl4w4u92',
+};
+
+/**
+ * System notification. On macOS, terminal-notifier is used when present so a
+ * click brings the editor forward (where the in-editor notification offers
+ * "Open"); without it the notification is shown but clicking does nothing useful.
+ */
 function osNotify(title: string, body: string): void {
   const os = platform();
   if (os === 'darwin') {
+    const bundle = MAC_BUNDLES[vscode.env.appName];
+    const notifier = spawnSync('which', ['terminal-notifier'], { encoding: 'utf8' }).stdout.trim();
+    if (notifier) {
+      spawn(notifier, ['-title', title, '-message', body, ...(bundle ? ['-activate', bundle] : [])], { stdio: 'ignore', detached: true }).unref();
+      return;
+    }
     const script = `display notification ${JSON.stringify(body)} with title ${JSON.stringify(title)}`;
     spawn('osascript', ['-e', script], { stdio: 'ignore', detached: true }).unref();
   } else if (os === 'linux') {
