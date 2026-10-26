@@ -92,6 +92,10 @@ and are removed by `berth hooks uninstall <agent>`.
 
 TypeScript library plus the `berth` CLI. Node ≥ 20. No editor dependency.
 
+Published under the npm organization scope `@berthdev`: core and CLI ship as
+`@berthdev/berth` with the `berth` binary; later packages use the same scope.
+The VS Code extension is published to the Marketplace, not npm.
+
 ### 5.1 Commands
 
 | Command | Behaviour |
@@ -242,8 +246,6 @@ from MIT-licensed projects keep their notices.
 
 ## 12. Open questions
 
-- Package names: `berth` is taken on npm; candidates `@berth/core` (scope
-  availability unchecked) or a personal scope.
 - Codex resume and conversation-id source need checking against the current
   Codex CLI.
 - Whether the VS Code extension bundles the core or requires the CLI on `PATH`
