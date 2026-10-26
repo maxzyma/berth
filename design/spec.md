@@ -24,9 +24,20 @@ already use. Berth takes the other route.
 
 ## 2. Goals
 
-Berth brings agent sessions into the hosts people already work in — VS Code
-with its whole extension ecosystem, iTerm2 — instead of replacing them. Each
-host gets a frontend named *Berth for <host>*; all of them sit on one core.
+Berth brings agent sessions into the hosts people already work in instead of
+replacing them. Each host gets a frontend named *Berth for <host>*; all of
+them sit on one core. Each host is supported for its own reason:
+
+- **VS Code** — the full editor and its extension ecosystem: source control and
+  diff, language servers, remote workspaces, settings sync.
+- **iTerm2** — a lighter host for agent work without an editor window, with
+  its own scripting surface (Python API, toolbelt, triggers) and community
+  extensions built on it, such as file viewers.
+
+Across hosts, one set of live sessions is shared: a session attached in one
+host can be attached in the other, and returns after a restart to the host
+that last took it (§4.1). Standalone agent terminal apps cannot share live
+sessions with an editor.
 
 A feature counts as a Berth difference only if it relies on the host: if an
 agent terminal app running beside an editor can do it equally well, it is not
@@ -241,6 +252,14 @@ Berth runs with no config file.
 - Session list: live tmux when a server is running, else the newest snapshot.
 - iTerm2 starts AutoLaunch scripts with a minimal `PATH`; the installer records
   absolute paths to `tmux` and `berth`.
+- **Agent state on tabs.** iTerm2 lets a running session change its tab
+  colour, title and badge, so `@berth_state` is shown there directly.
+- **Notifications** through iTerm2's own notification support when an agent
+  starts waiting or finishes.
+- **Coexistence.** Berth uses iTerm2's documented surfaces only and leaves room
+  for other iTerm2 extensions; it does not take over profiles it did not write.
+- A session list in the toolbelt is optional, added only if users manage many
+  sessions from iTerm2 alone.
 
 ## 8. Agent adapters
 
@@ -309,6 +328,9 @@ from MIT-licensed projects keep their notices.
 
 ## 12. Open questions
 
+- iTerm2 surfaces in §7 (tab colour / badge updates, notifications, toolbelt
+  web views) are stated from experience and need checking against the current
+  Python API before implementation.
 - Which host-native features beyond the session view earn a place (for
   example a per-session changes view built on VS Code's source control), judged
   by the rule in §2.
