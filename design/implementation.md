@@ -270,6 +270,25 @@ manual cases are recorded as checked, and the de-identification check passes.
 - **I3** (manual) After quitting tmux, opening iTerm2 restores its sessions and
   only those; tab state and notifications appear.
 
+### Milestone 4 — public release
+
+Cases marked (human) need the maintainer's decision or accounts.
+
+- **R1** (human) Choose the license; add `LICENSE` at the root and set
+  `license` in both package manifests.
+- **R2** The whole history is free of private identifiers: file contents
+  through the de-identification check, and commit author / committer
+  identities checked separately (the content check does not see them).
+- **R3** (human) Rewrite any commit whose identity fails R2 before the
+  repository is made public, and update every reference to the old commit
+  ids in the same step.
+- **R4** `npm pack` of `packages/core` contains only `dist/src`, `README.md`
+  and the manifest; `vsce package` of `packages/vscode` succeeds.
+- **R5** (human) Create the `berthdev` npm organization and Marketplace
+  publisher, then publish `@berthdev/berth` and the extension.
+- **R6** (human) Run the manual cases V8, V9, I3 and `npm run test:vscode`
+  before the first release.
+
 ## 7. Prior art used
 
 Resume commands and hook-event semantics come from cmux (GPL-3.0-or-later,
