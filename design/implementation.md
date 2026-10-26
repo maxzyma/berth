@@ -284,13 +284,15 @@ Cases marked (human) need the maintainer's decision or accounts.
   identities checked separately (the content check does not see them).
 - **R3** (human) Rewrite any commit whose identity fails R2 before the
   repository is made public, and update every reference to the old commit
-  ids in the same step. Any branch kept to preserve pre-rewrite history (for
-  references that still point into it) is deleted before the repository is
-  made public.
+  ids in the same step. Publish the rewritten history into a repository that
+  never held the old one: on GitHub, commits removed from every branch can
+  still be fetched by id from the repository that had them. History kept for
+  old references stays in a separate private repository.
 - **R4** `npm pack` of `packages/core` contains only `dist/src`, `README.md`
   and the manifest; `vsce package` of `packages/vscode` succeeds.
 - **R5** (human) Create the `berthdev` npm organization and Marketplace
-  publisher, then publish `@berthdev/berth` and the extension.
+  publisher, then publish `@berthdev/berth` and the extension. Until then,
+  each release attaches the npm tarball and the `.vsix` to its GitHub release.
 - **R6** (human) Run the manual cases V8, V9, I3 and `npm run test:vscode`
   before the first release.
 
