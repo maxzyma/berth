@@ -5,8 +5,19 @@ Codex CLI, and others) running in tmux, list them all in one place, and bring
 each one back — conversation included — in the terminal it came from after an
 editor restart or a reboot.
 
-> Status: specification stage. Nothing is implemented yet. The spec is
+> Status: early development. The core library and `berth` CLI exist; the VS
+> Code and iTerm2 frontends do not yet. The spec is
 > [design/spec.md](design/spec.md).
+
+## Development
+
+```sh
+npm install
+npm test        # builds, then runs every test on isolated berth-test-* tmux servers
+```
+
+Tests start their own tmux servers, so they need an environment that allows
+creating Unix sockets.
 
 ## Pieces
 
