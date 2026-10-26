@@ -5,21 +5,30 @@ Codex CLI, and others) running in tmux, list them all in one place, and bring
 each one back — conversation included — in the terminal it came from after an
 editor restart or a reboot.
 
-> Status: early development, not yet released. Core, `berth` CLI, Berth for
-> VS Code and Berth for iTerm2 are implemented. The spec is
-> [design/spec.md](design/spec.md).
+> Status: 0.1.0, early. Core, `berth` CLI, Berth for VS Code and Berth for
+> iTerm2 work and are tested; packages are on GitHub Releases, not yet on npm
+> or the VS Code Marketplace. The spec is [design/spec.md](design/spec.md).
 
-## Development
+## Install
+
+Requires tmux ≥ 3.0 and Node ≥ 20. From the
+[latest release](https://github.com/maxzyma/berth/releases/latest):
 
 ```sh
-npm install
-npm test              # builds, then runs every test on isolated berth-test-* tmux servers
-npm run test:live     # opt-in: one real Claude Code resume (BERTH_LIVE=1)
-npm run test:vscode   # opt-in: integration tests in a real VS Code window
+npm install -g https://github.com/maxzyma/berth/releases/download/v0.1.0/berthdev-berth-0.1.0.tgz
+code --install-extension berth-vscode-0.1.0.vsix   # after downloading it
 ```
 
-Tests start their own tmux servers, so they need an environment that allows
-creating Unix sockets.
+Then, once per machine:
+
+```sh
+berth hooks install claude    # and codex: agents report conversation id and state
+berth tmux install            # snapshot automatically as sessions change
+berth iterm2 install          # optional: Berth for iTerm2
+```
+
+After a reboot, VS Code and iTerm2 bring their own sessions back; `berth ensure`
+does it from any terminal.
 
 ## Pieces
 
