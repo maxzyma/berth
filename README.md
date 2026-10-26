@@ -44,8 +44,8 @@ berth/
 ```
 
 `docs/` (user documentation) is added when there is some to write.
-Directories are created as code lands; the layout above is the plan, and the
-spec explains what each owns.
+Planned directories exist from the start and hold a `.gitkeep` until code
+lands; the spec explains what each owns.
 
 ## License
 
