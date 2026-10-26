@@ -129,7 +129,7 @@ test('C8 ensure --origin rebuilds only that origin', async (t) => {
   assert.deepEqual(live, ['a']);
 });
 
-test('C9 two concurrent ensure calls rebuild each session once', async (t) => {
+test('C9 (C12.2) two concurrent ensure calls rebuild each session once', async (t) => {
   const sb = sandbox(t);
   for (const name of ['p', 'q', 'r']) sb.cli('new', 'claude', '--cwd', sb.makeDir(name));
   sb.cli('snapshot');

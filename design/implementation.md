@@ -130,8 +130,8 @@ adapter lists its keep-set explicitly; anything not listed is dropped.
 3. A recorded cwd that no longer exists: skip, report in `ls` and `doctor`.
 4. The agent binary missing at restore: start a shell in the cwd, report.
 5. A conversation id the agent no longer accepts: the session shows the
-   agent's own error; `doctor` reports it. Berth does not silently start a
-   fresh conversation in its place.
+   agent's own error. Berth does not silently start a fresh conversation in
+   its place.
 6. Fork / clear / compact inside the agent mints a new id: the hook re-stamps
    it; the newest stamp wins.
 7. Session renamed in tmux: metadata travels with the session; the snapshot
@@ -164,7 +164,8 @@ configuration, or editor settings.
 - `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` point into a per-test temporary
   directory. Hook install / uninstall tests run against agent config files
   created there.
-- Tests that fail keep their temporary directory and print its path.
+- With `BERTH_KEEP_SANDBOX=1`, tests keep their temporary directory and print
+  its path for inspection.
 
 ### 5.3 VS Code
 
