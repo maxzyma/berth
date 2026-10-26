@@ -112,8 +112,8 @@ kept on resume.
 | Others | to verify | to verify | to verify | to verify |
 
 Rows marked "to verify" are filled from the CLI's own hook documentation
-before the adapter is done. Behaviour of other tools may guide where to look;
-it is not evidence.
+where available, otherwise from cmux's event mapping for that agent (the
+reference commit in spec §8); the source is noted in the adapter module.
 
 ### 3.2 Arguments kept on resume
 
@@ -229,7 +229,7 @@ manual cases are recorded as checked, and the de-identification check passes.
   unrelated hook entries intact.
 - **C12** Every edge case in §4 has a test.
 - **C13** Every baseline adapter passes its unit tests (§5.4) and its spec §8
-  row is confirmed against the CLI.
+  row records its source (help-checked or cmux reference).
 - **L1** (live, manual trigger) Every installed baseline agent resumes its own
   conversation after the server is killed.
 
@@ -258,8 +258,8 @@ manual cases are recorded as checked, and the de-identification check passes.
 
 ## 7. Prior art used
 
-Resume commands and hook-event semantics were first located in the published
-support lists and tests of cmux (GPL-3.0-or-later) and AI Terminal Sessions
-(MIT), then checked against each CLI where installed (spec §8). No code is
-copied from either; facts about third-party CLIs are restated in Berth's own
-words.
+Resume commands and hook-event semantics come from cmux (GPL-3.0-or-later,
+reference commit in spec §8) and AI Terminal Sessions (MIT), checked against
+each CLI where installed. Agents not checked follow cmux's logic for that
+agent. No code is copied from either; facts about third-party CLIs are
+restated in Berth's own words, and each adapter module notes its source.

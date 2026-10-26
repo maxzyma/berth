@@ -55,7 +55,8 @@ a reason for Berth to exist.
 - G7. Depend on no directory layout, workspace structure, or private script.
 - G8. Support every agent CLI in the baseline set (§8) from the first
   release: launch, conversation binding and resume for each. Missing resume
-  for a baseline agent is a defect, not a lower tier.
+  for a baseline agent is a defect, not a lower tier. Not every agent has to
+  be verified against its own CLI first (§8).
 
 ## 3. Non-goals
 
@@ -263,12 +264,12 @@ Berth runs with no config file.
 
 ## 8. Agent adapters
 
-The baseline set below must all be supported by milestone 1 (G8). Each row's
-launch, resume and id source is verified against the current CLI.
+The baseline set below must all be supported by milestone 1 (G8).
 
-"Help" means checked against the CLI's own `--help` on the version shown;
-"reference" means taken from another tool's published support and still to be
-checked against the CLI itself.
+"Help" means checked against the CLI's own `--help` on the version shown.
+"Reference" means the command and hook semantics follow cmux's implementation
+for that agent (commit `473e77e`, 2026-10-26) and have not been run against the
+CLI by Berth.
 
 | Agent | Launch | Resume | Conversation id source | Status |
 |---|---|---|---|---|
@@ -282,8 +283,10 @@ checked against the CLI itself.
 | Qoder CLI | `qodercli --name {name}` | `qodercli --resume {id}` | to verify; name key possible | Help 1.0.48 |
 | `shell` | user shell | — | — | — |
 
-A row is done when launch, resume and id source are all confirmed against the
-CLI and covered by tests.
+A row is done when it is implemented, covered by unit tests, and its source
+is recorded: help-checked against the CLI, or reference to cmux as above.
+Live verification (implementation §5.5) covers the agents installed where it
+runs; the rest stay "reference" until someone runs them.
 
 Agents outside the baseline set may be added later. Adding an adapter means
 filling its row and passing the adapter tests; no change elsewhere.
