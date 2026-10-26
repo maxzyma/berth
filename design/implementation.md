@@ -192,10 +192,19 @@ event mapping (§3.1) without any process.
 
 ### 5.5 Live tests (opt-in)
 
-`npm run test:live` runs each installed baseline agent for real in an isolated
-tmux server: launch, record a conversation id through the installed hook,
-kill the server, `ensure`, and check the agent resumed that conversation. It
-needs the agent logged in and may cost tokens; it skips agents not installed.
+`npm run test:live` runs real agents in an isolated tmux server: launch,
+record the conversation id through the agent's hook, kill the server,
+`ensure`, and check through the agent's own start hook that it resumed that
+conversation. Only Claude Code is covered so far; other agents follow when
+they can take hooks without editing the user's own agent configuration.
+
+Usage is kept low on purpose, to limit cost and avoid tripping provider
+abuse controls: the smallest model, one short prompt (about one request per
+run), nothing sent after resuming, no retries, and at most one run every six
+hours unless `BERTH_LIVE_FORCE=1`. Hooks are passed with `--settings`, so the
+user's agent settings are not modified; the agent still records the
+conversation in its own history as it always does. Runs only with
+`BERTH_LIVE=1`.
 
 ### 5.6 iTerm2
 
