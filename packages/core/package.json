@@ -1,6 +1,6 @@
 {
   "name": "@berthdev/berth",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Keep terminal-based coding agents running in tmux and bring each back, conversation included.",
   "type": "module",
   "main": "dist/src/index.js",
@@ -10,7 +10,8 @@
   },
   "files": [
     "dist/src",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
@@ -34,5 +35,6 @@
     "codex",
     "agents",
     "terminal"
-  ]
+  ],
+  "license": "MIT"
 }

@@ -2,10 +2,9 @@
   "name": "berth",
   "displayName": "Berth",
   "description": "Every terminal coding agent in one list: kept running in tmux, resumed after restarts, state on your terminal tabs.",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "publisher": "berthdev",
-  "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "vscode": "^1.90.0"

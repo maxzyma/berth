@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { sandbox, waitFor } from './helpers.js';
+import { killServer, sandbox, waitFor } from './helpers.js';
 import { presentState, sequencesFor } from '../src/present/state.js';
 import { iterm2Paths } from '../src/iterm2/install.js';
 import { Tmux } from '../src/tmux/client.js';
@@ -47,6 +47,22 @@ test('I2 a profile command is attach-or-heal', async (t) => {
   const reattach = inner.lastIndexOf('attach-session');
   assert.ok(attach >= 0 && ensure > attach && reattach > ensure, inner);
   assert.ok(inner.includes('=heal'));
+});
+
+test('I3 (automated part) after a reboot, opening a profile rebuilds its session and attaches', async (t) => {
+  const sb = sandbox(t);
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('reboot'), '--origin', 'iterm2');
+  sb.cli('stamp', '--session', 'reboot', 'conversation=r1');
+  sb.cli('iterm2', 'install');
+  sb.cli('snapshot');
+  const [profile] = JSON.parse(readFileSync(iterm2Paths(sb.env).profiles, 'utf8')).Profiles as { Command: string }[];
+  killServer(sb);
+  // What an iTerm2 tab does with the profile: run its command, verbatim, on a terminal.
+  const tab = spawn('script', ['-q', '/dev/null', '/bin/sh', '-c', profile.Command], { env: sb.env, stdio: 'ignore' });
+  t.after(() => tab.kill());
+  await waitFor(() => sb.ctx().tmux.hasSession('reboot'), 'session rebuilt', 10_000);
+  await waitFor(() => sb.tmux('list-clients', '-t', '=reboot', '-F', '#{client_name}').trim(), 'tab attached', 10_000);
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=reboot:', '#{@berth_conversation}').trim(), 'r1');
 });
 
 test('tmux install adds one managed block and snapshot hooks; uninstall removes only them', async (t) => {

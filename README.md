@@ -67,5 +67,4 @@ explains what each part owns.
 
 ## License
 
-Private during development. Intended to be published under an open-source
-license; see the spec's release milestone.
+MIT — see [LICENSE](LICENSE).

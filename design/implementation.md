@@ -267,8 +267,11 @@ manual cases are recorded as checked, and the de-identification check passes.
 - **I1** `iterm2 install` writes the AutoLaunch script and one profile per
   `iterm2`-origin session, with absolute tool paths.
 - **I2** A profile's command is attach-or-heal (checked as text).
-- **I3** (manual) After quitting tmux, opening iTerm2 restores its sessions and
-  only those; tab state and notifications appear.
+- **I3** After the tmux server dies, running a profile's command on a terminal
+  (what an iTerm2 tab does) rebuilds the session, resumes its conversation id
+  and attaches — automated with a pseudo-terminal. (manual) In iTerm2 itself:
+  the AutoLaunch script opens only iTerm2's sessions; tab state and
+  notifications appear.
 
 ### Milestone 4 — public release
 
