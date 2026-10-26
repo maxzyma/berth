@@ -78,6 +78,7 @@ session and any tool can read it:
 | `@berth_argv` | the launch command, verbatim |
 | `@berth_conversation` | conversation id, or empty if not yet known |
 | `@berth_origin` | `vscode` / `iterm2` / `none` |
+| `@berth_state` | `working` / `waiting` (needs the user) / `done` / empty when unknown; written by agent hooks |
 
 ### 4.1 Origin rules
 
@@ -99,6 +100,10 @@ Order of preference, first hit wins:
    the newest conversation in that directory carrying that name.
 3. **Unbound.** Restore relaunches without resuming and the session row says
    so. Berth never falls back to "most recent conversation in this directory".
+
+The same hooks keep `@berth_state` current from the agent's lifecycle events
+(prompt submitted → `working`, needs approval → `waiting`, turn finished →
+`done`).
 
 Hooks are written only by `berth hooks install <agent>`, are marked as Berth's,
 and are removed by `berth hooks uninstall <agent>`.
@@ -190,9 +195,30 @@ Berth runs with no config file.
   Moving the Terminal view into the secondary side bar has no stable API; the
   command attempts it and, if that fails, shows a one-step instruction.
   *Revert Agent Layout* restores the previous values.
-- **Session view.** A tree of every session from `berth ls`, grouped by cwd:
-  agent, attached here / elsewhere / detached / stopped (in snapshot, not
-  live), conversation bound or not. Unmanaged sessions are listed separately.
+- **Session view.** The rich session list, contributed as an ordinary view so
+  the user can place it in any side bar. A tree of every session from
+  `berth ls`, grouped by cwd. What a row shows follows the vertical tabs of
+  agent terminal apps (cmux, Warp), which set the bar users compare against:
+  agent; agent state (`@berth_state`); unread mark when an agent finished or
+  started waiting while the user looked elsewhere; latest notification text;
+  git branch; connection (attached here / elsewhere / detached / stopped — in
+  snapshot, not live); conversation bound or not. A view badge counts sessions
+  waiting for the user. Unmanaged sessions are listed separately. Selecting a
+  row focuses its terminal, attaching first when needed.
+- **Native terminal tabs.** Kept, never replaced: they stay the terminal
+  surface the rest of the ecosystem works with. VS Code lets an extension set
+  a tab's icon and colour only at creation, and offers no way to add content
+  to a tab row, so Berth adds state through the two channels that do update:
+  `${progress}` in `terminal.integrated.tabs.description`, driven by the
+  OSC 9;4 sequence (spinner / warning / error), and `${sequence}`, the OSC 2
+  title, which VS Code records only on unnamed terminals — another reason
+  Berth's terminals are unnamed. Hiding the native tab list is the user's
+  display preference (an optional item in the layout preset, off by default),
+  not a Berth mode.
+- **Notifications.** When an agent starts waiting for the user or finishes a
+  turn: an in-editor notification through the VS Code API, and a native OS
+  notification through a platform helper, because VS Code has no API for OS
+  notifications. Clicking either focuses the session.
 - **Actions.** New session (pick agent; runs `berth new --origin vscode` or the
   configured custom launcher in a new terminal), attach (opens a terminal and
   re-stamps origin), detach, rename, kill (with confirmation), adopt.
@@ -257,7 +283,10 @@ Checked 2026-10-25.
   agents by recorded id after a reboot; no editor integration.
 - **cmux** (macOS terminal app on Ghostty): vertical tabs, notifications,
   embedded browser; restores layout and resumes 17 agent CLIs by hook-recorded
-  id. Live processes end when the app quits. No editor integration.
+  id. Live processes end when the app quits. No editor integration. Its
+  vertical-tab content and hook-based agent state are the reference for the
+  VS Code session view and `@berth_state`. Licensed GPL-3.0-or-later (server
+  parts BUSL-1.1): Berth takes behaviour and design from it, not code.
 - **Warp** (terminal app): vertical tabs with agent status, notifications,
   in-terminal code review, remote control for third-party CLI agents. Restores
   tabs and panes, not running agents. Some features need an account.
