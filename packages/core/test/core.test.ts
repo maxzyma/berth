@@ -34,7 +34,7 @@ test('C1 ls lists managed, unmanaged and stopped sessions', async (t) => {
   const gone = all.find((r) => r.name === 'gone');
   assert.equal(gone?.live, false);
   assert.equal(gone?.agent, 'codex');
-  for (const key of ['name', 'managed', 'agent', 'cwd', 'conversation', 'origin', 'state', 'attachedClients', 'live']) {
+  for (const key of ['name', 'managed', 'agent', 'cwd', 'conversation', 'origin', 'state', 'note', 'attachedClients', 'live']) {
     assert.ok(key in (web1 ?? {}), `missing field ${key}`);
   }
 });

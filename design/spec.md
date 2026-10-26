@@ -91,6 +91,7 @@ session and any tool can read it:
 | `@berth_conversation` | conversation id, or empty if not yet known |
 | `@berth_origin` | `vscode` / `iterm2` / `none` |
 | `@berth_state` | `working` / `waiting` (needs the user) / `done` / empty when unknown; written by agent hooks |
+| `@berth_note` | latest notification text from the agent, shown in session lists |
 
 ### 4.1 Origin rules
 
@@ -240,8 +241,9 @@ Berth runs with no config file.
 - **Remote workspaces.** Works the same in Remote-SSH, Dev Containers and
   WSL: the extension runs on the workspace side, next to the tmux server it
   manages.
-- Disabled in untrusted workspaces. Calls the core library in-process; shells
-  out to tmux only through the core.
+- Disabled in untrusted workspaces. Bundles the core library and calls it
+  in-process, so it never depends on a `berth` CLI on `PATH` or on its
+  version; it shells out to tmux only through the core.
 
 ## 7. Berth for iTerm2
 
@@ -343,5 +345,3 @@ from MIT-licensed projects keep their notices.
 - Which host-native features beyond the session view earn a place (for
   example a per-session changes view built on VS Code's source control), judged
   by the rule in §2.
-- Whether the VS Code extension bundles the core or requires the CLI on `PATH`
-  (bundling avoids a version mismatch; the iTerm2 side needs the CLI anyway).

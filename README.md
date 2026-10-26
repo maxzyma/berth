@@ -5,15 +5,17 @@ Codex CLI, and others) running in tmux, list them all in one place, and bring
 each one back — conversation included — in the terminal it came from after an
 editor restart or a reboot.
 
-> Status: early development. The core library and `berth` CLI exist; the VS
-> Code and iTerm2 frontends do not yet. The spec is
+> Status: early development, not yet released. Core, `berth` CLI, Berth for
+> VS Code and Berth for iTerm2 are implemented. The spec is
 > [design/spec.md](design/spec.md).
 
 ## Development
 
 ```sh
 npm install
-npm test        # builds, then runs every test on isolated berth-test-* tmux servers
+npm test              # builds, then runs every test on isolated berth-test-* tmux servers
+npm run test:live     # opt-in: one real Claude Code resume (BERTH_LIVE=1)
+npm run test:vscode   # opt-in: integration tests in a real VS Code window
 ```
 
 Tests start their own tmux servers, so they need an environment that allows
@@ -25,7 +27,7 @@ creating Unix sockets.
 |---|---|---|
 | **Berth core** | Session registry, launch, conversation binding, snapshot, restore. A library plus the `berth` CLI. Knows nothing about editors. | TypeScript |
 | **Berth for VS Code** | Layout preset, a list of every agent session, new / attach / kill, reopening its own sessions at startup. | TypeScript |
-| **Berth for iTerm2** | AutoLaunch script that reopens iTerm2's own sessions at startup. Calls the CLI; holds no logic. | Python |
+| **Berth for iTerm2** | AutoLaunch script that reopens iTerm2's own sessions at startup, written by `berth iterm2 install`. Calls the CLI; holds no logic. | Python (generated) |
 
 Frontends only present and reopen sessions. Every decision about sessions —
 what exists, which conversation it holds, which terminal owns it — is made
@@ -43,22 +45,25 @@ berth/
 │   ├── spec.md            product and technical spec — the source of truth
 │   └── implementation.md  stack, formats, test isolation, acceptance cases
 └── packages/
-    ├── core/              library + `berth` CLI
-    │   └── src/
-    │       ├── tmux/      tmux client: list, create, attach, user options, hooks
-    │       ├── agents/    one adapter per agent CLI (launch, resume, conversation id)
-    │       ├── registry/  merge live tmux state with stamped metadata
-    │       ├── snapshot/  write and read snapshots
-    │       ├── restore/   ensure / restore, with locking
-    │       ├── config/    config file and data locations
-    │       └── cli/       command-line entry
-    ├── vscode/            Berth for VS Code (depends on core)
-    └── iterm2/            Berth for iTerm2 (AutoLaunch script, profile template)
+    ├── core/              library + `berth` CLI (npm: @berthdev/berth)
+    │   ├── src/
+    │   │   ├── tmux/      tmux client and the tmux.conf snapshot hooks
+    │   │   ├── agents/    one adapter per agent CLI; hooks install and handling
+    │   │   ├── registry/  sessions: list, new, adopt, stamp; doctor
+    │   │   ├── snapshot/  write and read snapshots
+    │   │   ├── restore/   ensure / restore, with locking
+    │   │   ├── present/   agent state shown on attached terminal tabs
+    │   │   ├── iterm2/    Berth for iTerm2: AutoLaunch script and profiles it writes
+    │   │   ├── config/    config file and data locations
+    │   │   └── cli/       command-line entry
+    │   └── test/          isolated tests; live/ holds the opt-in real-agent test
+    └── vscode/            Berth for VS Code (bundles core)
+        ├── src/           model and controller (editor-free), extension glue
+        └── test/          controller tests; integration/ runs in a real VS Code
 ```
 
-`docs/` (user documentation) is added when there is some to write.
-Planned directories exist from the start and hold a `.gitkeep` until code
-lands; the spec explains what each owns.
+`docs/` (user documentation) is added when there is some to write; the spec
+explains what each part owns.
 
 ## License
 

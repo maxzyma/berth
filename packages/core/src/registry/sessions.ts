@@ -13,6 +13,7 @@ export interface SessionRow {
   conversation: string;
   origin: string;
   state: string;
+  note: string;
   attachedClients: number;
   live: boolean;
 }
@@ -29,13 +30,14 @@ export function list(ctx: Context): SessionRow[] {
     conversation: s.meta.conversation ?? '',
     origin: s.meta.origin ?? (s.meta.agent ? 'none' : ''),
     state: s.meta.state ?? '',
+    note: s.meta.note ?? '',
     attachedClients: s.attachedClients,
     live: true,
   }));
   const liveNames = new Set(live.map((s) => s.name));
   for (const s of ctx.store.newest()?.sessions ?? []) {
     if (liveNames.has(s.name)) continue;
-    rows.push({ ...s, managed: true, state: '', attachedClients: 0, live: false });
+    rows.push({ ...s, managed: true, state: '', note: '', attachedClients: 0, live: false });
   }
   return rows;
 }
@@ -99,7 +101,7 @@ export function adopt(ctx: Context, name: string, agent: string, origin?: string
   });
 }
 
-const STAMPABLE = new Set(['agent', 'cwd', 'argv', 'conversation', 'origin', 'state']);
+const STAMPABLE = new Set(['agent', 'cwd', 'argv', 'conversation', 'origin', 'state', 'note']);
 
 export function stamp(ctx: Context, name: string, values: Record<string, string>): void {
   requireLive(ctx, name);

@@ -1,0 +1,184 @@
+{
+  "name": "berth",
+  "displayName": "Berth",
+  "description": "Every terminal coding agent in one list: kept running in tmux, resumed after restarts, state on your terminal tabs.",
+  "version": "0.0.0",
+  "publisher": "berthdev",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.cjs",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Berth runs tmux and agent CLIs."
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "berth",
+          "title": "Berth",
+          "icon": "media/berth.svg"
+        }
+      ]
+    },
+    "views": {
+      "berth": [
+        {
+          "id": "berth.sessions",
+          "name": "Sessions"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "berth.new",
+        "title": "New Agent Session",
+        "category": "Berth",
+        "icon": "$(add)"
+      },
+      {
+        "command": "berth.refresh",
+        "title": "Refresh",
+        "category": "Berth",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "berth.focus",
+        "title": "Open Session",
+        "category": "Berth"
+      },
+      {
+        "command": "berth.attach",
+        "title": "Attach Here",
+        "category": "Berth"
+      },
+      {
+        "command": "berth.detach",
+        "title": "Detach",
+        "category": "Berth"
+      },
+      {
+        "command": "berth.rename",
+        "title": "Rename\u2026",
+        "category": "Berth"
+      },
+      {
+        "command": "berth.kill",
+        "title": "Kill Session\u2026",
+        "category": "Berth"
+      },
+      {
+        "command": "berth.adopt",
+        "title": "Adopt as Agent Session\u2026",
+        "category": "Berth"
+      },
+      {
+        "command": "berth.applyLayout",
+        "title": "Apply Agent Layout",
+        "category": "Berth"
+      },
+      {
+        "command": "berth.revertLayout",
+        "title": "Revert Agent Layout",
+        "category": "Berth"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "berth.new",
+          "when": "view == berth.sessions",
+          "group": "navigation@1"
+        },
+        {
+          "command": "berth.refresh",
+          "when": "view == berth.sessions",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "berth.attach",
+          "when": "view == berth.sessions && viewItem =~ /^session/",
+          "group": "1@1"
+        },
+        {
+          "command": "berth.detach",
+          "when": "view == berth.sessions && viewItem =~ /attached-here/",
+          "group": "1@2"
+        },
+        {
+          "command": "berth.rename",
+          "when": "view == berth.sessions && viewItem =~ /live/",
+          "group": "2@1"
+        },
+        {
+          "command": "berth.adopt",
+          "when": "view == berth.sessions && viewItem =~ /unmanaged/",
+          "group": "2@2"
+        },
+        {
+          "command": "berth.kill",
+          "when": "view == berth.sessions && viewItem =~ /live/",
+          "group": "3@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Berth",
+      "properties": {
+        "berth.tmuxSocket": {
+          "type": "string",
+          "default": "",
+          "description": "tmux -L socket name; empty uses the default server."
+        },
+        "berth.customLauncher": {
+          "type": "string",
+          "default": "",
+          "description": "Command run in a new terminal instead of `berth new`; it must call `berth stamp` (spec \u00a75.2). `{agent}` is replaced by the chosen agent."
+        },
+        "berth.osNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Also show system notifications when an agent waits or finishes."
+        },
+        "berth.layout.hideTerminalTabs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Let Apply Agent Layout hide the native terminal tab list."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.extension.json && tsc -p tsconfig.json && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs",
+    "test:integration": "vscode-test --config .vscode-test.mjs"
+  },
+  "dependencies": {
+    "@berthdev/berth": "*"
+  },
+  "devDependencies": {
+    "@types/vscode": "~1.90.0",
+    "@types/node": "^20.11.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}

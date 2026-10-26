@@ -25,7 +25,7 @@ Scripts at the repo root:
 |---|---|
 | `npm run build` | all packages |
 | `npm test` | every automated test (§5), all isolated |
-| `npm run test:vscode` | VS Code extension tests (§5.3) |
+| `npm run test:vscode` | VS Code integration tests in a real editor window (§5.3); run deliberately |
 | `npm run test:live` | opt-in tests against real agent CLIs (§5.5); never part of `npm test` |
 
 ## 2. Data formats
@@ -63,7 +63,7 @@ An array; one object per tmux session:
 
 ```json
 { "name": "web-api", "managed": true, "agent": "claude", "cwd": "/abs/path",
-  "conversation": "9f1c…", "origin": "vscode", "state": "waiting",
+  "conversation": "9f1c…", "origin": "vscode", "state": "waiting", "note": "",
   "attachedClients": 1, "live": true }
 ```
 
@@ -169,10 +169,14 @@ configuration, or editor settings.
 
 ### 5.3 VS Code
 
-- Extension tests run through `@vscode/test-cli` in a separate VS Code
-  instance with a temporary `--user-data-dir` and `--extensions-dir`, so the
-  layout preset writes only to throwaway settings.
-- The test instance receives `BERTH_TMUX_SOCKET` for a test server (§5.1).
+- The extension's logic lives in a view model and a controller that never
+  import `vscode`; they talk to the editor through a small host interface.
+  `npm test` runs them against a fake host and a test tmux server (§5.1), which
+  covers V1–V7 without opening an editor window.
+- `npm run test:vscode` runs a real VS Code instance through `@vscode/test-cli`
+  with a temporary `--user-data-dir`, `--extensions-dir`, workspace and test
+  tmux socket, so settings writes stay throwaway. It opens a window, so it is
+  run deliberately, not as part of `npm test`.
 - Remote-SSH, Dev Containers and WSL are covered by manual acceptance (§6),
   not automated.
 
@@ -214,7 +218,7 @@ inside iTerm2 is manual acceptance.
 ## 6. Acceptance cases
 
 Each case gets a test whose name starts with its id. A milestone is done when
-all its automated cases pass under `npm test` (or `npm run test:vscode`), its
+all its automated cases pass under `npm test`, its
 manual cases are recorded as checked, and the de-identification check passes.
 
 ### Milestone 1 — core and baseline adapters

@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { BerthError, ExitCode } from '../errors.js';
 
 /** Berth metadata stored on a tmux session as user options (spec §4). */
-export const META_KEYS = ['agent', 'cwd', 'argv', 'conversation', 'origin', 'state'] as const;
+export const META_KEYS = ['agent', 'cwd', 'argv', 'conversation', 'origin', 'state', 'note'] as const;
 export type MetaKey = (typeof META_KEYS)[number];
 export type SessionMeta = Partial<Record<MetaKey, string>>;
 

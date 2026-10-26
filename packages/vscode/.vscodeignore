@@ -1,0 +1,6 @@
+src/**
+test/**
+dist-test/**
+tsconfig*.json
+.vscode-test.mjs
+node_modules/**

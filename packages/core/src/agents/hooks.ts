@@ -99,6 +99,8 @@ export function metaForEvent(adapter: Adapter, event: string, payload: Record<st
   // Claude Code also sends Notification for an idle reminder; only a permission request means waiting.
   if (adapter.id === 'claude' && event === 'Notification' && !/permission/i.test(String(payload.message ?? ''))) state = undefined;
   if (state) meta.state = state;
+  // Latest notification text, shown in session lists (spec §6).
+  if (state && typeof payload.message === 'string' && payload.message.trim()) meta.note = payload.message.trim().slice(0, 200);
   return meta;
 }
 

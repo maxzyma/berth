@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": ".", "outDir": "dist-test", "types": ["node"] },
+  "include": ["src/model.ts", "src/controller.ts", "test/**/*.ts"],
+  "references": [{ "path": "../core" }]
+}
