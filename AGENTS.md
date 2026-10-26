@@ -11,6 +11,7 @@ Hand-maintained; `CLAUDE.md` is a link to this file.
 |---|---|
 | Anything | [README.md](README.md) — pieces and directory layout |
 | Deciding or changing behaviour | [design/spec.md](design/spec.md) |
+| Writing code or tests | [design/implementation.md](design/implementation.md) — stack, formats, test isolation, acceptance cases |
 | Placing new content | [.claude/rules/carriers.md](.claude/rules/carriers.md) |
 | Writing anything that will be committed | [.claude/rules/de-identification.md](.claude/rules/de-identification.md) |
 

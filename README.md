@@ -29,7 +29,8 @@ berth/
 ├── AGENTS.md              entry for agents editing the repo (CLAUDE.md links here)
 ├── .claude/rules/         constraints on editing the repo
 ├── design/
-│   └── spec.md            product and technical spec — the source of truth
+│   ├── spec.md            product and technical spec — the source of truth
+│   └── implementation.md  stack, formats, test isolation, acceptance cases
 └── packages/
     ├── core/              library + `berth` CLI
     │   └── src/

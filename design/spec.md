@@ -264,20 +264,26 @@ Berth runs with no config file.
 ## 8. Agent adapters
 
 The baseline set below must all be supported by milestone 1 (G8). Each row's
-launch, resume and id source is verified against the current CLI before the
-row is marked done.
+launch, resume and id source is verified against the current CLI.
+
+"Help" means checked against the CLI's own `--help` on the version shown;
+"reference" means taken from another tool's published support and still to be
+checked against the CLI itself.
 
 | Agent | Launch | Resume | Conversation id source | Status |
 |---|---|---|---|---|
-| Claude Code | `claude --name {name}` | `claude --resume {id}` | `SessionStart` hook, then name key | Proven in a private prototype |
-| Codex CLI | `codex` | `codex resume {id}` | Codex hooks / session index | To verify |
-| Gemini CLI | CLI default | to verify | to verify | To verify |
-| OpenCode | CLI default | to verify | to verify | To verify |
-| GitHub Copilot CLI | CLI default | to verify | to verify | To verify |
-| Cursor CLI | CLI default | to verify | to verify | To verify |
-| Kimi CLI | CLI default | to verify | to verify | To verify |
-| Qoder CLI | CLI default | to verify | to verify | To verify |
+| Claude Code | `claude --name {name}` | `claude --resume {id}` | `SessionStart` hook, then name key | Proven in a private prototype; help 2.1.310 |
+| Codex CLI | `codex` | `codex resume {id}` (id or session name) | Codex hooks | Help 0.162.1; id source to verify |
+| Gemini CLI | `gemini` | `gemini --resume {id}` | to verify | Reference only |
+| OpenCode | `opencode` | `opencode --session {id}` | plugin events | Reference only |
+| GitHub Copilot CLI | `copilot` | `copilot --resume {id}` | to verify | Reference only |
+| Cursor CLI | `cursor-agent` | `cursor-agent --resume {id}` | to verify | Help 2025.09.12 |
+| Kimi CLI | `kimi` | `kimi --session {id}` | to verify | Help 0.31.1 (other tools use `--resume`; follow the CLI) |
+| Qoder CLI | `qodercli --name {name}` | `qodercli --resume {id}` | to verify; name key possible | Help 1.0.48 |
 | `shell` | user shell | — | — | — |
+
+A row is done when launch, resume and id source are all confirmed against the
+CLI and covered by tests.
 
 Agents outside the baseline set may be added later. Adding an adapter means
 filling its row and passing the adapter tests; no change elsewhere.
