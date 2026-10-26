@@ -11,6 +11,10 @@ import { adopt, checkOrigin, create, list, requireLive, stamp, type SessionRow }
 import { doctor } from '../registry/doctor.js';
 import { takeSnapshot } from '../snapshot/take.js';
 import { ensure, restoreFrom, type RestoreResult } from '../restore/ensure.js';
+import { presentState } from '../present/state.js';
+import { installTmux, uninstallTmux } from '../tmux/install.js';
+import { installIterm2, refreshIterm2IfInstalled, uninstallIterm2 } from '../iterm2/install.js';
+import { toolsFor } from '../tools.js';
 
 const USAGE = `usage: berth <command> [options]
 
@@ -25,6 +29,9 @@ const USAGE = `usage: berth <command> [options]
   show <session> [<snapshot dir>]
   doctor [--json]
   hooks install|uninstall <agent>
+  tmux install|uninstall                       snapshot hooks in ~/.tmux.conf
+  iterm2 install|uninstall                     Berth for iTerm2
+  present <session>                            show its state on attached terminals
 
 global: --socket <name>   tmux -L socket (overrides BERTH_TMUX_SOCKET)`;
 
@@ -118,7 +125,27 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
     }
     case 'snapshot':
       out(takeSnapshot(ctx));
+      refreshIterm2IfInstalled(ctx, toolsFor(ctx, cliPath()));
       return ExitCode.ok;
+    case 'present': {
+      const name = need(rest[0], 'session');
+      requireLive(ctx, name);
+      const state = ctx.tmux.listSessions().find((s) => s.name === name)?.meta.state ?? '';
+      out(String(presentState(ctx.tmux, name, state)));
+      return ExitCode.ok;
+    }
+    case 'tmux': {
+      if (rest[0] === 'install') out(installTmux(ctx.tmux, cliPath()));
+      else if (rest[0] === 'uninstall') out(uninstallTmux(ctx.tmux));
+      else throw new BerthError(`tmux: expected install or uninstall\n${USAGE}`, ExitCode.usage);
+      return ExitCode.ok;
+    }
+    case 'iterm2': {
+      if (rest[0] === 'install') out(Object.values(installIterm2(ctx, toolsFor(ctx, cliPath()))).join('\n'));
+      else if (rest[0] === 'uninstall') out(Object.values(uninstallIterm2()).join('\n'));
+      else throw new BerthError(`iterm2: expected install or uninstall\n${USAGE}`, ExitCode.usage);
+      return ExitCode.ok;
+    }
     case 'ensure': {
       const { values, positionals } = parse(rest, { origin: { type: 'string' } });
       out(formatResults(ensure(ctx, { origin: values.origin, session: positionals[0] })));
