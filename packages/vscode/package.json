@@ -7,7 +7,7 @@
   "license": "MIT",
   "type": "module",
   "engines": {
-    "vscode": "^1.90.0"
+    "vscode": "^1.143.0"
   },
   "categories": [
     "Other"
@@ -28,7 +28,7 @@
   },
   "contributes": {
     "viewsContainers": {
-      "activitybar": [
+      "secondarySidebar": [
         {
           "id": "berth",
           "title": "Berth",
@@ -159,8 +159,8 @@
         },
         "berth.layout.hideTerminalTabs": {
           "type": "boolean",
-          "default": false,
-          "description": "Let Apply Agent Layout hide the native terminal tab list."
+          "default": true,
+          "description": "Let Apply Agent Layout hide the native terminal tab list; the Berth sessions view replaces it."
         }
       }
     }

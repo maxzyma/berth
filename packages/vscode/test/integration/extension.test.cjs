@@ -14,6 +14,13 @@ suite('Berth for VS Code (integration)', () => {
     await vscode.commands.executeCommand('berth.sessions.focus');
   });
 
+  test('the Berth container lives in the secondary side bar and can take the Terminal view', async () => {
+    await vscode.commands.executeCommand('workbench.view.extension.berth');
+    await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'workbench.view.extension.berth' });
+    await vscode.commands.executeCommand('workbench.action.terminal.focus');
+    await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'terminal' });
+  });
+
   test('settings writes stay in the test instance', async () => {
     const config = vscode.workspace.getConfiguration();
     await config.update('terminal.integrated.tabs.location', 'left', vscode.ConfigurationTarget.Global);

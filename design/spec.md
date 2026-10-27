@@ -200,17 +200,17 @@ Berth runs with no config file.
 
 ## 6. Berth for VS Code
 
-- **Layout preset.** Command *Berth: Apply Agent Layout* writes, after
-  confirmation, the user settings
-  `terminal.integrated.tabs.location = left`,
-  `workbench.sideBar.location = right`,
-  `workbench.secondarySideBar.defaultVisibility = visible`.
-  It also adds `${progress}` to `terminal.integrated.tabs.description`.
-  Moving the Terminal view into the secondary side bar has no API; the command
-  ends with a one-step instruction to drag it there.
-  *Revert Agent Layout* restores the previous values.
-  On first activation the extension opens its sessions view and offers this
-  command once; nothing changes unless the user confirms.
+- **Layout preset.** The Berth container lives in the secondary side bar.
+  Command *Berth: Apply Agent Layout* writes, after confirmation, the user
+  settings `workbench.sideBar.location = right` (so the secondary side bar,
+  and Berth with it, is on the left), `workbench.secondarySideBar.defaultVisibility
+  = visible`, adds `${progress}` to `terminal.integrated.tabs.description`, and
+  by default `terminal.integrated.tabs.enabled = false`, because the sessions
+  view replaces the native tab list. It then moves the Terminal view into the
+  Berth container, under the sessions view; views in a side bar stack
+  vertically. *Revert Agent Layout* restores the settings and moves the
+  Terminal view back. On first activation the extension opens its sessions
+  view and offers this command once; nothing changes unless the user confirms.
 - **Session view.** The rich session list, contributed as an ordinary view so
   the user can place it in any side bar. A tree of every session from
   `berth ls`, grouped by cwd. What a row shows follows the vertical tabs of
@@ -228,9 +228,9 @@ Berth runs with no config file.
   `${progress}` in `terminal.integrated.tabs.description`, driven by the
   OSC 9;4 sequence (spinner / warning / error), and `${sequence}`, the OSC 2
   title, which VS Code records only on unnamed terminals — another reason
-  Berth's terminals are unnamed. Hiding the native tab list is the user's
-  display preference (an optional item in the layout preset, off by default),
-  not a Berth mode.
+  Berth's terminals are unnamed. The layout preset hides the native tab list
+  by default (`berth.layout.hideTerminalTabs`); users who keep it see state
+  there too.
 - **Notifications.** When an agent starts waiting for the user or finishes a
   turn: an in-editor notification through the VS Code API, and a native OS
   notification through a platform helper, because VS Code has no API for OS

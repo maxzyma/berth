@@ -9,6 +9,7 @@ import { layoutChanges, type GroupView, type RowView, type Transition } from './
 const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
 const WELCOMED = 'berth.welcomed';
+const BERTH_CONTAINER = 'workbench.view.extension.berth';
 
 type Node = { kind: 'group'; group: GroupView } | { kind: 'unmanaged'; rows: RowView[] } | { kind: 'row'; row: RowView };
 
@@ -208,7 +209,7 @@ export function activate(context: vscode.ExtensionContext): void {
   });
   command('berth.applyLayout', async () => {
     const config = vscode.workspace.getConfiguration();
-    const hide = vscode.workspace.getConfiguration('berth').get<boolean>('layout.hideTerminalTabs', false);
+    const hide = vscode.workspace.getConfiguration('berth').get<boolean>('layout.hideTerminalTabs', true);
     const changes = layoutChanges((key) => config.get(key), hide);
     const ok = await vscode.window.showInformationMessage(
       `Apply the agent layout? It changes ${changes.length} user settings; Revert Agent Layout restores them.`,
@@ -219,13 +220,16 @@ export function activate(context: vscode.ExtensionContext): void {
     const backup = Object.fromEntries(changes.map((c) => [c.key, config.inspect(c.key)?.globalValue ?? null]));
     await context.globalState.update(LAYOUT_BACKUP, backup);
     for (const c of changes) await config.update(c.key, c.value, vscode.ConfigurationTarget.Global);
-    void vscode.window.showInformationMessage('To finish, drag the Terminal view into the secondary side bar (no API can move it).');
+    // Terminal joins the Berth container in the secondary side bar, under the sessions view.
+    await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: BERTH_CONTAINER });
+    await vscode.commands.executeCommand('workbench.action.terminal.focus');
   });
   command('berth.revertLayout', async () => {
     const backup = context.globalState.get<Record<string, unknown>>(LAYOUT_BACKUP);
     if (!backup) return;
     const config = vscode.workspace.getConfiguration();
     for (const [key, value] of Object.entries(backup)) await config.update(key, value ?? undefined, vscode.ConfigurationTarget.Global);
+    await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'terminal' });
     await context.globalState.update(LAYOUT_BACKUP, undefined);
   });
 
@@ -239,7 +243,7 @@ export function activate(context: vscode.ExtensionContext): void {
     void context.globalState.update(WELCOMED, true);
     void vscode.commands.executeCommand('workbench.view.extension.berth');
     void vscode.window
-      .showInformationMessage('Berth is ready. Apply the agent layout (terminal list on the left, state on terminal tabs)?', 'Apply…', 'Not now')
+      .showInformationMessage('Berth is ready. Apply the agent layout (Berth and the terminal on the left, files on the right)?', 'Apply…', 'Not now')
       .then((choice) => {
         if (choice === 'Apply…') void vscode.commands.executeCommand('berth.applyLayout');
       });
