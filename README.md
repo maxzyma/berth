@@ -52,7 +52,8 @@ berth/
 ├── .claude/rules/         constraints on editing the repo
 ├── design/
 │   ├── spec.md            product and technical spec — the source of truth
-│   └── implementation.md  stack, formats, test isolation, acceptance cases
+│   ├── implementation.md  stack, formats, test isolation, acceptance cases
+│   └── manual-acceptance.md  steps for the cases tests cannot cover
 └── packages/
     ├── core/              library + `berth` CLI (npm: @berthdev/berth)
     │   ├── src/

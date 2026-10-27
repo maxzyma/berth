@@ -293,8 +293,9 @@ Cases marked (human) need the maintainer's decision or accounts.
 - **R5** (human) Create the `berthdev` npm organization and Marketplace
   publisher, then publish `@berthdev/berth` and the extension. Until then,
   each release attaches the npm tarball and the `.vsix` to its GitHub release.
-- **R6** (human) Run the manual cases V8, V9, I3 and `npm run test:vscode`
-  before the first release.
+- **R6** (human) Run the manual cases V8, V9, I3 following
+  [manual-acceptance.md](manual-acceptance.md), and `npm run test:vscode`,
+  before each release.
 
 ## 7. Prior art used
 

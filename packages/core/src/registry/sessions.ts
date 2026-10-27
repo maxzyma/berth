@@ -3,6 +3,7 @@ import type { Context } from '../context.js';
 import { BerthError, ExitCode } from '../errors.js';
 import { launchCommand, requireAdapter } from '../agents/commands.js';
 import type { SessionMeta } from '../tmux/client.js';
+import { presentState } from '../present/state.js';
 
 /** One row of `berth ls` (implementation §2.2). */
 export interface SessionRow {
@@ -113,4 +114,6 @@ export function stamp(ctx: Context, name: string, values: Record<string, string>
     meta[key as keyof SessionMeta] = value;
   }
   ctx.tmux.setMeta(name, meta);
+  // A state change shows on attached terminals whoever reports it (spec §6, §7).
+  if (meta.state !== undefined) presentState(ctx.tmux, name, meta.state);
 }
