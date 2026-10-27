@@ -14,9 +14,9 @@ suite('Berth for VS Code (integration)', () => {
     await vscode.commands.executeCommand('berth.sessions.focus');
   });
 
-  test('the Berth container opens; the layout keeps terminals in the panel, under the editor', async () => {
+  test('the Berth container opens; the layout keeps terminals in the panel, beside the editor', async () => {
     await vscode.commands.executeCommand('workbench.view.extension.berth');
-    for (const id of ['workbench.action.positionPanelBottom', 'workbench.action.alignPanelCenter']) {
+    for (const id of ['workbench.action.positionPanelLeft']) {
       await vscode.commands.executeCommand(id);
     }
     const terminal = vscode.window.createTerminal({ shellPath: '/bin/sh' });
@@ -25,6 +25,7 @@ suite('Berth for VS Code (integration)', () => {
     const inEditor = vscode.window.tabGroups.all.some((g) => g.tabs.some((t) => t.input instanceof vscode.TabInputTerminal));
     terminal.dispose();
     assert.ok(!inEditor, 'terminal stays out of the editor area');
+    await vscode.commands.executeCommand('workbench.action.positionPanelBottom');
   });
 
   test('settings writes stay in the test instance', async () => {

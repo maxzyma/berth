@@ -204,15 +204,18 @@ Berth runs with no config file.
   Command *Berth: Apply Agent Layout* writes, after confirmation, the user
   settings `workbench.sideBar.location = right` (so the secondary side bar,
   and Berth with it, is on the left), `workbench.secondarySideBar.defaultVisibility
-  = visible`, `terminal.integrated.defaultLocation = view` (terminals stay
-  in the panel; the editor area is left for files), and adds `${progress}` to
-  `terminal.integrated.tabs.description`; optionally
-  (`berth.layout.hideTerminalTabs`) it hides the native terminal tab list.
-  It then places the panel at the bottom, aligned to the centre column, and
-  opens the terminal. The result, left to right: sessions; files above,
-  terminals below; the file explorer. Berth does not move views it does not
-  own, such as Chat.
-  *Revert Agent Layout* restores the settings. On first activation the
+  = visible`, `terminal.integrated.defaultLocation = view`,
+  `workbench.panel.defaultLocation = left`, adds `${progress}` to
+  `terminal.integrated.tabs.description`, and by default
+  (`berth.layout.hideTerminalTabs`) hides the native terminal tab list, which
+  the sessions view replaces. It then moves the panel to the left of the
+  editor and opens the terminal. Left to right: Berth sessions (secondary
+  side bar), the selected session's terminal (panel), files (editor), the
+  explorer (primary side bar). The panel's other views (Problems, Output…)
+  move with it, because VS Code has one panel. Berth does not move views it
+  does not own, such as Chat.
+  *Revert Agent Layout* restores the settings and returns the panel to the
+  bottom. On first activation the
   extension opens its sessions view and offers this command once; nothing
   changes unless the user confirms.
 - **Session view.** The rich session list, contributed as an ordinary view so

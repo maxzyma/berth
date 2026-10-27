@@ -124,6 +124,7 @@ export function layoutChanges(current: (key: string) => unknown, hideTerminalTab
   const description = String(current('terminal.integrated.tabs.description') ?? '${task}${separator}${local}${separator}${cwdFolder}');
   const changes: SettingChange[] = [
     { key: 'terminal.integrated.defaultLocation', value: 'view' },
+    { key: 'workbench.panel.defaultLocation', value: 'left' },
     { key: 'workbench.sideBar.location', value: 'right' },
     { key: 'workbench.secondarySideBar.defaultVisibility', value: 'visible' },
     {

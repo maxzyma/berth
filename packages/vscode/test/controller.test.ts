@@ -160,11 +160,12 @@ test('V7 the layout preset writes only its listed settings, tab hiding off by de
   const keys = layoutChanges(() => undefined, false).map((c) => c.key);
   assert.deepEqual(keys, [
     'terminal.integrated.defaultLocation',
+    'workbench.panel.defaultLocation',
     'workbench.sideBar.location',
     'workbench.secondarySideBar.defaultVisibility',
     'terminal.integrated.tabs.description',
   ]);
-  const hidden = layoutChanges(() => undefined, true);
+  const hidden = layoutChanges(() => undefined, true); // default in the extension
   assert.deepEqual(hidden.at(-1), { key: 'terminal.integrated.tabs.enabled', value: false });
   assert.equal(buildTree([], { here: new Set(), unread: new Set(), branch: () => '' }).waiting, 0);
 });

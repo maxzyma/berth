@@ -159,8 +159,8 @@
         },
         "berth.layout.hideTerminalTabs": {
           "type": "boolean",
-          "default": false,
-          "description": "Let Apply Agent Layout also hide the native terminal tab list."
+          "default": true,
+          "description": "Let Apply Agent Layout hide the native terminal tab list; the Berth sessions view replaces it."
         }
       }
     }
