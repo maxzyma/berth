@@ -220,10 +220,14 @@ export function activate(context: vscode.ExtensionContext): void {
     const backup = Object.fromEntries(changes.map((c) => [c.key, config.inspect(c.key)?.globalValue ?? null]));
     await context.globalState.update(LAYOUT_BACKUP, backup);
     for (const c of changes) await config.update(c.key, c.value, vscode.ConfigurationTarget.Global);
-    // Sessions on the left, their terminals in the editor area. Undo an earlier
+    // Sessions on the left, files in the editor area, terminals in the panel
+    // beneath it (centre column only), files list on the right. Undo an earlier
     // layout that put the Terminal view into the Berth container.
     await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'terminal' });
+    await vscode.commands.executeCommand('workbench.action.positionPanelBottom');
+    await vscode.commands.executeCommand('workbench.action.alignPanelCenter');
     await vscode.commands.executeCommand(BERTH_CONTAINER);
+    await vscode.commands.executeCommand('workbench.action.terminal.focus');
   });
   command('berth.revertLayout', async () => {
     const backup = context.globalState.get<Record<string, unknown>>(LAYOUT_BACKUP);
@@ -244,7 +248,7 @@ export function activate(context: vscode.ExtensionContext): void {
     void context.globalState.update(WELCOMED, true);
     void vscode.commands.executeCommand('workbench.view.extension.berth');
     void vscode.window
-      .showInformationMessage('Berth is ready. Apply the agent layout (sessions on the left, terminals in the editor area, files on the right)?', 'Apply…', 'Not now')
+      .showInformationMessage('Berth is ready. Apply the agent layout (sessions on the left, terminals under the editor, files on the right)?', 'Apply…', 'Not now')
       .then((choice) => {
         if (choice === 'Apply…') void vscode.commands.executeCommand('berth.applyLayout');
       });

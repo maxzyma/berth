@@ -204,12 +204,14 @@ Berth runs with no config file.
   Command *Berth: Apply Agent Layout* writes, after confirmation, the user
   settings `workbench.sideBar.location = right` (so the secondary side bar,
   and Berth with it, is on the left), `workbench.secondarySideBar.defaultVisibility
-  = visible`, `terminal.integrated.defaultLocation = editor` (session
-  terminals open as editor tabs in the middle), and adds `${progress}` to
+  = visible`, `terminal.integrated.defaultLocation = view` (terminals stay
+  in the panel; the editor area is left for files), and adds `${progress}` to
   `terminal.integrated.tabs.description`; optionally
   (`berth.layout.hideTerminalTabs`) it hides the native terminal tab list.
-  The result: sessions on the left, their terminals in the middle, files on
-  the right. Berth does not move views it does not own, such as Chat.
+  It then places the panel at the bottom, aligned to the centre column, and
+  opens the terminal. The result, left to right: sessions; files above,
+  terminals below; the file explorer. Berth does not move views it does not
+  own, such as Chat.
   *Revert Agent Layout* restores the settings. On first activation the
   extension opens its sessions view and offers this command once; nothing
   changes unless the user confirms.
@@ -230,8 +232,7 @@ Berth runs with no config file.
   `${progress}` in `terminal.integrated.tabs.description`, driven by the
   OSC 9;4 sequence (spinner / warning / error), and `${sequence}`, the OSC 2
   title, which VS Code records only on unnamed terminals — another reason
-  Berth's terminals are unnamed. Terminals opened as editor tabs carry the
-  OSC 2 title in the tab label.
+  Berth's terminals are unnamed.
 - **Notifications.** When an agent starts waiting for the user or finishes a
   turn: an in-editor notification through the VS Code API, and a native OS
   notification through a platform helper, because VS Code has no API for OS
