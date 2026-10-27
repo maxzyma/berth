@@ -204,13 +204,15 @@ Berth runs with no config file.
   Command *Berth: Apply Agent Layout* writes, after confirmation, the user
   settings `workbench.sideBar.location = right` (so the secondary side bar,
   and Berth with it, is on the left), `workbench.secondarySideBar.defaultVisibility
-  = visible`, adds `${progress}` to `terminal.integrated.tabs.description`, and
-  by default `terminal.integrated.tabs.enabled = false`, because the sessions
-  view replaces the native tab list. It then moves the Terminal view into the
-  Berth container, under the sessions view; views in a side bar stack
-  vertically. *Revert Agent Layout* restores the settings and moves the
-  Terminal view back. On first activation the extension opens its sessions
-  view and offers this command once; nothing changes unless the user confirms.
+  = visible`, `terminal.integrated.defaultLocation = editor` (session
+  terminals open as editor tabs in the middle), and adds `${progress}` to
+  `terminal.integrated.tabs.description`; optionally
+  (`berth.layout.hideTerminalTabs`) it hides the native terminal tab list.
+  The result: sessions on the left, their terminals in the middle, files on
+  the right. Berth does not move views it does not own, such as Chat.
+  *Revert Agent Layout* restores the settings. On first activation the
+  extension opens its sessions view and offers this command once; nothing
+  changes unless the user confirms.
 - **Session view.** The rich session list, contributed as an ordinary view so
   the user can place it in any side bar. A tree of every session from
   `berth ls`, grouped by cwd. What a row shows follows the vertical tabs of
@@ -228,9 +230,8 @@ Berth runs with no config file.
   `${progress}` in `terminal.integrated.tabs.description`, driven by the
   OSC 9;4 sequence (spinner / warning / error), and `${sequence}`, the OSC 2
   title, which VS Code records only on unnamed terminals — another reason
-  Berth's terminals are unnamed. The layout preset hides the native tab list
-  by default (`berth.layout.hideTerminalTabs`); users who keep it see state
-  there too.
+  Berth's terminals are unnamed. Terminals opened as editor tabs carry the
+  OSC 2 title in the tab label.
 - **Notifications.** When an agent starts waiting for the user or finishes a
   turn: an in-editor notification through the VS Code API, and a native OS
   notification through a platform helper, because VS Code has no API for OS

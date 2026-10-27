@@ -159,6 +159,7 @@ test('V6 waiting and done produce one notification each and mark the row unread'
 test('V7 the layout preset writes only its listed settings, tab hiding off by default', () => {
   const keys = layoutChanges(() => undefined, false).map((c) => c.key);
   assert.deepEqual(keys, [
+    'terminal.integrated.defaultLocation',
     'workbench.sideBar.location',
     'workbench.secondarySideBar.defaultVisibility',
     'terminal.integrated.tabs.description',

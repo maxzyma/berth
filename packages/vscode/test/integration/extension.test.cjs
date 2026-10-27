@@ -14,11 +14,17 @@ suite('Berth for VS Code (integration)', () => {
     await vscode.commands.executeCommand('berth.sessions.focus');
   });
 
-  test('the Berth container lives in the secondary side bar and can take the Terminal view', async () => {
+  test('the Berth container opens and terminals open in the editor area', async () => {
     await vscode.commands.executeCommand('workbench.view.extension.berth');
-    await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'workbench.view.extension.berth' });
-    await vscode.commands.executeCommand('workbench.action.terminal.focus');
-    await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'terminal' });
+    const config = vscode.workspace.getConfiguration();
+    await config.update('terminal.integrated.defaultLocation', 'editor', vscode.ConfigurationTarget.Global);
+    const terminal = vscode.window.createTerminal({ shellPath: '/bin/sh' });
+    terminal.show();
+    await new Promise((r) => setTimeout(r, 500));
+    const inEditor = vscode.window.tabGroups.all.some((g) => g.tabs.some((t) => t.input instanceof vscode.TabInputTerminal));
+    terminal.dispose();
+    await config.update('terminal.integrated.defaultLocation', undefined, vscode.ConfigurationTarget.Global);
+    assert.ok(inEditor, 'terminal opened as an editor tab');
   });
 
   test('settings writes stay in the test instance', async () => {
