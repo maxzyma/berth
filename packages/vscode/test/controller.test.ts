@@ -156,11 +156,16 @@ test('V6 waiting and done produce one notification each and mark the row unread'
   assert.equal(controller.tree().groups[0].rows[0].unread, false);
 });
 
+test('V7 the layout keeps the user\'s other auto-lock choices and adds terminal editors', () => {
+  const lock = layoutChanges((k) => (k === 'workbench.editor.autoLockGroups' ? { 'workbench.editor.chatSession': true } : undefined), false)
+    .find((c) => c.key === 'workbench.editor.autoLockGroups');
+  assert.deepEqual(lock?.value, { 'workbench.editor.chatSession': true, terminalEditor: true });
+});
+
 test('V7 the layout preset writes only its listed settings, tab hiding off by default', () => {
   const keys = layoutChanges(() => undefined, false).map((c) => c.key);
   assert.deepEqual(keys, [
-    'terminal.integrated.defaultLocation',
-    'workbench.panel.defaultLocation',
+    'workbench.editor.autoLockGroups',
     'workbench.sideBar.location',
     'workbench.secondarySideBar.defaultVisibility',
     'terminal.integrated.tabs.description',

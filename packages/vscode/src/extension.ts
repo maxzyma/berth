@@ -11,7 +11,7 @@ const LAYOUT_BACKUP = 'berth.layoutBackup';
 const WELCOMED = 'berth.welcomed';
 const BERTH_CONTAINER = 'workbench.view.extension.berth';
 /** Bump when Apply Agent Layout changes what it does, so users who applied an older one are offered the new one. */
-const LAYOUT_VERSION = 4;
+const LAYOUT_VERSION = 5;
 const APPLIED_LAYOUT = 'berth.appliedLayoutVersion';
 
 type Node = { kind: 'group'; group: GroupView } | { kind: 'unmanaged'; rows: RowView[] } | { kind: 'row'; row: RowView };
@@ -59,11 +59,19 @@ class TerminalHost implements Host {
   openTerminal(session: string, argv: string[]): void {
     const [shellPath, ...shellArgs] = argv;
     // No `name`: VS Code then follows the title the session sets (`${sequence}`).
-    const terminal = vscode.window.createTerminal({ shellPath, shellArgs, isTransient: true });
+    // An editor in the first group, which is then locked so files open beside it.
+    const terminal = vscode.window.createTerminal({
+      shellPath,
+      shellArgs,
+      isTransient: true,
+      location: { viewColumn: vscode.ViewColumn.One, preserveFocus: false },
+    });
     const set = this.bySession.get(session) ?? new Set();
     set.add(terminal);
     this.bySession.set(session, set);
     terminal.show();
+    // autoLockGroups only locks groups created for a terminal; lock the first group explicitly.
+    void vscode.commands.executeCommand('workbench.action.lockEditorGroup');
   }
 
   runInTerminal(command: string, cwd: string): void {
@@ -212,7 +220,7 @@ export function activate(context: vscode.ExtensionContext): void {
   });
   command('berth.applyLayout', async () => {
     const config = vscode.workspace.getConfiguration();
-    const hide = vscode.workspace.getConfiguration('berth').get<boolean>('layout.hideTerminalTabs', true);
+    const hide = vscode.workspace.getConfiguration('berth').get<boolean>('layout.hideTerminalTabs', false);
     const changes = layoutChanges((key) => config.get(key), hide);
     const ok = await vscode.window.showInformationMessage(
       `Apply the agent layout? It changes ${changes.length} user settings; Revert Agent Layout restores them.`,
@@ -224,13 +232,13 @@ export function activate(context: vscode.ExtensionContext): void {
     const backup = Object.fromEntries(changes.map((c) => [c.key, config.inspect(c.key)?.globalValue ?? null]));
     await context.globalState.update(LAYOUT_BACKUP, backup);
     for (const c of changes) await config.update(c.key, c.value, vscode.ConfigurationTarget.Global);
-    // Left to right: Berth sessions (secondary side bar), terminals (panel on
-    // the left, next to the editor), files (editor), explorer (primary side
-    // bar). Undo an earlier layout that put the Terminal view into Berth.
+    // Left to right: Berth sessions (secondary side bar), session terminals
+    // (first editor group, locked), files (next group), explorer (primary side
+    // bar); the panel stays at the bottom. Undo earlier layouts that moved the
+    // Terminal view or the panel.
     await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'terminal' });
-    await vscode.commands.executeCommand('workbench.action.positionPanelLeft');
+    await vscode.commands.executeCommand('workbench.action.positionPanelBottom');
     await vscode.commands.executeCommand(BERTH_CONTAINER);
-    await vscode.commands.executeCommand('workbench.action.terminal.focus');
   });
   command('berth.revertLayout', async () => {
     const backup = context.globalState.get<Record<string, unknown>>(LAYOUT_BACKUP);

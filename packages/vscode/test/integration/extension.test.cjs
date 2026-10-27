@@ -14,18 +14,29 @@ suite('Berth for VS Code (integration)', () => {
     await vscode.commands.executeCommand('berth.sessions.focus');
   });
 
-  test('the Berth container opens; the layout keeps terminals in the panel, beside the editor', async () => {
+  test('session terminals hold the first editor group; files open beside them', async () => {
     await vscode.commands.executeCommand('workbench.view.extension.berth');
-    for (const id of ['workbench.action.positionPanelLeft']) {
-      await vscode.commands.executeCommand(id);
-    }
-    const terminal = vscode.window.createTerminal({ shellPath: '/bin/sh' });
+    const config = vscode.workspace.getConfiguration();
+    await config.update('workbench.editor.autoLockGroups', { terminalEditor: true }, vscode.ConfigurationTarget.Global);
+    const terminal = vscode.window.createTerminal({ shellPath: '/bin/sh', location: { viewColumn: vscode.ViewColumn.One } });
     terminal.show();
-    await new Promise((r) => setTimeout(r, 500));
-    const inEditor = vscode.window.tabGroups.all.some((g) => g.tabs.some((t) => t.input instanceof vscode.TabInputTerminal));
+    await new Promise((r) => setTimeout(r, 800));
+    await vscode.commands.executeCommand('workbench.action.lockEditorGroup');
+    // Open the way the explorer does: no target group, so a locked group is skipped.
+    const root = vscode.workspace.workspaceFolders[0].uri;
+    const file = vscode.Uri.joinPath(root, 'a-file.txt');
+    await vscode.workspace.fs.writeFile(file, Buffer.from('a file'));
+    await vscode.commands.executeCommand('vscode.open', file);
+    await new Promise((r) => setTimeout(r, 300));
+    const groupOf = (pred) => vscode.window.tabGroups.all.find((g) => g.tabs.some(pred))?.viewColumn;
+    const terminalColumn = groupOf((t) => t.input instanceof vscode.TabInputTerminal);
+    const fileColumn = groupOf((t) => t.input instanceof vscode.TabInputText && t.input.uri.path.endsWith('a-file.txt'));
     terminal.dispose();
-    assert.ok(!inEditor, 'terminal stays out of the editor area');
-    await vscode.commands.executeCommand('workbench.action.positionPanelBottom');
+    await vscode.commands.executeCommand('workbench.action.unlockEditorGroup');
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    await config.update('workbench.editor.autoLockGroups', undefined, vscode.ConfigurationTarget.Global);
+    assert.equal(terminalColumn, vscode.ViewColumn.One, 'terminal in the first group');
+    assert.ok(fileColumn && fileColumn !== vscode.ViewColumn.One, `file opened outside the terminal group (got ${fileColumn})`);
   });
 
   test('settings writes stay in the test instance', async () => {
