@@ -6,3 +6,4 @@ dist/
 .quality-lint-state.json
 dist-test/
 .vscode-test/
+/.preview/

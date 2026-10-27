@@ -1,5 +1,7 @@
 # Manual acceptance
 
+**English** · [简体中文](manual-acceptance.zh-CN.md)
+
 Steps for the cases automated tests cannot cover: V8, V9 and the in-iTerm2
 part of I3 ([implementation §6](implementation.md#6-acceptance-cases)). Run
 them before each release and record the result at the end of this file's
