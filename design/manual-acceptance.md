@@ -11,6 +11,18 @@ Before starting: tmux ≥ 3.0, the `berth` CLI and the Berth extension from the
 release are installed, and VS Code has been reloaded since the extension was
 installed. Test sessions are named `accept-*` so they are easy to clean up.
 
+To keep your everyday editor untouched, run the VS Code cases in a separate
+instance with its own profile, installing the extension from a local build:
+
+```sh
+R=~/.berth-accept
+code --user-data-dir $R/user --extensions-dir $R/ext --install-extension berth-vscode-<version>.vsix
+code --user-data-dir $R/user --extensions-dir $R/ext --new-window $R/work
+```
+
+`npm install -g <path to berthdev-berth-<version>.tgz>` installs the CLI from a
+local build. Remove `~/.berth-accept` afterwards.
+
 ## V9 — clicking a system notification brings the editor forward
 
 Needs, on macOS, `terminal-notifier` (`brew install terminal-notifier`).
@@ -27,6 +39,9 @@ Needs, on macOS, `terminal-notifier` (`brew install terminal-notifier`).
    session's row in the Berth view shows the waiting icon and the view badge
    shows 1.
 6. Clean up: `tmux kill-session -t <name>`.
+
+With two VS Code instances open, macOS brings forward the application, which
+may show the other instance's window; that still counts as a pass.
 
 ## I3 — iTerm2 reopens its own sessions
 

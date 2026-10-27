@@ -8,6 +8,16 @@
 
 开始前确认：tmux 版本 ≥ 3.0；已从发布页安装 `berth` 命令和 Berth 插件；装完插件后 VS Code 重新加载过窗口。测试会话一律以 `accept-` 开头命名，方便事后清理。
 
+如果不想影响平时用的编辑器，可以把 VS Code 相关的验收放在一个独立实例里做：它有自己的用户目录和插件目录，插件从本地构建安装：
+
+```sh
+R=~/.berth-accept
+code --user-data-dir $R/user --extensions-dir $R/ext --install-extension berth-vscode-<版本>.vsix
+code --user-data-dir $R/user --extensions-dir $R/ext --new-window $R/work
+```
+
+命令行工具同样可以从本地安装：`npm install -g <berthdev-berth-<版本>.tgz 的路径>`。验收结束后删除 `~/.berth-accept`。
+
 ## V9：点击系统通知能回到编辑器
 
 macOS 上需要先装 `terminal-notifier`（`brew install terminal-notifier`）。
@@ -19,6 +29,8 @@ macOS 上需要先装 `terminal-notifier`（`brew install terminal-notifier`）�
 4. 预期：几秒内弹出系统通知，内容为 "Berth — <会话名> is waiting for you: manual check"。
 5. 点击这条通知。预期：VS Code 回到前台，窗口内的通知提供 **Open** 按钮；点 **Open** 后切到该会话的终端。Berth 面板里这一行显示"等待"图标，面板标题上的数字为 1。
 6. 清理：`tmux kill-session -t <会话名>`。
+
+同时开着两个 VS Code 实例时，macOS 激活的是整个应用，被拉到前台的可能是另一个实例的窗口；这种情况也算通过。
 
 ## I3：iTerm2 自动接回属于它的会话
 
