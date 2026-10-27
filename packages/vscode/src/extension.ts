@@ -10,6 +10,9 @@ const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
 const WELCOMED = 'berth.welcomed';
 const BERTH_CONTAINER = 'workbench.view.extension.berth';
+/** Bump when Apply Agent Layout changes what it does, so users who applied an older one are offered the new one. */
+const LAYOUT_VERSION = 4;
+const APPLIED_LAYOUT = 'berth.appliedLayoutVersion';
 
 type Node = { kind: 'group'; group: GroupView } | { kind: 'unmanaged'; rows: RowView[] } | { kind: 'row'; row: RowView };
 
@@ -217,6 +220,7 @@ export function activate(context: vscode.ExtensionContext): void {
       'Apply',
     );
     if (ok !== 'Apply') return;
+    await context.globalState.update(APPLIED_LAYOUT, LAYOUT_VERSION);
     const backup = Object.fromEntries(changes.map((c) => [c.key, config.inspect(c.key)?.globalValue ?? null]));
     await context.globalState.update(LAYOUT_BACKUP, backup);
     for (const c of changes) await config.update(c.key, c.value, vscode.ConfigurationTarget.Global);
@@ -236,6 +240,7 @@ export function activate(context: vscode.ExtensionContext): void {
     await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'terminal' });
     await vscode.commands.executeCommand('workbench.action.positionPanelBottom');
     await context.globalState.update(LAYOUT_BACKUP, undefined);
+    await context.globalState.update(APPLIED_LAYOUT, undefined);
   });
 
   context.subscriptions.push(
@@ -243,6 +248,15 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.onDidCloseTerminal((t) => host.forget(t)),
     { dispose: (() => { const timer = setInterval(refresh, REFRESH_MS); return () => clearInterval(timer); })() },
   );
+  const appliedLayout = context.globalState.get<number>(APPLIED_LAYOUT);
+  const hadOldLayout = context.globalState.get(LAYOUT_BACKUP) !== undefined && appliedLayout !== LAYOUT_VERSION;
+  if (context.globalState.get<boolean>(WELCOMED) && hadOldLayout) {
+    void vscode.window
+      .showInformationMessage('Berth has an updated agent layout (sessions, terminal, files, explorer from left to right). Apply it?', 'Apply…', 'Not now')
+      .then((choice) => {
+        if (choice === 'Apply…') void vscode.commands.executeCommand('berth.applyLayout');
+      });
+  }
   // First run: show the sessions view and offer the layout once; settings still change only on confirmation.
   if (!context.globalState.get<boolean>(WELCOMED)) {
     void context.globalState.update(WELCOMED, true);
