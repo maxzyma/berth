@@ -8,6 +8,7 @@ import { layoutChanges, type GroupView, type RowView, type Transition } from './
 
 const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
+const WELCOMED = 'berth.welcomed';
 
 type Node = { kind: 'group'; group: GroupView } | { kind: 'unmanaged'; rows: RowView[] } | { kind: 'row'; row: RowView };
 
@@ -233,6 +234,16 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.onDidCloseTerminal((t) => host.forget(t)),
     { dispose: (() => { const timer = setInterval(refresh, REFRESH_MS); return () => clearInterval(timer); })() },
   );
+  // First run: show the sessions view and offer the layout once; settings still change only on confirmation.
+  if (!context.globalState.get<boolean>(WELCOMED)) {
+    void context.globalState.update(WELCOMED, true);
+    void vscode.commands.executeCommand('workbench.view.extension.berth');
+    void vscode.window
+      .showInformationMessage('Berth is ready. Apply the agent layout (terminal list on the left, state on terminal tabs)?', 'Apply…', 'Not now')
+      .then((choice) => {
+        if (choice === 'Apply…') void vscode.commands.executeCommand('berth.applyLayout');
+      });
+  }
   try {
     controller.startup();
   } catch (error) {

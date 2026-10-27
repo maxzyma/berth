@@ -209,6 +209,8 @@ Berth runs with no config file.
   Moving the Terminal view into the secondary side bar has no API; the command
   ends with a one-step instruction to drag it there.
   *Revert Agent Layout* restores the previous values.
+  On first activation the extension opens its sessions view and offers this
+  command once; nothing changes unless the user confirms.
 - **Session view.** The rich session list, contributed as an ordinary view so
   the user can place it in any side bar. A tree of every session from
   `berth ls`, grouped by cwd. What a row shows follows the vertical tabs of
