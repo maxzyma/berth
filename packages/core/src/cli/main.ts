@@ -35,7 +35,10 @@ const USAGE = `usage: berth <command> [options]
   iterm2 reattach <session>                    rebuild if missing, print attach command
   present <session>                            show its state on attached terminals
 
-global: --socket <name>   tmux -L socket (overrides BERTH_TMUX_SOCKET)`;
+global: --socket <name>        tmux -L socket (overrides BERTH_TMUX_SOCKET)
+        --socket-path <path>   tmux -S socket (set by Berth's tmux hooks)
+
+run by hooks: hook <agent> <event>, bell --session S, attached --session S --tty T --termtype X`;
 
 type Out = (text: string) => void;
 
@@ -199,12 +202,13 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
 }
 
 export function main(argv: string[], out: Out = (t) => process.stdout.write(`${t}\n`)): number {
-  const socketAt = argv.indexOf('--socket');
   const args = [...argv];
   const env = { ...process.env };
-  if (socketAt >= 0) {
-    env.BERTH_TMUX_SOCKET = need(args[socketAt + 1], '--socket value');
-    args.splice(socketAt, 2);
+  for (const [flag, variable] of [['--socket', 'BERTH_TMUX_SOCKET'], ['--socket-path', 'BERTH_TMUX_SOCKET_PATH']] as const) {
+    const at = args.indexOf(flag);
+    if (at < 0) continue;
+    env[variable] = need(args[at + 1], `${flag} value`);
+    args.splice(at, 2);
   }
   const [command, ...rest] = args;
   if (!command || command === '-h' || command === '--help') {

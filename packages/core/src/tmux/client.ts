@@ -28,8 +28,11 @@ export class Tmux {
   constructor(readonly target: TmuxTarget) {}
 
   private baseArgs(): string[] {
-    if (this.target.socketPath) return ['-S', this.target.socketPath];
-    return this.target.socket ? ['-L', this.target.socket] : [];
+    // -u: UTF-8 output whatever the locale. Without it tmux replaces non-ASCII
+    // bytes and the field separator with '_' (launchd-started editors and
+    // iTerm2 AutoLaunch scripts often have no locale), breaking every row.
+    if (this.target.socketPath) return ['-u', '-S', this.target.socketPath];
+    return this.target.socket ? ['-u', '-L', this.target.socket] : ['-u'];
   }
 
   /** Run tmux; returns stdout. Throws BerthError on failure unless `allowFail`. */
@@ -92,7 +95,8 @@ export class Tmux {
   setMeta(name: string, meta: SessionMeta): void {
     for (const [key, value] of Object.entries(meta)) {
       if (value === undefined) continue;
-      this.run(['set-option', '-t', `=${name}:`, `@berth_${key}`, value]);
+      // One line per session in list output: no newlines or separators in values.
+      this.run(['set-option', '-t', `=${name}:`, `@berth_${key}`, value.replace(/[\r\n\x1f]+/g, ' ')]);
     }
   }
 

@@ -17,6 +17,8 @@ export interface RestoreResult {
 export interface RestoreOptions {
   origin?: string;
   session?: string;
+  /** How long to wait for another restore to finish; editors pass a short one so they never freeze. */
+  lockTimeoutMs?: number;
 }
 
 function onPath(binary: string, env = process.env): boolean {
@@ -60,10 +62,13 @@ function rebuild(ctx: Context, s: SnapshotSession): RestoreResult {
 /** Rebuild missing managed sessions from a snapshot; live ones are left alone. */
 export function restoreFrom(ctx: Context, snapshot: StoredSnapshot | undefined, options: RestoreOptions = {}): RestoreResult[] {
   if (!snapshot) return [];
-  return withLock(ctx.config.stateDir, () =>
-    snapshot.sessions
-      .filter((s) => selected(s, options))
-      .map((s) => (ctx.tmux.hasSession(s.name) ? { name: s.name, outcome: 'skipped-live' as const } : rebuild(ctx, s))),
+  return withLock(
+    ctx.config.stateDir,
+    () =>
+      snapshot.sessions
+        .filter((s) => selected(s, options))
+        .map((s) => (ctx.tmux.hasSession(s.name) ? { name: s.name, outcome: 'skipped-live' as const } : rebuild(ctx, s))),
+    options.lockTimeoutMs,
   );
 }
 

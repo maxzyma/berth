@@ -1,6 +1,7 @@
 /** Minimal POSIX shell word handling for launch commands. */
 
-const SAFE = /^[A-Za-z0-9_@%+=:,./-]+$/;
+// No '=': zsh expands a word starting with '=' to a command path.
+const SAFE = /^[A-Za-z0-9_@%+:,./-]+$/;
 
 export function shellQuote(word: string): string {
   if (word === '') return "''";

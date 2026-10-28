@@ -187,13 +187,23 @@ export interface LauncherValues {
   name: string;
 }
 
-/** Fill a custom launcher command's placeholders (spec §6); values are shell-quoted. */
+/**
+ * Fill a custom launcher command's placeholders (spec §6). Works word by word:
+ * a placeholder's value is shell-quoted as one word (spaces kept), and a word
+ * that is only an empty placeholder is dropped.
+ */
 export function renderLauncher(template: string, values: LauncherValues): string {
-  const quote = (v: string) => (v === '' ? '' : /^[A-Za-z0-9_@%+=:,./-]+$/.test(v) ? v : `'${v.replace(/'/g, `'\\''`)}'`);
+  const quote = (v: string) => (/^[A-Za-z0-9_@%+:,./-]+$/.test(v) ? v : `'${v.replace(/'/g, `'\\''`)}'`);
   return template
-    .replace(/\{(agent|cwd|relative|name)\}/g, (_, key: keyof LauncherValues) => quote(values[key]))
-    .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .split(/\s+/)
+    .map((word) => {
+      const only = /^\{(agent|cwd|relative|name)\}$/.exec(word);
+      if (only) return values[only[1] as keyof LauncherValues] === '' ? '' : quote(values[only[1] as keyof LauncherValues]);
+      return word.replace(/\{(agent|cwd|relative|name)\}/g, (_, key: keyof LauncherValues) => quote(values[key]));
+    })
+    .filter((word) => word !== '')
+    .join(' ');
 }
 
 /** `cwd` relative to the workspace folder that contains it, or '' (spec §6). */

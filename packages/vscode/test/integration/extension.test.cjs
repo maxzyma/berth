@@ -9,8 +9,8 @@ suite('Berth for VS Code (integration)', () => {
     await extension.activate();
     const commands = await vscode.commands.getCommands(true);
     // Berth's own commands, and the workbench commands it relies on.
-    for (const id of ['berth.new', 'berth.nextAttention', 'berth.focus', 'berth.attach', 'berth.openToSide', 'berth.detach', 'berth.rename', 'berth.kill', 'berth.adopt', 'berth.applyLayout', 'berth.revertLayout',
-      'revealInExplorer', 'workbench.files.action.collapseExplorerFolders', 'workbench.action.lockEditorGroup', 'vscode.moveViews', 'workbench.action.positionPanelBottom']) {
+    for (const id of ['berth.new', 'berth.newInFolder', 'berth.nextAttention', 'berth.focus', 'berth.openToSide', 'berth.detach', 'berth.rename', 'berth.kill', 'berth.adopt', 'berth.applyLayout', 'berth.revertLayout',
+      'revealInExplorer', 'workbench.files.action.collapseExplorerFolders', 'workbench.action.lockEditorGroup', 'workbench.action.positionPanelBottom', 'workbench.action.closePanel']) {
       assert.ok(commands.includes(id), `missing ${id}`);
     }
     await vscode.commands.executeCommand('berth.sessions.focus');
@@ -39,6 +39,20 @@ suite('Berth for VS Code (integration)', () => {
     await config.update('workbench.editor.autoLockGroups', undefined, vscode.ConfigurationTarget.Global);
     assert.equal(terminalColumn, vscode.ViewColumn.One, 'terminal in the first group');
     assert.ok(fileColumn && fileColumn !== vscode.ViewColumn.One, `file opened outside the terminal group (got ${fileColumn})`);
+  });
+
+  test('V7 apply and revert the layout in this instance', async () => {
+    const get = (k) => vscode.workspace.getConfiguration().inspect(k)?.globalValue;
+    await vscode.workspace.getConfiguration().update('terminal.integrated.tabs.title', '${process}', vscode.ConfigurationTarget.Global);
+    await vscode.commands.executeCommand('berth.applyLayout', { confirm: false });
+    assert.equal(get('workbench.sideBar.location'), 'right');
+    assert.equal(get('terminal.integrated.tabs.title'), '${sequence}');
+    assert.deepEqual(get('workbench.editor.autoLockGroups'), { terminalEditor: true });
+    await vscode.commands.executeCommand('berth.revertLayout');
+    assert.equal(get('workbench.sideBar.location'), undefined);
+    assert.equal(get('terminal.integrated.tabs.title'), '${process}', 'previous value restored');
+    assert.equal(get('workbench.editor.autoLockGroups'), undefined);
+    await vscode.workspace.getConfiguration().update('terminal.integrated.tabs.title', undefined, vscode.ConfigurationTarget.Global);
   });
 
   test('settings writes stay in the test instance', async () => {

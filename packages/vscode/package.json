@@ -71,17 +71,12 @@
       },
       {
         "command": "berth.focus",
-        "title": "Open Session",
+        "title": "Show Session",
         "category": "Berth"
       },
       {
         "command": "berth.openToSide",
         "title": "Open to the Side",
-        "category": "Berth"
-      },
-      {
-        "command": "berth.attach",
-        "title": "Attach Here",
         "category": "Berth"
       },
       {
@@ -135,6 +130,11 @@
       ],
       "view/item/context": [
         {
+          "command": "berth.focus",
+          "when": "view == berth.sessions && viewItem =~ /^session/",
+          "group": "1@1"
+        },
+        {
           "command": "berth.newInFolder",
           "when": "view == berth.sessions && viewItem == group",
           "group": "inline"
@@ -143,11 +143,6 @@
           "command": "berth.newInFolder",
           "when": "view == berth.sessions && viewItem == group",
           "group": "1@0"
-        },
-        {
-          "command": "berth.attach",
-          "when": "view == berth.sessions && viewItem =~ /^session/",
-          "group": "1@1"
         },
         {
           "command": "berth.openToSide",
@@ -173,6 +168,36 @@
           "command": "berth.kill",
           "when": "view == berth.sessions && viewItem =~ /live/",
           "group": "3@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "berth.focus",
+          "when": "false"
+        },
+        {
+          "command": "berth.openToSide",
+          "when": "false"
+        },
+        {
+          "command": "berth.detach",
+          "when": "false"
+        },
+        {
+          "command": "berth.rename",
+          "when": "false"
+        },
+        {
+          "command": "berth.kill",
+          "when": "false"
+        },
+        {
+          "command": "berth.adopt",
+          "when": "false"
+        },
+        {
+          "command": "berth.newInFolder",
+          "when": "false"
         }
       ]
     },

@@ -5,7 +5,7 @@ Codex CLI, and others) running in tmux, list them all in one place, and bring
 each one back — conversation included — in the terminal it came from after an
 editor restart or a reboot.
 
-> Status: 0.1.0, early. Core, `berth` CLI, Berth for VS Code and Berth for
+> Status: early; latest release 0.1.0. Core, `berth` CLI, Berth for VS Code and Berth for
 > iTerm2 work and are tested; packages are on GitHub Releases, not yet on npm
 > or the VS Code Marketplace. The spec is [design/spec.md](design/spec.md).
 
@@ -49,11 +49,14 @@ own frontend, *Berth for <host>*.
 berth/
 ├── README.md              this file
 ├── AGENTS.md              entry for agents editing the repo (CLAUDE.md links here)
+├── LICENSE                MIT (copied into each package)
+├── tsconfig.base.json     shared TypeScript settings
 ├── .claude/rules/         constraints on editing the repo
 ├── design/
 │   ├── spec.md            product and technical spec — the source of truth
 │   ├── implementation.md  stack, formats, test isolation, acceptance cases
-│   └── manual-acceptance.md  steps for the cases tests cannot cover
+│   ├── manual-acceptance.md  steps for the cases tests cannot cover
+│   └── manual-acceptance.zh-CN.md  Chinese translation
 └── packages/
     ├── core/              library + `berth` CLI (npm: @berthdev/berth)
     │   ├── src/
@@ -63,12 +66,13 @@ berth/
     │   │   ├── snapshot/  write and read snapshots
     │   │   ├── restore/   ensure / restore, with locking
     │   │   ├── present/   agent state shown on attached terminal tabs
-    │   │   ├── iterm2/    Berth for iTerm2: AutoLaunch script and profiles it writes
+    │   │   ├── iterm2/    Berth for iTerm2: the AutoLaunch script it writes, reattach
     │   │   ├── config/    config file and data locations
     │   │   └── cli/       command-line entry
     │   └── test/          isolated tests; live/ holds the opt-in real-agent test
     └── vscode/            Berth for VS Code (bundles core)
         ├── src/           model and controller (editor-free), extension glue
+        ├── media/         view container icon
         └── test/          controller tests; integration/ runs in a real VS Code
 ```
 

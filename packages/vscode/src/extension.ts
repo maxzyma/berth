@@ -219,14 +219,17 @@ export function activate(context: vscode.ExtensionContext): void {
   host.onShown = follow;
 
   const refresh = () => {
-    void controller.mainSession().then((session) => {
-      if (!session) return;
-      host.noteMainSession(session);
-      if (controller.settleLaunch(session)) {
-        const row = controller.row(session);
-        if (row) follow(row);
-      }
-    });
+    controller
+      .mainSession()
+      .then((session) => {
+        if (!session) return;
+        host.noteMainSession(session);
+        if (controller.settleLaunch(session)) {
+          const row = controller.row(session);
+          if (row) follow(row);
+        }
+      })
+      .catch(() => undefined); // tmux gone or a snapshot unreadable: the next refresh tries again
     try {
       const { tree: model } = controller.refresh();
       tree.update(model.groups, model.unmanaged);
@@ -249,7 +252,6 @@ export function activate(context: vscode.ExtensionContext): void {
   const command = (id: string, fn: (...args: unknown[]) => unknown) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
   command('berth.refresh', refresh);
   command('berth.focus', guarded((name) => controller.show(name)));
-  command('berth.attach', guarded((name) => controller.show(name)));
   command('berth.openToSide', guarded((name) => controller.openToSide(name)));
   command('berth.nextAttention', async () => {
     const next = await controller.showNextAttention(host.mainSession());
@@ -301,15 +303,22 @@ export function activate(context: vscode.ExtensionContext): void {
     const node = arg as { kind?: string; group?: { cwd: string } } | undefined;
     await startSession(node?.kind === 'group' ? node.group?.cwd : await pickFolder());
   });
-  command('berth.applyLayout', async () => {
+  // `{ confirm: false }` skips the dialog; used by integration tests.
+  command('berth.applyLayout', async (options?: unknown) => {
     const config = vscode.workspace.getConfiguration();
     const hide = vscode.workspace.getConfiguration('berth').get<boolean>('layout.hideTerminalTabs', false);
-    const changes = layoutChanges((key) => config.get(key), hide);
-    const ok = await vscode.window.showInformationMessage(
-      `Apply the agent layout? It changes ${changes.length} user settings; Revert Agent Layout restores them.`,
-      { modal: true },
-      'Apply',
-    );
+    // Object settings read through get() include every default entry; build on
+    // the user's own value so only what Berth adds is written.
+    const current = (key: string) => (key === 'workbench.editor.autoLockGroups' ? config.inspect(key)?.globalValue : config.get(key));
+    const changes = layoutChanges(current, hide);
+    const ask = (options as { confirm?: boolean } | undefined)?.confirm !== false;
+    const ok = ask
+      ? await vscode.window.showInformationMessage(
+          `Apply the agent layout? It changes ${changes.length} user settings; Revert Agent Layout restores them.`,
+          { modal: true },
+          'Apply',
+        )
+      : 'Apply';
     if (ok !== 'Apply') return;
     await context.globalState.update(APPLIED_LAYOUT, LAYOUT_VERSION);
     const backup = Object.fromEntries(changes.map((c) => [c.key, config.inspect(c.key)?.globalValue ?? null]));
@@ -317,9 +326,7 @@ export function activate(context: vscode.ExtensionContext): void {
     for (const c of changes) await config.update(c.key, c.value, vscode.ConfigurationTarget.Global);
     // Left to right: Berth sessions (secondary side bar), session terminals
     // (first editor group, locked), files (next group), explorer (primary side
-    // bar); the panel stays at the bottom. Undo earlier layouts that moved the
-    // Terminal view or the panel.
-    await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'terminal' });
+    // bar); the panel stays at the bottom.
     await vscode.commands.executeCommand('workbench.action.positionPanelBottom');
     // Session terminals live in the editor area; the panel (Problems, Output,
     // plain shells) is closed and comes back with Cmd/Ctrl+J. It always spans the
@@ -332,8 +339,6 @@ export function activate(context: vscode.ExtensionContext): void {
     if (!backup) return;
     const config = vscode.workspace.getConfiguration();
     for (const [key, value] of Object.entries(backup)) await config.update(key, value ?? undefined, vscode.ConfigurationTarget.Global);
-    await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'terminal' });
-    await vscode.commands.executeCommand('workbench.action.positionPanelBottom');
     await context.globalState.update(LAYOUT_BACKUP, undefined);
     await context.globalState.update(APPLIED_LAYOUT, undefined);
   });

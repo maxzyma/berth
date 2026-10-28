@@ -157,20 +157,26 @@ The VS Code extension is published to the Marketplace, not npm.
 | Command | Behaviour |
 |---|---|
 | `berth ls [--json]` | All sessions: name, agent, cwd, conversation, origin, attached clients, managed or not. |
-| `berth new <agent> [--name] [--cwd] [--origin]` | Create a managed session and run the agent's launch command in it. Name defaults to the cwd's basename, made unique. |
-| `berth adopt <session> --agent <id>` | Stamp an existing session so it is managed. |
+| `berth new <agent> [--name] [--cwd] [--origin] [-- args]` | Create a managed session and run the agent's launch command in it, with any extra agent arguments. Name defaults to the cwd's basename, made unique. |
+| `berth adopt <session> --agent <id> [--origin]` | Stamp an existing session so it is managed. |
 | `berth attach <session> [--origin]` | Attach, re-stamping origin when given. |
 | `berth stamp [--session] key=value…` | Set metadata; used by hooks and custom launchers. |
 | `berth snapshot` | Write a snapshot (§5.3). |
 | `berth ensure [--origin <o>] [<session>]` | Rebuild missing managed sessions from the newest snapshot; idempotent and lock-protected so concurrent callers rebuild once. |
 | `berth restore [--origin <o>] [--session <s>] [<snapshot>]` | Explicit restore from a chosen snapshot, same rules as `ensure`. |
 | `berth show <session> [<snapshot>]` | Print saved scrollback. |
-| `berth doctor` | Report unbound sessions, missing working directories, unknown agents and agents in use without hooks. |
+| `berth doctor [--json]` | Report unbound sessions, missing working directories, unknown agents and agents in use without hooks. |
+| `berth present <session>` | Show the session's state again on the terminals attached to it. |
 | `berth hooks install\|uninstall <agent>` | Agent hooks (§4.2). |
-| `berth bell --session <s>` | A bell rang in the session (run by the tmux hook, §4.2). |
-| `berth tmux install\|uninstall` | Managed block in the user's tmux config: snapshot hooks, optional session picker key. |
+| `berth tmux install\|uninstall` | Managed block in the user's tmux config: snapshot, bell and attach hooks. |
 | `berth iterm2 install\|uninstall` | Install the iTerm2 AutoLaunch script (§7.3). |
 | `berth iterm2 reattach <session>` | Rebuild the session if missing, then print its attach command (§7.3). |
+
+Every command accepts `--socket <name>` (a tmux `-L` server) and
+`--socket-path <path>` (a `-S` server). Run by hooks, not by people: `hook
+<agent> <event>` (§4.2), `bell --session <s>` (§4.2), `attached --session <s>
+--tty <t> --termtype <x>` (§7.3). Berth's tmux hooks pass the socket of the
+server they run in, so each server's state stays separate.
 
 ### 5.2 Launch
 
@@ -202,7 +208,8 @@ When the agent exits, the session ends — Berth does not leave a stray shell.
 
 - Location: `$XDG_STATE_HOME/berth/servers/<tmux socket or "default">/snapshots/<UTC timestamp>/`
   (default `~/.local/state/berth/…`). State is kept per tmux server, so one
-  server's snapshots never restore into another. Overridable in config.
+  server's snapshots never restore into another. The root is overridable in
+  config; servers stay separate under it.
 - Contents:
   - `sessions.json` — one entry per managed session: name, cwd, agent, argv,
     conversation id, origin.
@@ -363,11 +370,11 @@ these sessions Berth writes the state itself.
    (`[iterm2] attach`, default `tmux attach-session -t ={session}`), so a user
    whose launcher also attaches can keep using it.
 3. A pane whose session no longer exists and is in no snapshot is left as a
-   shell; `berth doctor` lists it.
+   shell with a one-line note on its screen (shown, never run).
 
 ### 7.4 Agent state on the tab
 
-For iTerm2 clients the state presenter (§6) writes iTerm2's tab status
+For iTerm2 clients the state presenter (§5, §6) writes iTerm2's tab status
 sequence `OSC 21337 ; indicator=<colour> ; status=<text> ; status-color=<colour>`:
 a dot and a subtitle for working, waiting (with the latest note) and done,
 cleared when there is no state. It writes no badge, tab colour or
@@ -396,13 +403,19 @@ CLI by Berth.
 |---|---|---|---|---|
 | Claude Code | `claude --name {name}` | `claude --resume {id}` | `SessionStart` hook, then name key | Proven in a private prototype; help 2.1.310 |
 | Codex CLI | `codex` | `codex resume {id}` (id or session name) | Codex hooks | Help 0.162.1; id source to verify |
-| Gemini CLI | `gemini` | `gemini --resume {id}` | to verify | Reference only |
-| OpenCode | `opencode` | `opencode --session {id}` | plugin events | Reference only |
-| GitHub Copilot CLI | `copilot` | `copilot --resume {id}` | to verify | Reference only |
-| Cursor CLI | `cursor-agent` | `cursor-agent --resume {id}` | to verify | Help 2025.09.12 |
-| Kimi CLI | `kimi` | `kimi --session {id}` | to verify | Help 0.31.1 (other tools use `--resume`; follow the CLI) |
-| Qoder CLI | `qodercli --name {name}` | `qodercli --resume {id}` | to verify; name key possible | Help 1.0.48 |
+| Gemini CLI | `gemini` | `gemini --resume {id}` | none yet (defect) | Reference only |
+| OpenCode | `opencode` | `opencode --session {id}` | plugin events, no installer yet (defect) | Reference only |
+| GitHub Copilot CLI | `copilot` | `copilot --resume {id}` | none yet (defect) | Reference only |
+| Cursor CLI | `cursor-agent` | `cursor-agent --resume {id}` | none yet (defect) | Help 2025.09.12 |
+| Kimi CLI | `kimi` | `kimi --session {id}` | none yet (defect) | Help 0.31.1 (other tools use `--resume`; follow the CLI) |
+| Qoder CLI | `qodercli --name {name}` | `qodercli --resume {id}` | none yet (defect); name key possible | Help 1.0.48 |
 | `shell` | user shell | — | — | — |
+
+Known defect (G8): only Claude Code (hooks, name key) and Codex CLI (hooks)
+can record a conversation id today. The other baseline agents have no id
+source yet, so a rebuilt session starts a fresh conversation in the right
+folder instead of resuming. Each needs a hook or name-key integration
+verified against the CLI.
 
 A row is done when it is implemented, covered by unit tests, and its source
 is recorded: help-checked against the CLI, or reference to cmux as above.

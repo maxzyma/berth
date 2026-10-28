@@ -13,7 +13,7 @@ is fixed.
 | Language | TypeScript, `strict`, ES modules |
 | Repo | npm workspaces: `packages/core`, `packages/vscode` |
 | Build | `tsc -b` to `dist/`; the VS Code extension is bundled with esbuild |
-| Tests | `node:test` on the built output; no other test framework |
+| Tests | `node:test` on the built output; the VS Code integration tests run under `@vscode/test-cli` (mocha) |
 | CLI parsing | `node:util` `parseArgs` |
 | Config parsing | `smol-toml` (the only runtime dependency of core) |
 | iTerm2 side | Python 3, iTerm2 Python API; no other dependency |
@@ -127,7 +127,7 @@ adapter lists its keep-set explicitly; anything not listed is dropped.
 
 1. tmux not installed, or installed but no server running (after reboot).
 2. Two `ensure` calls at once (two terminals opening after a reboot).
-3. A recorded cwd that no longer exists: skip, report in `ls` and `doctor`.
+3. A recorded cwd that no longer exists: `ensure` skips it, `doctor` reports it.
 4. The agent binary missing at restore: start a shell in the cwd, report.
 5. A conversation id the agent no longer accepts: the session shows the
    agent's own error. Berth does not silently start a fresh conversation in
@@ -213,7 +213,7 @@ conversation in its own history as it always does. Runs only with
 
 ### 5.6 iTerm2
 
-Generated profiles and the AutoLaunch script are unit-tested as files. Running
+The generated AutoLaunch script is unit-tested as a file (it must parse). Running
 inside iTerm2 is manual acceptance.
 
 ## 6. Acceptance cases
@@ -269,7 +269,8 @@ manual cases are recorded as checked, and the de-identification check passes.
 - **V5** Native tabs show state through `${progress}` and `${sequence}`.
 - **V6** Waiting and done produce an in-editor notification.
 - **V7** Apply / revert layout writes and restores only the listed settings in
-  the test instance's user settings.
+  the test instance's user settings, adding to the user's own object values
+  rather than writing the defaults.
 - **V10** *Go to Next Session Needing You* shows waiting sessions first, then
   unread ones, in name order, wrapping around.
 - **V8** (manual) The same flows work in Remote-SSH, a Dev Container and WSL.

@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { parse } from 'smol-toml';
 import { BerthError, ExitCode } from '../errors.js';
 
@@ -12,6 +12,8 @@ export interface AgentOverride {
 export interface BerthConfig {
   tmuxBin: string;
   tmuxSocket?: string;
+  /** `-S` socket path; set by tmux hooks, which know the server they run in. */
+  tmuxSocketPath?: string;
   stateDir: string;
   snapshotRoot: string;
   scrollbackLines: number;
@@ -73,14 +75,18 @@ export function loadConfig(env: Env = process.env): BerthConfig {
   const tmux = (file.tmux ?? {}) as Record<string, unknown>;
   const snapshot = (file.snapshot ?? {}) as Record<string, unknown>;
   const tmuxSocket = env.BERTH_TMUX_SOCKET || (typeof tmux.socket === 'string' ? tmux.socket : undefined);
-  // State is per tmux server: snapshots and locks of one server never restore into another.
+  const tmuxSocketPath = env.BERTH_TMUX_SOCKET_PATH || undefined;
+  // State is per tmux server: snapshots and locks of one server never restore
+  // into another. A server is named by its socket (its -L name is the basename).
+  const server = tmuxSocketPath ? basename(tmuxSocketPath) : (tmuxSocket ?? 'default');
   const baseState = env.BERTH_STATE_DIR || (typeof file.state_dir === 'string' ? file.state_dir : defaultStateDir(env));
-  const stateDir = join(baseState, 'servers', tmuxSocket ?? 'default');
+  const stateDir = join(baseState, 'servers', server);
   return {
     tmuxBin: env.BERTH_TMUX || (typeof tmux.binary === 'string' ? tmux.binary : 'tmux'),
     tmuxSocket,
+    tmuxSocketPath,
     stateDir,
-    snapshotRoot: typeof snapshot.root === 'string' ? snapshot.root : join(stateDir, 'snapshots'),
+    snapshotRoot: typeof snapshot.root === 'string' ? join(snapshot.root, server) : join(stateDir, 'snapshots'),
     scrollbackLines: positiveInt(snapshot.scrollback_lines, 'snapshot.scrollback_lines', 3000),
     retention: positiveInt(snapshot.keep, 'snapshot.keep', 5),
     agents: agentOverrides(file.agents),

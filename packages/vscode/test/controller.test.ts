@@ -212,7 +212,7 @@ test('V7 the layout preset writes only its listed settings, tab hiding off by de
     'terminal.integrated.tabs.title',
     'terminal.integrated.tabs.description',
   ]);
-  const hidden = layoutChanges(() => undefined, true); // default in the extension
+  const hidden = layoutChanges(() => undefined, true);
   assert.deepEqual(hidden.at(-1), { key: 'terminal.integrated.tabs.enabled', value: false });
   assert.equal(buildTree([], { here: new Set(), unread: new Set(), branch: () => '' }).waiting, 0);
 });
@@ -257,6 +257,29 @@ test('V3 a launcher that stamps its own metadata keeps it', async (t) => {
   sb.cli('stamp', '--session', 'stamped', 'agent=kimi', `cwd=${dir}`, 'origin=none');
   controller.settleLaunch('stamped');
   assert.equal(sb.tmux('display-message', '-p', '-t', '=stamped:', '#{@berth_agent}|#{@berth_origin}').trim(), 'kimi|vscode');
+});
+
+test('V3 launcher values keep their spaces; showing an unmanaged session stamps nothing', async (t) => {
+  assert.equal(
+    renderLauncher('run  --dir {cwd} {relative}', { agent: 'a', cwd: '/x/two  spaces', relative: '', name: 'n' }),
+    "run --dir '/x/two  spaces'",
+  );
+  const { sb, controller } = setup(t);
+  sb.tmux('new-session', '-d', '-s', 'plain', 'sleep 3600');
+  controller.refresh();
+  await controller.show('plain');
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=plain:', '#{@berth_origin}|#{set-titles}').trim().split('|')[0], '');
+});
+
+test('V3 a pending launch never adopts a session that existed before it', async (t) => {
+  const { sb, controller } = setup(t);
+  const dir = sb.makeDir('old');
+  sb.tmux('new-session', '-d', '-s', 'older', '-c', dir, 'sleep 3600');
+  await new Promise((r) => setTimeout(r, 2100));
+  await controller.newSession('claude', dir, 'launcher', [dir]);
+  // tmux records creation in whole seconds; the launch started > 2 s after it.
+  assert.equal(controller.settleLaunch('older'), false);
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=older:', '#{@berth_agent}').trim(), '');
 });
 
 test('V10 go to the next session needing you: waiting first, then unread, wrapping', async (t) => {

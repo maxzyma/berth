@@ -33,6 +33,8 @@ export interface Tools {
   cli: string;
   tmux: string;
   socket?: string;
+  /** PATH at install time: AutoLaunch scripts get a minimal one, without tmux or the agents. */
+  path?: string;
 }
 
 /** Command that attaches a pane to `session`: the configured template, or tmux attach. */
@@ -62,17 +64,20 @@ rebuild a missing session and to give the command that attaches it, and
 types that command into the pane. It holds no session logic.
 """
 import asyncio
+import os
 import subprocess
 
 import iterm2
 
 BERTH = ${berth}
 VARIABLE = "user.${PANE_VARIABLE}"
+# Recorded at install: iTerm2's PATH for AutoLaunch has neither tmux nor the agent CLIs.
+ENV = dict(os.environ, PATH=${JSON.stringify(tools.path ?? '')} or os.environ.get("PATH", ""))
 
 
 def attach_command(session_name):
     try:
-        done = subprocess.run(BERTH + ["iterm2", "reattach", session_name], capture_output=True, text=True, timeout=120)
+        done = subprocess.run(BERTH + ["iterm2", "reattach", session_name], capture_output=True, text=True, timeout=120, env=ENV)
     except (OSError, subprocess.SubprocessError):
         return None
     command = done.stdout.strip()
@@ -104,6 +109,9 @@ async def main(connection):
         command = await asyncio.get_running_loop().run_in_executor(None, attach_command, name)
         if command:
             await session.async_send_text(command + "\\n")
+        else:
+            # Shown on the screen only, never run by the shell.
+            await session.async_inject(("berth: could not restore session %s\\r\\n" % name).encode())
 
 
 iterm2.run_until_complete(main)

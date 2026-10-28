@@ -5,6 +5,7 @@ import { launchCommand, requireAdapter } from '../agents/commands.js';
 import type { SessionMeta } from '../tmux/client.js';
 import { hooksInstalled } from '../agents/hooks.js';
 import { getAdapter } from '../agents/registry.js';
+import { snapshotQuietly } from '../snapshot/take.js';
 import { presentState } from '../present/state.js';
 
 /** One row of `berth ls` (implementation §2.2). */
@@ -86,6 +87,7 @@ export function create(ctx: Context, options: NewOptions): string {
     origin: checkOrigin(options.origin ?? 'none'),
   });
   ctx.tmux.setTitle(name);
+  snapshotQuietly(ctx);
   return name;
 }
 
@@ -109,6 +111,7 @@ export function adopt(ctx: Context, name: string, agent: string, origin?: string
     origin: checkOrigin(origin ?? live?.meta.origin ?? 'none'),
   });
   ctx.tmux.setTitle(name);
+  snapshotQuietly(ctx);
 }
 
 const STAMPABLE = new Set(['agent', 'cwd', 'argv', 'conversation', 'origin', 'state', 'note']);
@@ -128,6 +131,8 @@ export function stamp(ctx: Context, name: string, values: Record<string, string>
     const note = meta.note ?? ctx.tmux.listSessions().find((s) => s.name === name)?.meta.note;
     presentState(ctx.tmux, name, meta.state, { note });
   }
+  // What a restore needs changed: record it now, not at the next session event.
+  if (['agent', 'cwd', 'argv', 'conversation', 'origin'].some((k) => k in meta)) snapshotQuietly(ctx);
 }
 
 /** Note that marks a waiting state raised by a terminal bell rather than a hook. */

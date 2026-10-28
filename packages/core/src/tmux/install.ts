@@ -16,12 +16,15 @@ const ATTACH_EVENTS = ['client-attached', 'client-session-changed'];
 const INDEX = 97;
 
 function hookArgs(cliPath: string): string[][] {
-  const berth = `${shellQuote(process.execPath)} ${shellQuote(cliPath)}`;
+  // Hooks are global in the user's tmux config and run in whichever server
+  // fires them: pass that server's socket so state stays per server. #{q:}
+  // quotes values for the shell (session names may contain quotes).
+  const berth = `${shellQuote(process.execPath)} ${shellQuote(cliPath)} --socket-path #{q:socket_path}`;
   const snapshot = `${berth} snapshot >/dev/null 2>&1`;
   // A bell asks for attention: agents without hooks become `waiting`.
-  const bell = `${berth} bell --session '#{session_name}' >/dev/null 2>&1`;
+  const bell = `${berth} bell --session #{q:session_name} >/dev/null 2>&1`;
   // Marks iTerm2 panes with their session and shows state on the new client (spec §7.3).
-  const attached = `${berth} attached --session '#{session_name}' --tty '#{client_tty}' --termtype '#{client_termtype}' >/dev/null 2>&1`;
+  const attached = `${berth} attached --session #{q:session_name} --tty #{q:client_tty} --termtype #{q:client_termtype} >/dev/null 2>&1`;
   return [
     ...EVENTS.map((event) => ['set-hook', '-g', `${event}[${INDEX}]`, `run-shell -b ${JSON.stringify(snapshot)}`]),
     ['set-hook', '-g', `alert-bell[${INDEX}]`, `run-shell -b ${JSON.stringify(bell)}`],

@@ -29,6 +29,11 @@ function timestampDir(date: Date): string {
   return date.toISOString().replace(/[-:]/g, '').replace(/\.(\d{3})Z$/, '$1Z');
 }
 
+/** Session names may contain '/' and other characters a file name cannot. */
+function scrollbackFile(session: string): string {
+  return `${encodeURIComponent(session)}.txt`;
+}
+
 export class SnapshotStore {
   constructor(readonly root: string) {}
 
@@ -73,11 +78,23 @@ export class SnapshotStore {
     const snapshot: Snapshot = { version: SNAPSHOT_VERSION, createdAt: now.toISOString(), sessions };
     writeFileSync(join(tmp, 'sessions.json'), `${JSON.stringify(snapshot, null, 2)}\n`);
     for (const [session, text] of Object.entries(scrollback)) {
-      writeFileSync(join(tmp, 'scrollback', `${session}.txt`), text);
+      writeFileSync(join(tmp, 'scrollback', scrollbackFile(session)), text);
     }
-    const dir = join(this.root, name);
-    renameSync(tmp, dir);
-    return dir;
+    // Concurrent snapshots (tmux hooks run in the background) may pick the same name.
+    for (let n = 2; ; n++) {
+      const dir = join(this.root, name);
+      try {
+        renameSync(tmp, dir);
+        return dir;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if ((code !== 'ENOTEMPTY' && code !== 'EEXIST') || n > 50) {
+          rmSync(tmp, { recursive: true, force: true });
+          throw error;
+        }
+        name = `${timestampDir(now)}-${n}`;
+      }
+    }
   }
 
   prune(keep: number): void {
@@ -85,7 +102,7 @@ export class SnapshotStore {
   }
 
   scrollback(dir: string, session: string): string {
-    const file = join(dir, 'scrollback', `${session}.txt`);
+    const file = join(dir, 'scrollback', scrollbackFile(session));
     if (!existsSync(file)) throw new BerthError(`no saved scrollback for ${session}`, ExitCode.notFound);
     return readFileSync(file, 'utf8');
   }

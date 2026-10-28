@@ -13,5 +13,5 @@ export function resolveBinary(name: string, env = process.env): string {
 }
 
 export function toolsFor(ctx: Context, cliPath: string): Tools {
-  return { node: process.execPath, cli: cliPath, tmux: resolveBinary(ctx.config.tmuxBin), socket: ctx.config.tmuxSocket };
+  return { node: process.execPath, cli: cliPath, tmux: resolveBinary(ctx.config.tmuxBin), socket: ctx.config.tmuxSocket, path: process.env.PATH };
 }

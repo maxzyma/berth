@@ -12,7 +12,7 @@ export function createContext(env: Record<string, string | undefined> = process.
   const config = loadConfig(env);
   return {
     config,
-    tmux: new Tmux({ bin: config.tmuxBin, socket: config.tmuxSocket }),
+    tmux: new Tmux({ bin: config.tmuxBin, socket: config.tmuxSocket, socketPath: config.tmuxSocketPath }),
     store: new SnapshotStore(config.snapshotRoot),
   };
 }

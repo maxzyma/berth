@@ -5,6 +5,8 @@ import { BerthError, ExitCode } from '../errors.js';
 import { shellQuote } from '../shell.js';
 import { Tmux } from '../tmux/client.js';
 import { presentState } from '../present/state.js';
+import { createContext } from '../context.js';
+import { snapshotQuietly } from '../snapshot/take.js';
 import { requireAdapter } from './commands.js';
 import { stateForEvent, type Adapter } from './registry.js';
 
@@ -127,6 +129,11 @@ export function handleHook(agentId: string, event: string, stdin: string, env = 
     if (!session) return {};
     tmux.setMeta(session, meta);
     if (meta.state) presentState(tmux, session, meta.state, { note: meta.note });
+    // A new conversation id must reach the snapshot before any reboot.
+    if (meta.conversation) {
+      const ctx = createContext({ ...env, BERTH_TMUX_SOCKET_PATH: socketPath });
+      snapshotQuietly(ctx);
+    }
     return meta;
   } catch {
     return {};

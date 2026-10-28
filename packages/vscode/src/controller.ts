@@ -35,10 +35,29 @@ export interface Host {
   sessionShown?(row: SessionRow): void;
 }
 
+/** How long after starting a custom launcher its session is expected. */
+const LAUNCH_WINDOW_MS = 120_000;
+const LOCK_WAIT_MS = 3_000;
+
+/** Parent pid of `pid`, or undefined at the top. */
+function parentOf(pid: number): number | undefined {
+  const r = spawnSync('ps', ['-o', 'ppid=', '-p', String(pid)], { encoding: 'utf8' });
+  const parent = Number(r.stdout.trim());
+  return r.status === 0 && parent > 1 ? parent : undefined;
+}
+
+/** Whether `pid` is `ancestor` or runs under it (a launcher may not exec tmux). */
+function descendsFrom(pid: number, ancestor: number): boolean {
+  for (let p: number | undefined = pid, depth = 0; p && depth < 12; p = parentOf(p), depth++) {
+    if (p === ancestor) return true;
+  }
+  return false;
+}
+
 export class Controller {
   private rows: SessionRow[] = [];
-  /** Agent chosen for a custom launcher whose session is not known yet. */
-  private pendingLaunch?: { agent: string };
+  /** Agent chosen for a custom launcher whose session is not known yet, and when it started. */
+  private pendingLaunch?: { agent: string; startedAt: number };
   readonly unread = new Set<string>();
   private branches = new Map<string, string>();
 
@@ -79,7 +98,7 @@ export class Controller {
    * one not attached anywhere in the main terminal. Others stay listed.
    */
   async startup(): Promise<string | undefined> {
-    ensure(this.ctx, { origin: 'vscode' });
+    ensure(this.ctx, { origin: 'vscode', lockTimeoutMs: LOCK_WAIT_MS });
     if (this.host.sessionsHere().size > 0) return undefined;
     const first = list(this.ctx)
       .filter((r) => r.live && r.managed && r.origin === 'vscode' && r.attachedClients === 0)
@@ -99,7 +118,7 @@ export class Controller {
     const result = this.ctx.tmux.run(['list-clients', '-F', '#{client_pid}\t#{session_name}'], true);
     for (const line of result.ok ? result.stdout.split('\n') : []) {
       const [clientPid, session] = line.split('\t');
-      if (Number(clientPid) === pid && session) return session;
+      if (session && descendsFrom(Number(clientPid), pid)) return session;
     }
     return undefined;
   }
@@ -111,7 +130,15 @@ export class Controller {
    */
   settleLaunch(session: string): boolean {
     if (!this.pendingLaunch) return false;
-    const { agent } = this.pendingLaunch;
+    const { agent, startedAt } = this.pendingLaunch;
+    // A launcher that failed leaves nothing to settle; don't adopt later picks.
+    if (Date.now() - startedAt > LAUNCH_WINDOW_MS) {
+      this.pendingLaunch = undefined;
+      return false;
+    }
+    // Only a session created by this launch is adopted, never one shown later.
+    const created = Number(this.ctx.tmux.run(['display-message', '-p', '-t', `=${session}:`, '#{session_created}'], true).stdout.trim()) * 1000;
+    if (!created || created < startedAt - 2000) return false;
     this.pendingLaunch = undefined;
     const live = this.ctx.tmux.listSessions().find((s) => s.name === session);
     if (!live) return false;
@@ -127,7 +154,7 @@ export class Controller {
     if (!result.ok) return undefined;
     for (const line of result.stdout.split('\n')) {
       const [clientPid, tty] = line.split('\t');
-      if (Number(clientPid) === pid && tty) return tty;
+      if (tty && descendsFrom(Number(clientPid), pid)) return tty;
     }
     return undefined;
   }
@@ -139,10 +166,13 @@ export class Controller {
    */
   async show(name: string): Promise<void> {
     this.unread.delete(name);
-    if (!this.ctx.tmux.hasSession(name)) ensure(this.ctx, { session: name });
-    stamp(this.ctx, name, { origin: 'vscode' });
-    clearBell(this.ctx, name);
-    this.ctx.tmux.setTitle(name);
+    if (!this.ctx.tmux.hasSession(name)) ensure(this.ctx, { session: name, lockTimeoutMs: LOCK_WAIT_MS });
+    // Only Berth's sessions are stamped; others are shown as they are.
+    if (this.row(name)?.managed) {
+      stamp(this.ctx, name, { origin: 'vscode' });
+      clearBell(this.ctx, name);
+      this.ctx.tmux.setTitle(name);
+    }
     const pid = await this.host.mainTerminalPid();
     const tty = pid ? this.clientTty(pid) : undefined;
     if (tty) {
@@ -168,7 +198,7 @@ export class Controller {
 
   /** An extra terminal beside the main one, for watching two sessions at once. */
   openToSide(name: string): void {
-    if (!this.ctx.tmux.hasSession(name)) ensure(this.ctx, { session: name });
+    if (!this.ctx.tmux.hasSession(name)) ensure(this.ctx, { session: name, lockTimeoutMs: LOCK_WAIT_MS });
     this.host.openTerminal(name, this.ctx.tmux.attachArgv(name), 'side');
   }
 
@@ -184,7 +214,7 @@ export class Controller {
   async newSession(agent: string, cwd: string, customLauncher = '', workspaceFolders: string[] = []): Promise<string | undefined> {
     if (customLauncher) {
       const command = renderLauncher(customLauncher, { agent, cwd, relative: relativeToWorkspace(cwd, workspaceFolders), name: basename(cwd) });
-      this.pendingLaunch = { agent };
+      this.pendingLaunch = { agent, startedAt: Date.now() };
       this.host.openTerminal('', [process.env.SHELL || '/bin/sh', '-lc', command], 'main', cwd);
       return undefined;
     }
