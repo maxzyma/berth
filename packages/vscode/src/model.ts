@@ -139,3 +139,14 @@ export function layoutChanges(current: (key: string) => unknown, hideTerminalTab
   if (hideTerminalTabs) changes.push({ key: 'terminal.integrated.tabs.enabled', value: false });
   return changes;
 }
+
+/**
+ * The folder the explorer should follow for a session: its cwd, when that is
+ * inside one of the workspace folders. Outside them the explorer cannot show
+ * it without changing the workspace, which would reload the window.
+ */
+export function explorerTarget(cwd: string, workspaceFolders: string[]): string | undefined {
+  const norm = (p: string) => p.replace(/\/+$/, '');
+  const target = norm(cwd);
+  return workspaceFolders.some((f) => target === norm(f) || target.startsWith(`${norm(f)}/`)) ? target : undefined;
+}

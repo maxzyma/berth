@@ -12,16 +12,27 @@ import {
 } from '@berthdev/berth';
 import { buildTree, transitions, type Transition, type TreeView } from './model.js';
 
+export type TerminalRole = 'main' | 'side';
+
 export interface Host {
-  /** Open a terminal attached to a session; unnamed, so its tab title follows the session. */
-  openTerminal(session: string, argv: string[]): void;
+  /**
+   * Open a terminal running `argv` (an attach command). `main` is the one
+   * session terminal that follows the selection; `side` terminals are extra
+   * views opened on request. Terminals are unnamed, so tab titles follow tmux.
+   */
+  openTerminal(session: string, argv: string[], role: TerminalRole): void;
+  /** Process id of the main session terminal, when one is open. */
+  mainTerminalPid(): Promise<number | undefined>;
+  /** Bring the main terminal forward; it now shows `session`. */
+  showMain(session: string): void;
   /** Run a command in a new terminal (custom launchers). */
   runInTerminal(command: string, cwd: string): void;
   /** Sessions shown by a terminal in this window. */
   sessionsHere(): Set<string>;
-  focusTerminal(session: string): boolean;
   closeTerminals(session: string): void;
   notify(transition: Transition): void;
+  /** Called after a session is brought forward, e.g. to follow it in the explorer. */
+  sessionShown?(row: SessionRow): void;
 }
 
 export class Controller {
@@ -49,6 +60,10 @@ export class Controller {
     return buildTree(this.rows, { here: this.host.sessionsHere(), unread: this.unread, branch: (cwd) => this.branch(cwd) });
   }
 
+  row(name: string): SessionRow | undefined {
+    return this.rows.find((r) => r.name === name) ?? list(this.ctx).find((r) => r.name === name);
+  }
+
   private branch(cwd: string): string {
     if (!this.branches.has(cwd)) {
       const r = spawnSync('git', ['-C', cwd, 'branch', '--show-current'], { encoding: 'utf8', timeout: 2000 });
@@ -57,52 +72,73 @@ export class Controller {
     return this.branches.get(cwd) ?? '';
   }
 
-  /** Startup (spec §6): rebuild missing vscode sessions, then open one terminal for each not shown anywhere. */
-  startup(): string[] {
+  /**
+   * Startup (spec §6): rebuild missing vscode sessions, then show the first
+   * one not attached anywhere in the main terminal. Others stay listed.
+   */
+  async startup(): Promise<string | undefined> {
     ensure(this.ctx, { origin: 'vscode' });
-    const here = this.host.sessionsHere();
-    const opened: string[] = [];
-    for (const row of list(this.ctx)) {
-      if (!row.live || !row.managed || row.origin !== 'vscode') continue;
-      if (row.attachedClients > 0 || here.has(row.name)) continue;
-      this.attachTerminal(row.name);
-      opened.push(row.name);
+    if (this.host.sessionsHere().size > 0) return undefined;
+    const first = list(this.ctx)
+      .filter((r) => r.live && r.managed && r.origin === 'vscode' && r.attachedClients === 0)
+      .sort((a, b) => a.name.localeCompare(b.name))[0];
+    if (!first) return undefined;
+    await this.show(first.name);
+    return first.name;
+  }
+
+  /** tmux client of a terminal process, found by its pid. */
+  private clientTty(pid: number): string | undefined {
+    const result = this.ctx.tmux.run(['list-clients', '-F', '#{client_pid}\t#{client_tty}'], true);
+    if (!result.ok) return undefined;
+    for (const line of result.stdout.split('\n')) {
+      const [clientPid, tty] = line.split('\t');
+      if (Number(clientPid) === pid && tty) return tty;
     }
-    return opened;
+    return undefined;
   }
 
-  private attachTerminal(name: string): void {
-    const [bin, ...args] = this.ctx.tmux.attachArgv(name);
-    this.host.openTerminal(name, [bin, ...args]);
-  }
-
-  /** Selecting a row: focus its terminal, attaching first when needed; stopped sessions are rebuilt. */
-  focus(name: string): void {
+  /**
+   * Selecting a row: the main terminal switches to the session (tmux
+   * switch-client), or opens attached to it when there is none. A stopped
+   * session is rebuilt first.
+   */
+  async show(name: string): Promise<void> {
     this.unread.delete(name);
-    if (this.host.focusTerminal(name)) return;
     if (!this.ctx.tmux.hasSession(name)) ensure(this.ctx, { session: name });
-    this.attach(name);
+    stamp(this.ctx, name, { origin: 'vscode' });
+    const pid = await this.host.mainTerminalPid();
+    const tty = pid ? this.clientTty(pid) : undefined;
+    if (tty) {
+      this.ctx.tmux.run(['switch-client', '-c', tty, '-t', `=${name}`]);
+      this.host.showMain(name);
+    } else {
+      this.host.openTerminal(name, this.ctx.tmux.attachArgv(name), 'main');
+    }
+    const row = this.row(name);
+    if (row) this.host.sessionShown?.(row);
+    const state = row?.state ?? '';
+    // Re-show state once the client is on the session.
+    setTimeout(() => presentState(this.ctx.tmux, name, state), 500);
   }
 
-  attach(name: string): void {
-    stamp(this.ctx, name, { origin: 'vscode' });
-    this.attachTerminal(name);
-    const state = this.rows.find((r) => r.name === name)?.state ?? '';
-    // Re-show state once the new client exists.
-    setTimeout(() => presentState(this.ctx.tmux, name, state), 500);
+  /** An extra terminal beside the main one, for watching two sessions at once. */
+  openToSide(name: string): void {
+    if (!this.ctx.tmux.hasSession(name)) ensure(this.ctx, { session: name });
+    this.host.openTerminal(name, this.ctx.tmux.attachArgv(name), 'side');
   }
 
   detach(name: string): void {
     this.host.closeTerminals(name);
   }
 
-  newSession(agent: string, cwd: string, customLauncher = ''): string | undefined {
+  async newSession(agent: string, cwd: string, customLauncher = ''): Promise<string | undefined> {
     if (customLauncher) {
       this.host.runInTerminal(customLauncher.replace(/\{agent\}/g, agent), cwd);
       return undefined;
     }
     const name = create(this.ctx, { agent, cwd, origin: 'vscode' });
-    this.attachTerminal(name);
+    await this.show(name);
     return name;
   }
 

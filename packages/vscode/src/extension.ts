@@ -2,9 +2,9 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { platform } from 'node:os';
 import * as vscode from 'vscode';
-import { ADAPTERS, createContext } from '@berthdev/berth';
-import { Controller, type Host } from './controller.js';
-import { layoutChanges, type GroupView, type RowView, type Transition } from './model.js';
+import { ADAPTERS, createContext, type SessionRow } from '@berthdev/berth';
+import { Controller, type Host, type TerminalRole } from './controller.js';
+import { explorerTarget, layoutChanges, type GroupView, type RowView, type Transition } from './model.js';
 
 const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
@@ -53,25 +53,48 @@ function osNotify(title: string, body: string): void {
 }
 
 class TerminalHost implements Host {
-  private readonly bySession = new Map<string, Set<vscode.Terminal>>();
+  /** The one session terminal that follows the selection, and the session it shows. */
+  private main?: { terminal: vscode.Terminal; session: string };
+  /** Extra terminals opened beside it. */
+  private readonly side = new Map<vscode.Terminal, string>();
   focusSession?: (name: string) => void;
+  onShown?: (row: SessionRow) => void;
 
-  openTerminal(session: string, argv: string[]): void {
+  openTerminal(session: string, argv: string[], role: TerminalRole): void {
     const [shellPath, ...shellArgs] = argv;
     // No `name`: VS Code then follows the title the session sets (`${sequence}`).
-    // An editor in the first group, which is then locked so files open beside it.
     const terminal = vscode.window.createTerminal({
       shellPath,
       shellArgs,
       isTransient: true,
-      location: { viewColumn: vscode.ViewColumn.One, preserveFocus: false },
+      location: { viewColumn: role === 'main' ? vscode.ViewColumn.One : vscode.ViewColumn.Beside, preserveFocus: false },
     });
-    const set = this.bySession.get(session) ?? new Set();
-    set.add(terminal);
-    this.bySession.set(session, set);
+    if (role === 'main') {
+      this.main?.terminal.dispose();
+      this.main = { terminal, session };
+    } else {
+      this.side.set(terminal, session);
+    }
     terminal.show();
-    // autoLockGroups only locks groups created for a terminal; lock the first group explicitly.
-    void vscode.commands.executeCommand('workbench.action.lockEditorGroup');
+    // The session terminal's group is locked so files open beside it.
+    if (role === 'main') void vscode.commands.executeCommand('workbench.action.lockEditorGroup');
+  }
+
+  async mainTerminalPid(): Promise<number | undefined> {
+    if (!this.main || this.main.terminal.exitStatus) return undefined;
+    return this.main.terminal.processId;
+  }
+
+  showMain(session: string): void {
+    if (!this.main) return;
+    this.main.session = session;
+    this.main.terminal.show();
+  }
+
+  /** Session shown by a terminal, if it is one of Berth's. */
+  sessionOf(terminal: vscode.Terminal): string | undefined {
+    if (this.main?.terminal === terminal) return this.main.session;
+    return this.side.get(terminal);
   }
 
   runInTerminal(command: string, cwd: string): void {
@@ -81,23 +104,29 @@ class TerminalHost implements Host {
   }
 
   forget(terminal: vscode.Terminal): void {
-    for (const set of this.bySession.values()) set.delete(terminal);
+    if (this.main?.terminal === terminal) this.main = undefined;
+    this.side.delete(terminal);
   }
 
   sessionsHere(): Set<string> {
-    return new Set([...this.bySession.entries()].filter(([, set]) => set.size > 0).map(([name]) => name));
-  }
-
-  focusTerminal(session: string): boolean {
-    const [terminal] = this.bySession.get(session) ?? [];
-    if (!terminal) return false;
-    terminal.show();
-    return true;
+    return new Set([...(this.main ? [this.main.session] : []), ...this.side.values()]);
   }
 
   closeTerminals(session: string): void {
-    for (const terminal of this.bySession.get(session) ?? []) terminal.dispose();
-    this.bySession.delete(session);
+    if (this.main?.session === session) {
+      this.main.terminal.dispose();
+      this.main = undefined;
+    }
+    for (const [terminal, name] of this.side) {
+      if (name === session) {
+        terminal.dispose();
+        this.side.delete(terminal);
+      }
+    }
+  }
+
+  sessionShown(row: SessionRow): void {
+    this.onShown?.(row);
   }
 
   notify(t: Transition): void {
@@ -163,7 +192,21 @@ export function activate(context: vscode.ExtensionContext): void {
   const controller = new Controller(ctx, host);
   const tree = new SessionTree();
   const view = vscode.window.createTreeView('berth.sessions', { treeDataProvider: tree });
-  host.focusSession = (name) => controller.focus(name);
+  host.focusSession = (name) => void controller.show(name);
+  // Follow the shown session in the explorer when its folder is in the workspace.
+  const follow = (row: SessionRow) => {
+    if (!vscode.workspace.getConfiguration('berth').get<boolean>('explorer.followSession', true)) return;
+    const folders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
+    const target = explorerTarget(row.cwd, folders);
+    if (!target) return;
+    void (async () => {
+      await vscode.commands.executeCommand('workbench.files.action.collapseExplorerFolders');
+      await vscode.commands.executeCommand('revealInExplorer', vscode.Uri.file(target));
+      // Revealing focuses the explorer; give focus back to the terminal.
+      await vscode.commands.executeCommand('workbench.action.terminal.focus');
+    })();
+  };
+  host.onShown = follow;
 
   const refresh = () => {
     try {
@@ -187,8 +230,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const command = (id: string, fn: (...args: unknown[]) => unknown) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
   command('berth.refresh', refresh);
-  command('berth.focus', guarded((name) => controller.focus(name)));
-  command('berth.attach', guarded((name) => controller.attach(name)));
+  command('berth.focus', guarded((name) => controller.show(name)));
+  command('berth.attach', guarded((name) => controller.show(name)));
+  command('berth.openToSide', guarded((name) => controller.openToSide(name)));
   command('berth.detach', guarded((name) => controller.detach(name)));
   command('berth.rename', guarded(async (name) => {
     const to = await vscode.window.showInputBox({ prompt: `Rename ${name}`, value: name });
@@ -212,7 +256,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
     if (!agent) return;
     try {
-      controller.newSession(agent, folder, vscode.workspace.getConfiguration('berth').get<string>('customLauncher', ''));
+      await controller.newSession(agent, folder, vscode.workspace.getConfiguration('berth').get<string>('customLauncher', ''));
     } catch (error) {
       void vscode.window.showErrorMessage(`Berth: ${(error as Error).message}`);
     }
@@ -275,11 +319,17 @@ export function activate(context: vscode.ExtensionContext): void {
         if (choice === 'Apply…') void vscode.commands.executeCommand('berth.applyLayout');
       });
   }
-  try {
-    controller.startup();
-  } catch (error) {
-    view.message = `Berth: ${(error as Error).message}`;
-  }
+  controller.startup().catch((error: Error) => {
+    view.message = `Berth: ${error.message}`;
+  });
+  // Switching to one of Berth's terminals follows its session in the explorer.
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTerminal((terminal) => {
+      const session = terminal && host.sessionOf(terminal);
+      const row = session ? controller.row(session) : undefined;
+      if (row) follow(row);
+    }),
+  );
   refresh();
 }
 

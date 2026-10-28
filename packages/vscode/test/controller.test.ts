@@ -5,8 +5,9 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Context } from '@berthdev/berth';
-import { Controller, type Host } from '../src/controller.js';
-import { buildTree, layoutChanges, type Transition } from '../src/model.js';
+import { spawn } from 'node:child_process';
+import { Controller, type Host, type TerminalRole } from '../src/controller.js';
+import { buildTree, explorerTarget, layoutChanges, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -24,26 +25,33 @@ const helpersPath = '../../../core/dist/test/helpers.js';
 const { sandbox, killServer, waitFor } = (await import(helpersPath)) as Helpers;
 
 class FakeHost implements Host {
-  terminals: { session: string; argv: string[] }[] = [];
+  terminals: { session: string; argv: string[]; role: TerminalRole }[] = [];
   launched: { command: string; cwd: string }[] = [];
   notified: Transition[] = [];
-  focused: string[] = [];
-  openTerminal(session: string, argv: string[]) {
-    this.terminals.push({ session, argv });
+  shown: string[] = [];
+  /** pid of a real tmux client standing in for the main terminal, when a test provides one. */
+  mainPid?: number;
+  main?: string;
+  openTerminal(session: string, argv: string[], role: TerminalRole) {
+    this.terminals.push({ session, argv, role });
+    if (role === 'main') this.main = session;
+  }
+  async mainTerminalPid() {
+    return this.main ? this.mainPid : undefined;
+  }
+  showMain(session: string) {
+    this.main = session;
+    this.shown.push(session);
   }
   runInTerminal(command: string, cwd: string) {
     this.launched.push({ command, cwd });
   }
   sessionsHere() {
-    return new Set(this.terminals.map((t) => t.session));
-  }
-  focusTerminal(session: string) {
-    const shown = this.terminals.some((t) => t.session === session);
-    if (shown) this.focused.push(session);
-    return shown;
+    return new Set([...(this.main ? [this.main] : []), ...this.terminals.filter((t) => t.role === 'side').map((t) => t.session)]);
   }
   closeTerminals(session: string) {
     this.terminals = this.terminals.filter((t) => t.session !== session);
+    if (this.main === session) this.main = undefined;
   }
   notify(t: Transition) {
     this.notified.push(t);
@@ -78,29 +86,54 @@ test('V1 the session view groups by cwd, shows state and counts waiting sessions
   assert.equal(tree.waiting, 1);
 });
 
-test('V2 selecting a row focuses its terminal, attaching or rebuilding first when needed', (t) => {
+test('V2 selecting a row switches the one session terminal to it; with none, one opens', async (t) => {
   const { sb, host, controller } = setup(t);
-  sb.cli('new', 'claude', '--cwd', sb.makeDir('v2'), '--origin', 'iterm2');
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('a'), '--origin', 'iterm2');
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('b'));
   controller.refresh();
-  controller.focus('v2');
-  assert.equal(host.terminals.length, 1);
-  assert.deepEqual(host.terminals[0].argv.slice(-3), ['attach-session', '-t', '=v2']);
-  assert.equal(sb.tmux('display-message', '-p', '-t', '=v2:', '#{@berth_origin}').trim(), 'vscode', 'attaching here moves origin');
-  controller.focus('v2');
-  assert.equal(host.terminals.length, 1, 'second select focuses, does not reattach');
-  assert.deepEqual(host.focused, ['v2']);
+  await controller.show('a');
+  assert.deepEqual(host.terminals.map((x) => [x.session, x.role]), [['a', 'main']]);
+  assert.deepEqual(host.terminals[0].argv.slice(-3), ['attach-session', '-t', '=a']);
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=a:', '#{@berth_origin}').trim(), 'vscode', 'showing here moves origin');
+
+  // A real tmux client stands in for the main terminal.
+  const client = spawn('script', ['-q', '/dev/null', 'tmux', '-L', sb.socket, 'attach-session', '-t', '=a'], { env: process.env, stdio: 'ignore' });
+  t.after(() => client.kill());
+  const pid = await waitFor(() => Number(sb.tmux('list-clients', '-t', '=a', '-F', '#{client_pid}').trim()) || undefined, 'client attached');
+  host.mainPid = pid;
+  await controller.show('b');
+  assert.equal(host.terminals.length, 1, 'no second terminal: the main one switched');
+  assert.deepEqual(host.shown, ['b']);
+  await waitFor(() => sb.tmux('list-clients', '-F', '#{client_pid} #{session_name}').trim() === `${pid} b`, 'client switched to b');
 
   sb.cli('snapshot');
   killServer(sb);
-  host.closeTerminals('v2');
-  controller.focus('v2');
-  assert.ok(sb.ctx().tmux.hasSession('v2'), 'stopped session rebuilt on select');
+  host.main = undefined;
+  await controller.show('b');
+  assert.ok(sb.ctx().tmux.hasSession('b'), 'stopped session rebuilt on select');
 });
 
-test('V3 new / detach / rename / kill / adopt act on the test server', (t) => {
+test('V2 open to the side adds a terminal next to the main one', async (t) => {
+  const { sb, host, controller } = setup(t);
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('a'));
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('b'));
+  await controller.show('a');
+  controller.openToSide('b');
+  assert.deepEqual(host.terminals.map((x) => [x.session, x.role]), [['a', 'main'], ['b', 'side']]);
+  assert.deepEqual([...host.sessionsHere()].sort(), ['a', 'b']);
+});
+
+test('V2 the explorer follows a session only inside the workspace', () => {
+  assert.equal(explorerTarget('/w/proj/sub/', ['/w/proj']), '/w/proj/sub');
+  assert.equal(explorerTarget('/w/proj', ['/w/proj/']), '/w/proj');
+  assert.equal(explorerTarget('/w/project-other', ['/w/proj']), undefined);
+  assert.equal(explorerTarget('/elsewhere', ['/w/proj']), undefined);
+});
+
+test('V3 new / detach / rename / kill / adopt act on the test server', async (t) => {
   const { sb, host, controller } = setup(t);
   const dir = sb.makeDir('v3');
-  const name = controller.newSession('claude', dir);
+  const name = await controller.newSession('claude', dir);
   assert.equal(name, 'v3');
   assert.equal(sb.tmux('display-message', '-p', '-t', '=v3:', '#{@berth_origin}').trim(), 'vscode');
   assert.equal(host.terminals.length, 1);
@@ -114,21 +147,21 @@ test('V3 new / detach / rename / kill / adopt act on the test server', (t) => {
   assert.equal(sb.tmux('display-message', '-p', '-t', '=loose:', '#{@berth_agent}').trim(), 'gemini');
   controller.kill('v3b');
   assert.ok(!sb.ctx().tmux.hasSession('v3b'));
-  controller.newSession('codex', dir, 'my-launcher --agent {agent}');
+  await controller.newSession('codex', dir, 'my-launcher --agent {agent}');
   assert.deepEqual(host.launched, [{ command: 'my-launcher --agent codex', cwd: dir }]);
 });
 
-test('V4 startup opens a terminal for each vscode session not shown, and only those', async (t) => {
+test('V4 startup rebuilds vscode sessions and shows one in the main terminal', async (t) => {
   const { sb, host, controller } = setup(t);
   sb.cli('new', 'claude', '--cwd', sb.makeDir('mine'), '--origin', 'vscode');
   sb.cli('new', 'claude', '--cwd', sb.makeDir('term'), '--origin', 'iterm2');
   sb.cli('new', 'claude', '--cwd', sb.makeDir('gone'), '--origin', 'vscode');
   sb.cli('snapshot');
   sb.tmux('kill-session', '-t', '=gone');
-  const opened = controller.startup();
-  assert.deepEqual(opened.sort(), ['gone', 'mine']);
-  assert.deepEqual(host.terminals.map((x) => x.session).sort(), ['gone', 'mine']);
-  assert.deepEqual(controller.startup(), [], 'already shown sessions are not reopened');
+  assert.equal(await controller.startup(), 'gone');
+  assert.ok(sb.ctx().tmux.hasSession('gone'), 'missing vscode session rebuilt');
+  assert.deepEqual(host.terminals.map((x) => [x.session, x.role]), [['gone', 'main']]);
+  assert.equal(await controller.startup(), undefined, 'a window that already shows a session is left alone');
 });
 
 test('V5 layout adds ${progress} to the tab description so state shows on native tabs', () => {
@@ -152,7 +185,7 @@ test('V6 waiting and done produce one notification each and mark the row unread'
   assert.deepEqual(host.notified.map((n) => n.state), ['waiting', 'done']);
   assert.equal(host.notified[0].note, 'Claude needs your permission');
   assert.equal(tree.groups[0].rows[0].unread, true);
-  controller.focus('v6');
+  await controller.show('v6');
   assert.equal(controller.tree().groups[0].rows[0].unread, false);
 });
 

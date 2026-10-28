@@ -8,7 +8,9 @@ suite('Berth for VS Code (integration)', () => {
     assert.ok(extension, 'extension present');
     await extension.activate();
     const commands = await vscode.commands.getCommands(true);
-    for (const id of ['berth.new', 'berth.focus', 'berth.attach', 'berth.detach', 'berth.rename', 'berth.kill', 'berth.adopt', 'berth.applyLayout', 'berth.revertLayout']) {
+    // Berth's own commands, and the workbench commands it relies on.
+    for (const id of ['berth.new', 'berth.focus', 'berth.attach', 'berth.openToSide', 'berth.detach', 'berth.rename', 'berth.kill', 'berth.adopt', 'berth.applyLayout', 'berth.revertLayout',
+      'revealInExplorer', 'workbench.files.action.collapseExplorerFolders', 'workbench.action.lockEditorGroup', 'vscode.moveViews', 'workbench.action.positionPanelBottom']) {
       assert.ok(commands.includes(id), `missing ${id}`);
     }
     await vscode.commands.executeCommand('berth.sessions.focus');

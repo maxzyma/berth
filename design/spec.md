@@ -226,8 +226,17 @@ Berth runs with no config file.
   started waiting while the user looked elsewhere; latest notification text;
   git branch; connection (attached here / elsewhere / detached / stopped — in
   snapshot, not live); conversation bound or not. A view badge counts sessions
-  waiting for the user. Unmanaged sessions are listed separately. Selecting a
-  row focuses its terminal, attaching first when needed.
+  waiting for the user. Unmanaged sessions are listed separately.
+- **One session terminal.** Selecting a row shows that session in the one
+  session terminal: the terminal's tmux client switches to it
+  (`switch-client`), or the terminal opens attached when there is none. A
+  stopped session is rebuilt first. The list, not a row of tabs, is how
+  sessions are switched; tmux keeps each session's screen. *Open to the Side*
+  adds a second terminal for watching two sessions at once.
+- **Explorer follows.** When a session is shown, its folder is revealed in
+  the explorer if it lies inside the workspace (`berth.explorer.followSession`).
+  Folders outside it are left alone: showing them would mean changing the
+  workspace, which reloads the window.
 - **Native terminal tabs.** Kept, never replaced: they stay the terminal
   surface the rest of the ecosystem works with. VS Code lets an extension set
   a tab's icon and colour only at creation, and offers no way to add content
@@ -242,12 +251,14 @@ Berth runs with no config file.
   notifications. "Open" in the editor notification focuses the session;
   clicking the OS notification brings the editor forward (on macOS this needs
   `terminal-notifier`).
-- **Actions.** New session (pick agent; runs `berth new --origin vscode` or the
-  configured custom launcher in a new terminal), attach (opens a terminal and
-  re-stamps origin), detach, rename, kill (with confirmation), adopt.
-- **Startup.** On startup, for each `vscode`-origin session that no open
-  terminal shows, open one terminal running attach-or-ensure. Restored
-  terminals are ordinary unnamed terminals, so tab titles follow tmux.
+- **Actions.** New session (pick agent; runs `berth new --origin vscode` and
+  shows it, or the configured custom launcher in a new terminal), show (also
+  re-stamps origin), open to the side, detach, rename, kill (with
+  confirmation), adopt.
+- **Startup.** On startup, missing `vscode`-origin sessions are rebuilt and
+  the first one not attached anywhere is shown in the session terminal; the
+  rest stay in the list. Session terminals are ordinary unnamed terminals, so
+  tab titles follow tmux.
 - **Remote workspaces.** Works the same in Remote-SSH, Dev Containers and
   WSL: the extension runs on the workspace side, next to the tmux server it
   manages.

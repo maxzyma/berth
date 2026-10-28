@@ -251,10 +251,13 @@ manual cases are recorded as checked, and the de-identification check passes.
 
 - **V1** The session view shows the rows of spec §6, grouped by cwd, with the
   waiting-count badge.
-- **V2** Selecting a row focuses its terminal, attaching first when needed.
+- **V2** Selecting a row switches the one session terminal to that session
+  (rebuilding a stopped one first), or opens it when there is none; open to
+  the side adds a second terminal; the explorer follows only folders inside
+  the workspace.
 - **V3** New / attach / detach / rename / kill / adopt act on the test server.
-- **V4** On startup, each `vscode`-origin session not shown in a terminal gets
-  one; sessions of other origins do not.
+- **V4** On startup, missing `vscode`-origin sessions are rebuilt and one is
+  shown in the session terminal; sessions of other origins are not.
 - **V5** Native tabs show state through `${progress}` and `${sequence}`.
 - **V6** Waiting and done produce an in-editor notification.
 - **V7** Apply / revert layout writes and restores only the listed settings in
