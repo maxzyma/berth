@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { killServer, sandbox, waitFor } from './helpers.js';
 import { presentState, sequencesFor } from '../src/present/state.js';
 import { iterm2Paths } from '../src/iterm2/install.js';
+import { clearBell } from '../src/registry/sessions.js';
 import { Tmux } from '../src/tmux/client.js';
 
 test('I1 iterm2 install writes the AutoLaunch script and one profile per iterm2 session', async (t) => {
@@ -124,4 +125,26 @@ test('presentState writes to each attached client and ignores ones that are gone
   assert.ok(readFileSync(vscode, 'utf8').includes('9;4;0;0'));
   assert.ok(!readFileSync(vscode, 'utf8').includes('1337'));
   assert.ok(readFileSync(iterm, 'utf8').includes('1337;SetBadgeFormat'));
+});
+
+test('C14 a terminal bell marks agents without hooks as waiting; hooked agents and seen sessions are left alone', async (t) => {
+  const sb = sandbox(t);
+  sb.tmux('new-session', '-d', '-s', 'boot', 'sleep 3600');
+  assert.equal(sb.cli('tmux', 'install').status, 0);
+  const ring = (name: string, agent: string) => {
+    sb.tmux('new-session', '-d', '-s', name, '-c', sb.makeDir(name), "sh -c 'sleep 1; printf \"\\a\"; sleep 3600'");
+    assert.equal(sb.cli('adopt', name, '--agent', agent).status, 0);
+  };
+  const meta = (name: string) => sb.tmux('display-message', '-p', '-t', `=${name}:`, '#{@berth_state}|#{@berth_note}').trim();
+
+  ring('quiet', 'kimi');
+  await waitFor(() => meta('quiet') === 'waiting|bell', 'bell marks kimi waiting', 10_000);
+
+  assert.equal(sb.cli('hooks', 'install', 'claude').status, 0);
+  ring('hooked', 'claude');
+  await new Promise((r) => setTimeout(r, 2500));
+  assert.equal(meta('hooked'), '|', 'an agent with hooks keeps its hook-driven state');
+
+  clearBell(sb.ctx(), 'quiet');
+  assert.equal(meta('quiet'), '|', 'seeing the session clears a bell-raised waiting');
 });

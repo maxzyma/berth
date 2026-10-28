@@ -118,6 +118,12 @@ The same hooks keep `@berth_state` current from the agent's lifecycle events
 (prompt submitted → `working`, needs approval → `waiting`, turn finished →
 `done`).
 
+Agents without Berth hooks can still ask for attention: a terminal bell in
+their session (tmux `alert-bell`, hooked by `berth tmux install`) sets
+`@berth_state` to `waiting` with note `bell`. Agents whose hooks are installed
+ignore the bell, since hooks are more precise. Showing the session in a
+frontend clears a bell-raised `waiting`.
+
 Hooks are written only by `berth hooks install <agent>`, are marked as Berth's,
 and are removed by `berth hooks uninstall <agent>`.
 
@@ -144,6 +150,7 @@ The VS Code extension is published to the Marketplace, not npm.
 | `berth show <session> [<snapshot>]` | Print saved scrollback. |
 | `berth doctor` | Report unbound sessions, missing working directories, unknown agents and agents in use without hooks. |
 | `berth hooks install\|uninstall <agent>` | Agent hooks (§4.2). |
+| `berth bell --session <s>` | A bell rang in the session (run by the tmux hook, §4.2). |
 | `berth tmux install\|uninstall` | Managed block in the user's tmux config: snapshot hooks, optional session picker key. |
 | `berth iterm2 install\|uninstall` | Install the iTerm2 frontend (§7). |
 
@@ -178,7 +185,7 @@ When the agent exits, the session ends — Berth does not leave a stray shell.
   - `scrollback/<name>.txt` — last N lines of each pane (default 3000), for
     reading only.
 - Triggers: `berth snapshot`; tmux hooks on session created / renamed / closed
-  (installed by `berth tmux install`).
+  (installed by `berth tmux install`, which also hooks `alert-bell`, §4.2).
 - Retention: newest K snapshots (default 5).
 - Snapshots contain conversation text and are never meant for version control.
 
@@ -223,8 +230,9 @@ Berth runs with no config file.
   the user can place it in any side bar. A tree of every session from
   `berth ls`, grouped by cwd. What a row shows follows the vertical tabs of
   agent terminal apps (cmux, Warp), which set the bar users compare against:
-  agent; agent state (`@berth_state`); unread mark when an agent finished or
-  started waiting while the user looked elsewhere; latest notification text;
+  agent; agent state (`@berth_state`), followed by the latest notification
+  text while the state is waiting or done; unread mark when an agent finished
+  or started waiting while the user looked elsewhere;
   git branch; connection (attached here / elsewhere / detached / stopped — in
   snapshot, not live); conversation bound or not. A view badge counts sessions
   waiting for the user. Unmanaged sessions are listed separately.
@@ -234,6 +242,9 @@ Berth runs with no config file.
   stopped session is rebuilt first. The list, not a row of tabs, is how
   sessions are switched; tmux keeps each session's screen. *Open to the Side*
   adds a second terminal for watching two sessions at once.
+- **Go to the next session needing you.** A command and key (⌘⌥U on macOS,
+  Ctrl+Alt+U elsewhere) shows the next session waiting for the user, then
+  unread ones, wrapping around.
 - **Explorer follows.** When a session is shown, its folder is revealed in
   the explorer if it lies inside the workspace (`berth.explorer.followSession`).
   Folders outside it are left alone: showing them would mean changing the

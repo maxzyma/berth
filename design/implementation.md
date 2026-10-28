@@ -242,6 +242,9 @@ manual cases are recorded as checked, and the de-identification check passes.
 - **C11** `hooks install` / `uninstall` per agent are idempotent and leave
   unrelated hook entries intact.
 - **C12** Every edge case in §4 has a test.
+- **C14** With `berth tmux install`, a bell in a session whose agent has no
+  installed hooks sets `waiting` / `bell`; one whose hooks are installed is
+  left alone; showing the session clears a bell-raised `waiting`.
 - **C13** Every baseline adapter passes its unit tests (§5.4) and its spec §8
   row records its source (help-checked or cmux reference).
 - **L1** (live, manual trigger) Every installed baseline agent resumes its own
@@ -250,7 +253,7 @@ manual cases are recorded as checked, and the de-identification check passes.
 ### Milestone 2 — Berth for VS Code
 
 - **V1** The session view shows the rows of spec §6, grouped by cwd, with the
-  waiting-count badge.
+  latest notification on waiting / done rows and the waiting-count badge.
 - **V2** Selecting a row switches the one session terminal to that session
   (rebuilding a stopped one first), or opens it when there is none; open to
   the side adds a second terminal; the explorer follows only folders inside
@@ -262,6 +265,8 @@ manual cases are recorded as checked, and the de-identification check passes.
 - **V6** Waiting and done produce an in-editor notification.
 - **V7** Apply / revert layout writes and restores only the listed settings in
   the test instance's user settings.
+- **V10** *Go to Next Session Needing You* shows waiting sessions first, then
+  unread ones, in name order, wrapping around.
 - **V8** (manual) The same flows work in Remote-SSH, a Dev Container and WSL.
 - **V9** (manual) OS notifications appear and focus the session when clicked.
 

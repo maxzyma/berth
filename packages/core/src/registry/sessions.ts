@@ -3,6 +3,8 @@ import type { Context } from '../context.js';
 import { BerthError, ExitCode } from '../errors.js';
 import { launchCommand, requireAdapter } from '../agents/commands.js';
 import type { SessionMeta } from '../tmux/client.js';
+import { hooksInstalled } from '../agents/hooks.js';
+import { getAdapter } from '../agents/registry.js';
 import { presentState } from '../present/state.js';
 
 /** One row of `berth ls` (implementation §2.2). */
@@ -118,4 +120,29 @@ export function stamp(ctx: Context, name: string, values: Record<string, string>
   ctx.tmux.setMeta(name, meta);
   // A state change shows on attached terminals whoever reports it (spec §6, §7).
   if (meta.state !== undefined) presentState(ctx.tmux, name, meta.state);
+}
+
+/** Note that marks a waiting state raised by a terminal bell rather than a hook. */
+export const BELL_NOTE = 'bell';
+
+/**
+ * A terminal bell from a managed session (tmux alert-bell). Agents without
+ * Berth hooks get state `waiting`, so every agent can ask for attention; for
+ * agents whose hooks are installed the hooks are more precise and the bell
+ * is ignored. Returns whether the state changed.
+ */
+export function bellRang(ctx: Context, name: string, env = process.env): boolean {
+  const live = ctx.tmux.listSessions().find((s) => s.name === name);
+  const agent = live?.meta.agent;
+  if (!agent) return false;
+  const adapter = getAdapter(agent);
+  if (adapter?.hookTarget && hooksInstalled(agent, env)) return false;
+  stamp(ctx, name, { state: 'waiting', note: BELL_NOTE });
+  return true;
+}
+
+/** Seeing a session answers its bell: clear a bell-raised waiting state. */
+export function clearBell(ctx: Context, name: string): void {
+  const live = ctx.tmux.listSessions().find((s) => s.name === name);
+  if (live?.meta.state === 'waiting' && live.meta.note === BELL_NOTE) stamp(ctx, name, { state: '', note: '' });
 }

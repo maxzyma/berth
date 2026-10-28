@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   adopt,
+  clearBell,
   create,
   ensure,
   list,
@@ -10,7 +11,7 @@ import {
   type Context,
   type SessionRow,
 } from '@berthdev/berth';
-import { buildTree, transitions, type Transition, type TreeView } from './model.js';
+import { buildTree, nextAttention, transitions, type Transition, type TreeView } from './model.js';
 
 export type TerminalRole = 'main' | 'side';
 
@@ -107,6 +108,7 @@ export class Controller {
     this.unread.delete(name);
     if (!this.ctx.tmux.hasSession(name)) ensure(this.ctx, { session: name });
     stamp(this.ctx, name, { origin: 'vscode' });
+    clearBell(this.ctx, name);
     this.ctx.tmux.setTitle(name);
     const pid = await this.host.mainTerminalPid();
     const tty = pid ? this.clientTty(pid) : undefined;
@@ -121,6 +123,14 @@ export class Controller {
     const state = row?.state ?? '';
     // Re-show state once the client is on the session.
     setTimeout(() => presentState(this.ctx.tmux, name, state), 500);
+  }
+
+  /** Show the next session waiting for the user, or unread; returns it. */
+  async showNextAttention(current?: string): Promise<string | undefined> {
+    this.rows = list(this.ctx);
+    const next = nextAttention(this.rows, this.unread, current);
+    if (next) await this.show(next);
+    return next;
   }
 
   /** An extra terminal beside the main one, for watching two sessions at once. */

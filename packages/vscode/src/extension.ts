@@ -91,6 +91,10 @@ class TerminalHost implements Host {
     this.main.terminal.show();
   }
 
+  mainSession(): string | undefined {
+    return this.main?.session;
+  }
+
   focusMain(): void {
     this.main?.terminal.show(false);
   }
@@ -238,6 +242,11 @@ export function activate(context: vscode.ExtensionContext): void {
   command('berth.focus', guarded((name) => controller.show(name)));
   command('berth.attach', guarded((name) => controller.show(name)));
   command('berth.openToSide', guarded((name) => controller.openToSide(name)));
+  command('berth.nextAttention', async () => {
+    const next = await controller.showNextAttention(host.mainSession());
+    if (!next) void vscode.window.showInformationMessage('Berth: no session is waiting for you.');
+    refresh();
+  });
   command('berth.detach', guarded((name) => controller.detach(name)));
   command('berth.rename', guarded(async (name) => {
     const to = await vscode.window.showInputBox({ prompt: `Rename ${name}`, value: name });

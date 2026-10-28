@@ -45,6 +45,10 @@ export interface ViewInput {
   branch: (cwd: string) => string;
 }
 
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
 export function rowView(row: SessionRow, input: ViewInput): RowView {
   const conn = connection(row, input.here);
   const unread = input.unread.has(row.name);
@@ -60,7 +64,9 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
     };
   }
   const branch = input.branch(row.cwd);
-  const parts = [row.agent, row.state || 'idle', CONNECTION_TEXT[conn]];
+  // The latest notification shows on the row itself while it matters.
+  const note = (row.state === 'waiting' || row.state === 'done') && row.note ? `: ${truncate(row.note, 40)}` : '';
+  const parts = [row.agent, `${row.state || 'idle'}${note}`, CONNECTION_TEXT[conn]];
   if (branch) parts.push(branch);
   if (!row.conversation) parts.push('unbound');
   const icon = !row.live ? 'stopped' : row.state === 'working' || row.state === 'waiting' || row.state === 'done' ? row.state : 'idle';
@@ -155,4 +161,18 @@ export function explorerTarget(cwd: string, workspaceFolders: string[]): string 
   const norm = (p: string) => p.replace(/\/+$/, '');
   const target = norm(cwd);
   return workspaceFolders.some((f) => target === norm(f) || target.startsWith(`${norm(f)}/`)) ? target : undefined;
+}
+
+/**
+ * The next session needing the user, after `current`: sessions waiting for
+ * them first, then unread ones, each in name order, wrapping around.
+ */
+export function nextAttention(rows: SessionRow[], unread: ReadonlySet<string>, current?: string): string | undefined {
+  const live = rows.filter((r) => r.live && r.managed);
+  const waiting = live.filter((r) => r.state === 'waiting').map((r) => r.name).sort();
+  const others = live.filter((r) => r.state !== 'waiting' && unread.has(r.name)).map((r) => r.name).sort();
+  const order = [...waiting, ...others];
+  if (order.length === 0) return undefined;
+  const at = current ? order.indexOf(current) : -1;
+  return order[(at + 1) % order.length];
 }

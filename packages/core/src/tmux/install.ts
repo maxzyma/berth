@@ -15,8 +15,14 @@ const EVENTS = ['session-created', 'session-renamed', 'session-closed'];
 const INDEX = 97;
 
 function hookArgs(cliPath: string): string[][] {
-  const command = `${shellQuote(process.execPath)} ${shellQuote(cliPath)} snapshot >/dev/null 2>&1`;
-  return EVENTS.map((event) => ['set-hook', '-g', `${event}[${INDEX}]`, `run-shell -b ${JSON.stringify(command)}`]);
+  const berth = `${shellQuote(process.execPath)} ${shellQuote(cliPath)}`;
+  const snapshot = `${berth} snapshot >/dev/null 2>&1`;
+  // A bell asks for attention: agents without hooks become `waiting`.
+  const bell = `${berth} bell --session '#{session_name}' >/dev/null 2>&1`;
+  return [
+    ...EVENTS.map((event) => ['set-hook', '-g', `${event}[${INDEX}]`, `run-shell -b ${JSON.stringify(snapshot)}`]),
+    ['set-hook', '-g', `alert-bell[${INDEX}]`, `run-shell -b ${JSON.stringify(bell)}`],
+  ];
 }
 
 export function tmuxConfPath(env = process.env): string {
@@ -47,6 +53,6 @@ export function uninstallTmux(tmux: Tmux, env = process.env): string {
     const rest = withoutBlock(readFileSync(file, 'utf8')).replace(/\s*$/, '');
     writeFileSync(file, rest ? `${rest}\n` : '');
   }
-  if (tmux.serverRunning()) for (const event of EVENTS) tmux.run(['set-hook', '-gu', `${event}[${INDEX}]`], true);
+  if (tmux.serverRunning()) for (const event of [...EVENTS, 'alert-bell']) tmux.run(['set-hook', '-gu', `${event}[${INDEX}]`], true);
   return file;
 }

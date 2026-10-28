@@ -7,7 +7,7 @@ import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { createContext, type Context } from '../context.js';
 import { BerthError, ExitCode } from '../errors.js';
 import { handleHook, installHooks, uninstallHooks } from '../agents/hooks.js';
-import { adopt, checkOrigin, create, list, requireLive, stamp, type SessionRow } from '../registry/sessions.js';
+import { adopt, bellRang, checkOrigin, create, list, requireLive, stamp, type SessionRow } from '../registry/sessions.js';
 import { doctor } from '../registry/doctor.js';
 import { takeSnapshot } from '../snapshot/take.js';
 import { ensure, restoreFrom, type RestoreResult } from '../restore/ensure.js';
@@ -175,6 +175,11 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
       if (action === 'install') out(installHooks(need(agent, 'agent'), cliPath()));
       else if (action === 'uninstall') out(uninstallHooks(need(agent, 'agent')));
       else throw new BerthError(`hooks: expected install or uninstall\n${USAGE}`, ExitCode.usage);
+      return ExitCode.ok;
+    }
+    case 'bell': {
+      const { values } = parse(rest, { session: { type: 'string' } });
+      bellRang(ctx, need(values.session, '--session'));
       return ExitCode.ok;
     }
     case 'hook': {

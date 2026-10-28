@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import type { Context } from '@berthdev/berth';
 import { spawn } from 'node:child_process';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { buildTree, explorerTarget, layoutChanges, type Transition } from '../src/model.js';
+import { buildTree, explorerTarget, layoutChanges, nextAttention, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -78,9 +78,10 @@ test('V1 the session view groups by cwd, shows state and counts waiting sessions
     ['beta', ['b1']],
   ]);
   const a1 = tree.groups[0].rows[0];
-  assert.match(a1.description, /^claude · waiting · detached/);
+  assert.match(a1.description, /^claude · waiting: needs approval · detached/);
   assert.equal(a1.icon, 'waiting');
   assert.match(a1.tooltip, /needs approval/);
+  assert.match(a1.description, /waiting: needs approval/, 'latest notification on the row');
   assert.match(tree.groups[0].rows[1].description, /unbound/);
   assert.deepEqual(tree.unmanaged.map((r) => r.name), ['plain']);
   assert.equal(tree.waiting, 1);
@@ -213,4 +214,21 @@ test('V7 the layout preset writes only its listed settings, tab hiding off by de
   const hidden = layoutChanges(() => undefined, true); // default in the extension
   assert.deepEqual(hidden.at(-1), { key: 'terminal.integrated.tabs.enabled', value: false });
   assert.equal(buildTree([], { here: new Set(), unread: new Set(), branch: () => '' }).waiting, 0);
+});
+
+test('V10 go to the next session needing you: waiting first, then unread, wrapping', async (t) => {
+  const row = (name: string, state = '') => ({ name, managed: true, agent: 'claude', cwd: '/w', conversation: '', origin: 'vscode', state, note: '', attachedClients: 0, live: true });
+  const rows = [row('a'), row('b', 'waiting'), row('c'), row('d', 'waiting')];
+  assert.equal(nextAttention(rows, new Set(['c']), undefined), 'b');
+  assert.equal(nextAttention(rows, new Set(['c']), 'b'), 'd');
+  assert.equal(nextAttention(rows, new Set(['c']), 'd'), 'c');
+  assert.equal(nextAttention(rows, new Set(['c']), 'c'), 'b');
+  assert.equal(nextAttention([row('a')], new Set(), undefined), undefined);
+
+  const { sb, host, controller } = setup(t);
+  sb.cli('new', 'kimi', '--cwd', sb.makeDir('x'));
+  sb.cli('stamp', '--session', 'x', 'state=waiting', 'note=bell');
+  assert.equal(await controller.showNextAttention(), 'x');
+  assert.deepEqual(host.terminals.map((x) => x.session), ['x']);
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=x:', '#{@berth_state}').trim(), '', 'showing it answers the bell');
 });

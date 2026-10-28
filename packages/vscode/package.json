@@ -52,6 +52,12 @@
         "icon": "$(add)"
       },
       {
+        "command": "berth.nextAttention",
+        "title": "Go to Next Session Needing You",
+        "category": "Berth",
+        "icon": "$(bell)"
+      },
+      {
         "command": "berth.refresh",
         "title": "Refresh",
         "category": "Berth",
@@ -111,9 +117,14 @@
           "group": "navigation@1"
         },
         {
-          "command": "berth.refresh",
+          "command": "berth.nextAttention",
           "when": "view == berth.sessions",
           "group": "navigation@2"
+        },
+        {
+          "command": "berth.refresh",
+          "when": "view == berth.sessions",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -178,7 +189,14 @@
           "description": "When a session is shown, reveal its folder in the explorer (only for folders inside the workspace)."
         }
       }
-    }
+    },
+    "keybindings": [
+      {
+        "command": "berth.nextAttention",
+        "key": "ctrl+alt+u",
+        "mac": "cmd+alt+u"
+      }
+    ]
   },
   "scripts": {
     "build": "tsc -p tsconfig.extension.json && tsc -p tsconfig.json && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs",
