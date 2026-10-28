@@ -177,8 +177,9 @@ When the agent exits, the session ends — Berth does not leave a stray shell.
 
 ### 5.3 Snapshot
 
-- Location: `$XDG_STATE_HOME/berth/snapshots/<UTC timestamp>/`
-  (default `~/.local/state/berth/…`). Overridable in config.
+- Location: `$XDG_STATE_HOME/berth/servers/<tmux socket or "default">/snapshots/<UTC timestamp>/`
+  (default `~/.local/state/berth/…`). State is kept per tmux server, so one
+  server's snapshots never restore into another. Overridable in config.
 - Contents:
   - `sessions.json` — one entry per managed session: name, cwd, agent, argv,
     conversation id, origin.

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { killServer, sandbox, waitFor } from './helpers.js';
+import { CLI, killServer, sandbox, waitFor } from './helpers.js';
 import type { SessionRow } from '../src/registry/sessions.js';
 
 const rows = (sb: ReturnType<typeof sandbox>) => JSON.parse(sb.cli('ls', '--json').stdout) as SessionRow[];
@@ -92,10 +92,21 @@ test('C12.11 a stale lock from a crashed ensure is taken over', async (t) => {
   sb.cli('new', 'claude', '--cwd', sb.makeDir('e11'));
   sb.cli('snapshot');
   killServer(sb);
-  const lock = join(sb.env.XDG_STATE_HOME, 'berth', 'ensure.lock');
+  const lock = join(sb.env.XDG_STATE_HOME, 'berth', 'servers', sb.socket, 'ensure.lock');
   mkdirSync(lock, { recursive: true });
   writeFileSync(join(lock, 'pid'), '999999');
   const started = Date.now();
   assert.match(sb.cli('ensure').stdout, /e11\tlaunched/);
   assert.ok(Date.now() - started < 10_000, 'did not wait for the dead owner');
+});
+
+test('C12.13 snapshots of one tmux server never restore into another', async (t) => {
+  const sb = sandbox(t);
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('mine'));
+  sb.cli('snapshot');
+  const other = { ...sb.env, BERTH_TMUX_SOCKET: `${sb.socket}-other` };
+  const { spawnSync } = await import('node:child_process');
+  const r = spawnSync(process.execPath, [CLI, 'ensure'], { env: other, encoding: 'utf8' });
+  assert.equal(r.stdout.trim(), 'nothing to restore');
+  spawnSync('tmux', ['-L', `${sb.socket}-other`, 'kill-server'], { env: other });
 });

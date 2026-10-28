@@ -70,10 +70,13 @@ export function loadConfig(env: Env = process.env): BerthConfig {
   const file = readFile(configPath(env));
   const tmux = (file.tmux ?? {}) as Record<string, unknown>;
   const snapshot = (file.snapshot ?? {}) as Record<string, unknown>;
-  const stateDir = env.BERTH_STATE_DIR || (typeof file.state_dir === 'string' ? file.state_dir : defaultStateDir(env));
+  const tmuxSocket = env.BERTH_TMUX_SOCKET || (typeof tmux.socket === 'string' ? tmux.socket : undefined);
+  // State is per tmux server: snapshots and locks of one server never restore into another.
+  const baseState = env.BERTH_STATE_DIR || (typeof file.state_dir === 'string' ? file.state_dir : defaultStateDir(env));
+  const stateDir = join(baseState, 'servers', tmuxSocket ?? 'default');
   return {
     tmuxBin: env.BERTH_TMUX || (typeof tmux.binary === 'string' ? tmux.binary : 'tmux'),
-    tmuxSocket: env.BERTH_TMUX_SOCKET || (typeof tmux.socket === 'string' ? tmux.socket : undefined),
+    tmuxSocket,
     stateDir,
     snapshotRoot: typeof snapshot.root === 'string' ? snapshot.root : join(stateDir, 'snapshots'),
     scrollbackLines: positiveInt(snapshot.scrollback_lines, 'snapshot.scrollback_lines', 3000),

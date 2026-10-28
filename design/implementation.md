@@ -89,7 +89,7 @@ rows carry `managed: false` and empty Berth fields.
 
 - Default session name: basename of the cwd, reduced to `[A-Za-z0-9_-]`;
   on collision append `-2`, `-3`, … .
-- `ensure` takes `<state dir>/ensure.lock` (a directory created atomically,
+- `ensure` takes `<state dir>/ensure.lock` (the state dir is per tmux server) (a directory created atomically,
   holding the owner's PID). A lock whose PID is dead is taken over; otherwise
   callers wait up to 30 s, then exit 1.
 
@@ -144,6 +144,7 @@ adapter lists its keep-set explicitly; anything not listed is dropped.
 11. Stale lock from a crashed `ensure` (§2.4).
 12. Hook installed twice: idempotent; uninstall removes only Berth's entries
     and leaves the agent's other hooks untouched.
+13. Snapshots of one tmux server are never restored into another.
 
 ## 5. Test isolation (MUST)
 
