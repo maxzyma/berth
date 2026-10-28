@@ -273,14 +273,22 @@ manual cases are recorded as checked, and the de-identification check passes.
 
 ### Milestone 3 — Berth for iTerm2
 
-- **I1** `iterm2 install` writes the AutoLaunch script and one profile per
-  `iterm2`-origin session, with absolute tool paths.
-- **I2** A profile's command is attach-or-heal (checked as text).
-- **I3** After the tmux server dies, running a profile's command on a terminal
-  (what an iTerm2 tab does) rebuilds the session, resumes its conversation id
-  and attaches — automated with a pseudo-terminal. (manual) In iTerm2 itself:
-  the AutoLaunch script opens only iTerm2's sessions; tab state and
-  notifications appear.
+- **I1** `iterm2 install` writes only the AutoLaunch script, with absolute tool
+  paths; `iterm2 uninstall` removes it; no profiles are written.
+- **I2** With `berth tmux install`, attaching an iTerm2 client to a managed
+  session (or switching it to one) writes `SetUserVar=berthSession` to that
+  client's tty and stamps origin `iterm2`; other clients get neither.
+- **I3** `iterm2 reattach <name>` rebuilds a missing session from the newest
+  snapshot (resume template, conversation id) and prints the configured
+  attach command; for a live session it only prints the command.
+- **I4** For iTerm2 clients the presenter writes `OSC 21337` status for working,
+  waiting and done and clears it otherwise; no badge, tab colour, OSC 9 or
+  OSC 9;4.
+- **I5** (manual) Quit iTerm2 with several windows, tabs and splits showing
+  sessions; reopen: the same layout returns and every pane is back in its
+  session. Repeat after a crash (kill iTerm2) and after a reboot, where each
+  session is rebuilt and resumes its conversation. Record whether user
+  variables survived each case (spec §12).
 
 ### Milestone 4 — public release
 
@@ -302,7 +310,7 @@ Cases marked (human) need the maintainer's decision or accounts.
 - **R5** (human) Create the `berthdev` npm organization and Marketplace
   publisher, then publish `@berthdev/berth` and the extension. Until then,
   each release attaches the npm tarball and the `.vsix` to its GitHub release.
-- **R6** (human) Run the manual cases V8, V9, I3 following
+- **R6** (human) Run the manual cases V8, V9, I5 following
   [manual-acceptance.md](manual-acceptance.md), and `npm run test:vscode`,
   before each release.
 

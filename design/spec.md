@@ -30,9 +30,9 @@ them sit on one core. Each host is supported for its own reason:
 
 - **VS Code** — the full editor and its extension ecosystem: source control and
   diff, language servers, remote workspaces, settings sync.
-- **iTerm2** — a lighter host for agent work without an editor window, with
-  its own scripting surface (Python API, toolbelt, triggers) and community
-  extensions built on it, such as file viewers.
+- **iTerm2** — a lighter host for agent work without an editor window. iTerm2
+  already restores its windows, tabs and split panes; Berth makes each
+  restored pane return to the agent session it showed (§7).
 
 Across hosts, one set of live sessions is shared: a session attached in one
 host can be attached in the other, and returns after a restart to the host
@@ -152,7 +152,8 @@ The VS Code extension is published to the Marketplace, not npm.
 | `berth hooks install\|uninstall <agent>` | Agent hooks (§4.2). |
 | `berth bell --session <s>` | A bell rang in the session (run by the tmux hook, §4.2). |
 | `berth tmux install\|uninstall` | Managed block in the user's tmux config: snapshot hooks, optional session picker key. |
-| `berth iterm2 install\|uninstall` | Install the iTerm2 frontend (§7). |
+| `berth iterm2 install\|uninstall` | Install the iTerm2 AutoLaunch script (§7.3). |
+| `berth iterm2 reattach <session>` | Rebuild the session if missing, then print its attach command (§7.3). |
 
 ### 5.2 Launch
 
@@ -186,7 +187,8 @@ When the agent exits, the session ends — Berth does not leave a stray shell.
   - `scrollback/<name>.txt` — last N lines of each pane (default 3000), for
     reading only.
 - Triggers: `berth snapshot`; tmux hooks on session created / renamed / closed
-  (installed by `berth tmux install`, which also hooks `alert-bell`, §4.2).
+  (installed by `berth tmux install`, which also hooks `alert-bell`, §4.2,
+  and `client-attached` / `client-session-changed`, §7.3).
 - Retention: newest K snapshots (default 5).
 - Snapshots contain conversation text and are never meant for version control.
 
@@ -284,22 +286,70 @@ Berth runs with no config file.
 
 ## 7. Berth for iTerm2
 
-- `berth iterm2 install` writes an AutoLaunch script (iTerm2 Python API) and one
-  dynamic profile per `iterm2`-origin session.
-- Each profile's command is attach-or-heal: attach; if the session is missing,
-  `berth ensure --origin iterm2 <session>`; attach again. After a reboot the
-  first tab rebuilds and the rest attach.
-- Session list: live tmux when a server is running, else the newest snapshot.
+### 7.1 Role
+
+After iTerm2 quits — normally or by crashing — or the machine restarts, the
+user gets back the same windows, tabs and split panes, and every pane is back
+in the agent session it was showing, with that agent's conversation resumed.
+
+That is all Berth does in iTerm2. It has no session list in iTerm2, no layout
+model of its own, and never opens tabs for sessions that were not showing.
+Sessions are still started with the user's own launcher (§5.2).
+
+### 7.2 Who does what
+
+Berth only fills the gaps between capabilities that already exist.
+
+| Concern | Done by |
+|---|---|
+| Windows, tabs, split panes and their sizes | iTerm2 window restoration |
+| Agent processes surviving an iTerm2 quit or crash | tmux |
+| Rebuilding sessions after a reboot, resuming conversations | Berth core (`ensure`, §5.4) |
+| Remembering which session each pane showed | Berth: a user variable on the pane (§7.3) |
+| Putting each restored pane back in its session | Berth's AutoLaunch script (§7.3) |
+| Starting sessions | the user's launcher, unchanged |
+| Agent state on the tab | iTerm2's tab status indicator, written by Berth (§7.4) |
+
+iTerm2's own agent hooks (`it2 handle-agent-hook`) do not report from panes of
+plain tmux sessions — iTerm2 cannot tell which tab shows such a pane — so for
+these sessions Berth writes the state itself.
+
+### 7.3 Restoring panes
+
+1. **Marking.** `berth tmux install` also hooks tmux's `client-attached` and
+   `client-session-changed`. When the client is iTerm2 (tmux's
+   `client_termtype`), Berth writes `OSC 1337 ; SetUserVar=berthSession=<name,
+   base64>` to that client's tty and stamps the session's origin `iterm2`
+   (§4.1). The variable belongs to the iTerm2 pane and is saved with it.
+   Clients of other terminals are left alone.
+2. **Reattaching.** `berth iterm2 install` writes an AutoLaunch script that
+   runs when iTerm2 starts, after iTerm2 has restored its windows. For every
+   pane whose `user.berthSession` is set and which is not attached to tmux,
+   it runs `berth iterm2 reattach <name>`: the core rebuilds the session if it
+   is missing (resuming its conversation) and prints the attach command, which
+   the script sends to the pane's shell. The attach command is configurable
+   (`[iterm2] attach`, default `tmux attach-session -t ={session}`), so a user
+   whose launcher also attaches can keep using it.
+3. A pane whose session no longer exists and is in no snapshot is left as a
+   shell; `berth doctor` lists it.
+
+### 7.4 Agent state on the tab
+
+For iTerm2 clients the state presenter (§6) writes iTerm2's tab status
+sequence `OSC 21337 ; indicator=<colour> ; status=<text> ; status-color=<colour>`:
+a dot and a subtitle for working, waiting (with the latest note) and done,
+cleared when there is no state. It writes no badge, tab colour or
+notification, and no OSC 9;4, which older iTerm2 versions show as notification
+text.
+
+### 7.5 Requirements and coexistence
+
+- iTerm2 3.7 or later (tab status sequence), Python API enabled, and window
+  restoration on in iTerm2 and macOS.
 - iTerm2 starts AutoLaunch scripts with a minimal `PATH`; the installer records
-  absolute paths to `tmux` and `berth`.
-- **Agent state on tabs.** iTerm2 lets a running session change its tab
-  colour, title and badge, so `@berth_state` is shown there directly.
-- **Notifications** through iTerm2's own notification sequence (OSC 9) when an
-  agent starts waiting or finishes.
-- **Coexistence.** Berth uses iTerm2's documented surfaces only and leaves room
-  for other iTerm2 extensions; it does not take over profiles it did not write.
-- A session list in the toolbelt is optional, added only if users manage many
-  sessions from iTerm2 alone.
+  absolute paths to `node`, `berth` and `tmux`.
+- Berth writes no profiles. Another script that reopens one tab per session
+  at startup duplicates panes that iTerm2 already restores; keep only one.
 
 ## 8. Agent adapters
 
@@ -373,15 +423,16 @@ from MIT-licensed projects keep their notices.
    `restore`, hooks, every agent in §8; reboot test: every managed session returns, resumed into
    its own conversation.
 2. **VS Code frontend.** Session view, actions, startup reopen, layout preset.
-3. **iTerm2 frontend.**
+3. **iTerm2 frontend** (§7).
 4. **Public release.** Choose license, scan history for private identifiers,
    publish packages.
 
 ## 12. Open questions
 
-- iTerm2 surfaces in §7 (tab colour / badge updates, notifications, toolbelt
-  web views) are stated from experience and need checking against the current
-  Python API before implementation.
+- Whether iTerm2 keeps a pane's user variables through window restoration
+  after a quit, a crash and a reboot (§7.3). If not, the AutoLaunch script
+  records the arrangement (`Arrangement.async_save`) with the session of each
+  pane in order, and restores that instead.
 - Which host-native features beyond the session view earn a place (for
   example a per-session changes view built on VS Code's source control), judged
   by the rule in §2.

@@ -4,7 +4,7 @@
 
 本文是英文版的译文，两者不一致时以英文版为准。
 
-自动化测试覆盖不了的用例按本文手动验收：V8、V9，以及 I3 中需要在 iTerm2 里实际操作的部分（见[实现约定 §6](implementation.md#6-acceptance-cases)）。每次发布前都要做一遍，结果填进发布说明里的记录表。
+自动化测试覆盖不了的用例按本文手动验收：V8、V9 和 I5（见[实现约定 §6](implementation.md#6-acceptance-cases)）。每次发布前都要做一遍，结果填进发布说明里的记录表。
 
 开始前确认：tmux 版本 ≥ 3.0；已从发布页安装 `berth` 命令和 Berth 插件；装完插件后 VS Code 重新加载过窗口。测试会话一律以 `accept-` 开头命名，方便事后清理。
 
@@ -32,18 +32,16 @@ macOS 上需要先装 `terminal-notifier`（`brew install terminal-notifier`）�
 
 同时开着两个 VS Code 实例时，macOS 激活的是整个应用，被拉到前台的可能是另一个实例的窗口；这种情况也算通过。
 
-## I3：iTerm2 自动接回属于它的会话
+## I5：iTerm2 恢复布局，每个窗格回到原来的会话
 
-1. 运行 `berth iterm2 install`。如果 iTerm2 询问是否允许脚本使用 Python API，选允许。
-2. 建两个会话，一个归 iTerm2，一个归 VS Code：
-   `berth new claude --name accept-iterm --origin iterm2 --cwd ~`
-   `berth new claude --name accept-code --origin vscode --cwd ~`
-3. 运行 `berth snapshot`。
-4. 退出 iTerm2（会话在 tmux 里继续运行）。确认没有终端接在 `accept-iterm` 上：`tmux list-clients -t accept-iterm` 没有输出。
-5. 重新打开 iTerm2。预期：自动打开一个名为 "Berth: accept-iterm" 的标签并接上该会话；不会为 `accept-code` 打开标签。
-6. 在另一个终端运行 `berth stamp --session accept-iterm state=waiting`。预期：该标签出现 "◐ waiting" 角标，标签变成琥珀色，同时弹出 iTerm2 通知。
-7. 重启路径（可选，需要重启电脑）：重复第 2–3 步，重启电脑，打开 iTerm2。预期：`accept-iterm` 被重建并接上；如果之前记录过对话，会续接原对话。
-8. 清理：`tmux kill-session -t accept-iterm; tmux kill-session -t accept-code; berth iterm2 uninstall`。
+需要：iTerm2 3.7 或更高版本，已开启 Python API；已开启窗口恢复（iTerm2 设置 → General → Startup，以及 macOS 系统设置 → 桌面与程序坞 → 关闭"退出应用时关闭窗口"）；已执行 `berth tmux install` 和 `berth iterm2 install`。其他"开机为每个会话开一个标签"的脚本要先关掉。
+
+1. 在 iTerm2 里摆一个布局：两个窗口；第一个窗口两个标签，其中一个左右分屏。每个窗格用你平时的启动方式开或接一个 agent 会话，记下哪个窗格是哪个会话。
+2. **正常退出**：退出 iTerm2（⌘Q）再打开。预期：窗口、标签、分屏都和原来一样；几秒内每个窗格都回到原来的会话。
+3. **崩溃**：在 iTerm2 以外的终端运行 `kill -9 $(pgrep -x iTerm2)`，再打开 iTerm2。预期同第 2 步。
+4. **状态**：运行 `berth stamp --session <会话名> state=waiting note="manual check"`。预期：该窗格的标签出现状态点和副标题 "manual check"；`state=` 可清除。
+5. **重启**（可选）：重启电脑后打开 iTerm2。预期：布局恢复，每个会话被重建，agent 续接原对话。
+6. 记录第 2、3、5 步窗格是否自动回到原会话；如果没有，说明 iTerm2 没有保留窗格的用户变量（见规格 §12）。
 
 ## V8：远程工作区
 
@@ -62,4 +60,4 @@ macOS 上需要先装 `terminal-notifier`（`brew install terminal-notifier`）�
 |---|---|---|---|---|
 | V8 | | | | |
 | V9 | | | | |
-| I3 | | | | |
+| I5 | | | | |

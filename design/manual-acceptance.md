@@ -2,8 +2,8 @@
 
 **English** · [简体中文](manual-acceptance.zh-CN.md)
 
-Steps for the cases automated tests cannot cover: V8, V9 and the in-iTerm2
-part of I3 ([implementation §6](implementation.md#6-acceptance-cases)). Run
+Steps for the cases automated tests cannot cover: V8, V9 and I5
+([implementation §6](implementation.md#6-acceptance-cases)). Run
 them before each release and record the result at the end of this file's
 copy in the release notes.
 
@@ -43,27 +43,30 @@ Needs, on macOS, `terminal-notifier` (`brew install terminal-notifier`).
 With two VS Code instances open, macOS brings forward the application, which
 may show the other instance's window; that still counts as a pass.
 
-## I3 — iTerm2 reopens its own sessions
+## I5 — iTerm2 restores its layout and every pane's session
 
-1. `berth iterm2 install`. If iTerm2 asks whether the script may use the
-   Python API, allow it.
-2. Create one session for iTerm2 and one for VS Code:
-   `berth new claude --name accept-iterm --origin iterm2 --cwd ~`
-   `berth new claude --name accept-code --origin vscode --cwd ~`
-3. `berth snapshot`
-4. Quit iTerm2 (sessions keep running in tmux). Make sure no terminal is
-   attached to `accept-iterm`: `tmux list-clients -t accept-iterm` prints
-   nothing.
-5. Start iTerm2. Expected: a tab "Berth: accept-iterm" opens attached to that
-   session; no tab opens for `accept-code`.
-6. Run `berth stamp --session accept-iterm state=waiting` from another
-   terminal. Expected: the tab shows a "◐ waiting" badge, an amber tab colour
-   and an iTerm2 notification.
-7. Reboot path (optional, needs a restart): repeat 2–3, restart the machine,
-   start iTerm2. Expected: `accept-iterm` is rebuilt and attached; it
-   resumes its conversation when one was recorded.
-8. Clean up: `tmux kill-session -t accept-iterm; tmux kill-session -t
-   accept-code; berth iterm2 uninstall`.
+Needs iTerm2 3.7 or later with the Python API enabled, window restoration on
+(iTerm2 Settings → General → Startup, and macOS System Settings → Desktop &
+Dock → *Close windows when quitting an application* off), and
+`berth tmux install` and `berth iterm2 install` done. Turn off any other
+startup script that reopens one tab per session.
+
+1. In iTerm2 build a layout: two windows; in the first, two tabs, one of them
+   split vertically. In each pane, start or attach an agent session with your
+   usual launcher. Note which session is in which pane.
+2. **Quit.** Quit iTerm2 (⌘Q) and start it again. Expected: the same windows,
+   tabs and splits; within a few seconds every pane is back in the session it
+   showed.
+3. **Crash.** From a terminal outside iTerm2: `kill -9 $(pgrep -x iTerm2)`;
+   start iTerm2. Expected: as in step 2.
+4. **State.** `berth stamp --session <name> state=waiting note="manual check"`.
+   Expected: that pane's tab shows a status dot and the subtitle "manual
+   check"; `state=` clears it.
+5. **Reboot** (optional): restart the machine and start iTerm2. Expected: the
+   layout returns, each session is rebuilt and its agent resumes its
+   conversation.
+6. Record for steps 2, 3 and 5 whether panes came back by themselves; if not,
+   iTerm2 dropped the panes' user variables (spec §12).
 
 ## V8 — Remote workspaces
 
@@ -90,4 +93,4 @@ release; record which.
 |---|---|---|---|---|
 | V8 | | | | |
 | V9 | | | | |
-| I3 | | | | |
+| I5 | | | | |
