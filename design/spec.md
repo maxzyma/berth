@@ -336,9 +336,12 @@ Checked 2026-10-25.
 - **agent-deck** (TUI / web): broad session manager outside the editor.
 - **tmux-assistant-resurrect** and similar tmux-resurrect plugins: resume
   agents by recorded id after a reboot; no editor integration.
-- **cmux** (macOS terminal app on Ghostty): vertical tabs, notifications,
-  embedded browser; restores layout and resumes 17 agent CLIs by hook-recorded
-  id. Live processes end when the app quits. No editor integration. Its
+- **cmux** (macOS terminal app on Ghostty): workspaces, splits, vertical tabs
+  showing branch, PR, cwd, ports and the latest notification; a notification
+  panel, pane rings and a jump-to-latest-unread key; embedded scriptable
+  browser; CLI and socket API; SSH workspaces. Restores layout and resumes
+  agent CLIs by hook-recorded id; live processes end when the app quits
+  unless tmux / zellij backing is opted into. No editor integration. Its
   vertical-tab content and hook-based agent state are the reference for the
   VS Code session view and `@berth_state`. Licensed GPL-3.0-or-later (server
   parts BUSL-1.1): Berth takes behaviour and design from it, not code.
