@@ -12,5 +12,6 @@ export { takeSnapshot } from './snapshot/take.js';
 export { ensure, restoreFrom, type RestoreResult } from './restore/ensure.js';
 export { presentState, sequencesFor } from './present/state.js';
 export { installTmux, uninstallTmux } from './tmux/install.js';
-export { installIterm2, uninstallIterm2, attachOrHeal, profilesJson, autoLaunchScript, type Tools } from './iterm2/install.js';
+export { installIterm2, uninstallIterm2, reattach, attachCommand, autoLaunchScript, type Tools } from './iterm2/install.js';
+export { clientAttached, PANE_VARIABLE } from './present/attach.js';
 export { toolsFor, resolveBinary } from './tools.js';

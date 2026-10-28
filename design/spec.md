@@ -131,6 +131,23 @@ and are removed by `berth hooks uninstall <agent>`.
 
 TypeScript library plus the `berth` CLI. Node ≥ 20. No editor dependency.
 
+The core is the shared kernel of every host. It owns everything about
+sessions — metadata, launch and resume, snapshots and restore, bells, which
+terminal a client belongs to, and how state is shown on that terminal — so a
+session behaves the same whichever host shows it, and can move between hosts.
+A frontend only does what its host alone can do:
+
+| | Berth for VS Code (§6) | Berth for iTerm2 (§7) |
+|---|---|---|
+| Uses the core | in-process (bundled library) | through the CLI, from an AutoLaunch script |
+| Shows sessions | its sessions view and one session terminal | the panes iTerm2 restores |
+| Layout | VS Code's own parts, set by the layout preset | iTerm2's own window restoration |
+| Asks the core to | list, show, rebuild, adopt, stamp origin `vscode` | reattach a pane's session |
+| State on terminals | core presenter, VS Code sequences | core presenter, iTerm2 sequences |
+| Pane ↔ session | tracked by the extension | user variable written by the core on attach |
+
+Adding a host means writing such a column, not changing the core's model.
+
 Published under the npm organization scope `@berthdev`: core and CLI ship as
 `@berthdev/berth` with the `berth` binary; later packages use the same scope.
 The VS Code extension is published to the Marketplace, not npm.

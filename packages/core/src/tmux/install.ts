@@ -12,6 +12,7 @@ import type { Tmux } from './client.js';
 const BEGIN = '# >>> berth >>>';
 const END = '# <<< berth <<<';
 const EVENTS = ['session-created', 'session-renamed', 'session-closed'];
+const ATTACH_EVENTS = ['client-attached', 'client-session-changed'];
 const INDEX = 97;
 
 function hookArgs(cliPath: string): string[][] {
@@ -19,9 +20,12 @@ function hookArgs(cliPath: string): string[][] {
   const snapshot = `${berth} snapshot >/dev/null 2>&1`;
   // A bell asks for attention: agents without hooks become `waiting`.
   const bell = `${berth} bell --session '#{session_name}' >/dev/null 2>&1`;
+  // Marks iTerm2 panes with their session and shows state on the new client (spec §7.3).
+  const attached = `${berth} attached --session '#{session_name}' --tty '#{client_tty}' --termtype '#{client_termtype}' >/dev/null 2>&1`;
   return [
     ...EVENTS.map((event) => ['set-hook', '-g', `${event}[${INDEX}]`, `run-shell -b ${JSON.stringify(snapshot)}`]),
     ['set-hook', '-g', `alert-bell[${INDEX}]`, `run-shell -b ${JSON.stringify(bell)}`],
+    ...ATTACH_EVENTS.map((event) => ['set-hook', '-g', `${event}[${INDEX}]`, `run-shell -b ${JSON.stringify(attached)}`]),
   ];
 }
 
@@ -53,6 +57,6 @@ export function uninstallTmux(tmux: Tmux, env = process.env): string {
     const rest = withoutBlock(readFileSync(file, 'utf8')).replace(/\s*$/, '');
     writeFileSync(file, rest ? `${rest}\n` : '');
   }
-  if (tmux.serverRunning()) for (const event of [...EVENTS, 'alert-bell']) tmux.run(['set-hook', '-gu', `${event}[${INDEX}]`], true);
+  if (tmux.serverRunning()) for (const event of [...EVENTS, 'alert-bell', ...ATTACH_EVENTS]) tmux.run(['set-hook', '-gu', `${event}[${INDEX}]`], true);
   return file;
 }

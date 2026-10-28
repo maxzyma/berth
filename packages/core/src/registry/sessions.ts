@@ -119,7 +119,10 @@ export function stamp(ctx: Context, name: string, values: Record<string, string>
   }
   ctx.tmux.setMeta(name, meta);
   // A state change shows on attached terminals whoever reports it (spec §6, §7).
-  if (meta.state !== undefined) presentState(ctx.tmux, name, meta.state);
+  if (meta.state !== undefined) {
+    const note = meta.note ?? ctx.tmux.listSessions().find((s) => s.name === name)?.meta.note;
+    presentState(ctx.tmux, name, meta.state, { note });
+  }
 }
 
 /** Note that marks a waiting state raised by a terminal bell rather than a hook. */

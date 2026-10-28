@@ -122,7 +122,7 @@ export class Controller {
     if (row) this.host.sessionShown?.(row);
     const state = row?.state ?? '';
     // Re-show state once the client is on the session.
-    setTimeout(() => presentState(this.ctx.tmux, name, state), 500);
+    setTimeout(() => presentState(this.ctx.tmux, name, state, { note: row?.note }), 500);
   }
 
   /** Show the next session waiting for the user, or unread; returns it. */

@@ -126,7 +126,7 @@ export function handleHook(agentId: string, event: string, stdin: string, env = 
     const session = tmux.sessionOfPane(pane);
     if (!session) return {};
     tmux.setMeta(session, meta);
-    if (meta.state) presentState(tmux, session, meta.state);
+    if (meta.state) presentState(tmux, session, meta.state, { note: meta.note });
     return meta;
   } catch {
     return {};

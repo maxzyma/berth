@@ -9,61 +9,75 @@ import { iterm2Paths } from '../src/iterm2/install.js';
 import { clearBell } from '../src/registry/sessions.js';
 import { Tmux } from '../src/tmux/client.js';
 
-test('I1 iterm2 install writes the AutoLaunch script and one profile per iterm2 session', async (t) => {
+test('I1 iterm2 install writes only the AutoLaunch script; uninstall removes it', async (t) => {
   const sb = sandbox(t);
-  sb.cli('new', 'claude', '--cwd', sb.makeDir('mine'), '--origin', 'iterm2');
-  sb.cli('new', 'claude', '--cwd', sb.makeDir('editor'), '--origin', 'vscode');
+  const paths = iterm2Paths(sb.env);
+  mkdirSync(join(paths.legacyProfiles, '..'), { recursive: true });
+  writeFileSync(paths.legacyProfiles, '{"Profiles":[]}');
   const r = sb.cli('iterm2', 'install');
   assert.equal(r.status, 0, r.stderr);
-  const paths = iterm2Paths(sb.env);
   const script = readFileSync(paths.script, 'utf8');
   assert.ok(statSync(paths.script).mode & 0o100, 'script is executable');
   assert.ok(script.includes(process.execPath), 'absolute node path');
   assert.match(script, /"--socket","berth-test-/);
+  assert.match(script, /user\.berthSession/);
+  assert.ok(!existsSync(paths.legacyProfiles), 'profiles from earlier versions are removed');
   const compiled = spawnSync('python3', ['-c', 'import ast,sys; ast.parse(open(sys.argv[1]).read())', paths.script], { encoding: 'utf8' });
   assert.equal(compiled.status, 0, compiled.stderr);
-  const profiles = JSON.parse(readFileSync(paths.profiles, 'utf8')).Profiles as { Name: string; Command: string; Guid: string }[];
-  assert.deepEqual(profiles.map((p) => p.Name), ['Berth: mine']);
-  assert.match(profiles[0].Command, /^\/bin\/sh -c /);
-  assert.ok(/\/tmux/.test(profiles[0].Command), 'absolute tmux path');
-
-  // Profiles follow the sessions on every snapshot once installed.
-  sb.cli('new', 'codex', '--cwd', sb.makeDir('later'), '--origin', 'iterm2');
-  sb.cli('snapshot');
-  const after = JSON.parse(readFileSync(paths.profiles, 'utf8')).Profiles as { Name: string }[];
-  assert.deepEqual(after.map((p) => p.Name).sort(), ['Berth: later', 'Berth: mine']);
-
   assert.equal(sb.cli('iterm2', 'uninstall').status, 0);
-  assert.ok(!existsSync(paths.script) && !existsSync(paths.profiles));
+  assert.ok(!existsSync(paths.script));
 });
 
-test('I2 a profile command is attach-or-heal', async (t) => {
+test('I2 an iTerm2 client attaching marks its pane and moves origin; other clients are not marked', async (t) => {
   const sb = sandbox(t);
-  sb.cli('new', 'claude', '--cwd', sb.makeDir('heal'), '--origin', 'iterm2');
-  sb.cli('iterm2', 'install');
-  const [profile] = JSON.parse(readFileSync(iterm2Paths(sb.env).profiles, 'utf8')).Profiles as { Command: string }[];
-  const inner = profile.Command;
-  const attach = inner.indexOf('attach-session');
-  const ensure = inner.indexOf('ensure --origin iterm2');
-  const reattach = inner.lastIndexOf('attach-session');
-  assert.ok(attach >= 0 && ensure > attach && reattach > ensure, inner);
-  assert.ok(inner.includes('=heal'));
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('m'), '--origin', 'vscode');
+  sb.cli('stamp', '--session', 'm', 'state=waiting', 'note=approve rm');
+  const tty = (name: string) => {
+    const file = join(sb.root, name);
+    writeFileSync(file, '');
+    return file;
+  };
+  const vscodeTty = tty('vscode-tty');
+  sb.cli('attached', '--session', 'm', '--tty', vscodeTty, '--termtype', 'xterm.js(6.1.0)');
+  assert.ok(!readFileSync(vscodeTty, 'utf8').includes('SetUserVar'));
+  assert.ok(readFileSync(vscodeTty, 'utf8').includes('9;4;4;0'), 'VS Code client is shown the state');
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=m:', '#{@berth_origin}').trim(), 'vscode');
+
+  const itermTty = tty('iterm-tty');
+  sb.cli('attached', '--session', 'm', '--tty', itermTty, '--termtype', 'iTerm2 3.7.0');
+  const written = readFileSync(itermTty, 'utf8');
+  assert.ok(written.includes(`1337;SetUserVar=berthSession=${Buffer.from('m').toString('base64')}`), 'pane marked');
+  assert.ok(written.includes('21337;indicator=#ebaa28;status=approve rm'), 'iTerm2 tab status');
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=m:', '#{@berth_origin}').trim(), 'iterm2', 'origin follows the attach');
+
+  sb.tmux('new-session', '-d', '-s', 'plain', 'sleep 3600');
+  const plainTty = tty('plain-tty');
+  sb.cli('attached', '--session', 'plain', '--tty', plainTty, '--termtype', 'iTerm2 3.7.0');
+  assert.equal(readFileSync(plainTty, 'utf8'), '', 'unmanaged sessions are not marked');
 });
 
-test('I3 (automated part) after a reboot, opening a profile rebuilds its session and attaches', async (t) => {
+test('I3 reattach rebuilds a missing session and prints the attach command', async (t) => {
   const sb = sandbox(t);
-  sb.cli('new', 'claude', '--cwd', sb.makeDir('reboot'), '--origin', 'iterm2');
-  sb.cli('stamp', '--session', 'reboot', 'conversation=r1');
-  sb.cli('iterm2', 'install');
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('r'), '--origin', 'iterm2');
+  sb.cli('stamp', '--session', 'r', 'conversation=r1');
   sb.cli('snapshot');
-  const [profile] = JSON.parse(readFileSync(iterm2Paths(sb.env).profiles, 'utf8')).Profiles as { Command: string }[];
+  const live = sb.cli('iterm2', 'reattach', 'r');
+  assert.match(live.stdout.trim(), new RegExp(`tmux -L ${sb.socket} attach-session -t '?=r'?$`));
   killServer(sb);
-  // What an iTerm2 tab does with the profile: run its command, verbatim, on a terminal.
-  const tab = spawn('script', ['-q', '/dev/null', '/bin/sh', '-c', profile.Command], { env: sb.env, stdio: 'ignore' });
-  t.after(() => tab.kill());
-  await waitFor(() => sb.ctx().tmux.hasSession('reboot'), 'session rebuilt', 10_000);
-  await waitFor(() => sb.tmux('list-clients', '-t', '=reboot', '-F', '#{client_name}').trim(), 'tab attached', 10_000);
-  assert.equal(sb.tmux('display-message', '-p', '-t', '=reboot:', '#{@berth_conversation}').trim(), 'r1');
+  const healed = sb.cli('iterm2', 'reattach', 'r');
+  assert.equal(healed.status, 0, healed.stderr);
+  assert.ok(sb.ctx().tmux.hasSession('r'), 'session rebuilt');
+  const argv = await waitFor(() => sb.argv('r')?.includes('resume') && sb.argv('r'), 'resumed');
+  assert.deepEqual(argv.slice(0, 3), ['claude', 'resume', 'r1']);
+  assert.equal(sb.cli('iterm2', 'reattach', 'nowhere').status, 4);
+});
+
+test('I3 a configured attach command replaces tmux attach', async (t) => {
+  const sb = sandbox(t);
+  const conf = join(sb.env.XDG_CONFIG_HOME, 'berth', 'config.toml');
+  writeFileSync(conf, `${readFileSync(conf, 'utf8')}\n[iterm2]\nattach = "my-launcher --attach {session}"\n`);
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('c'));
+  assert.equal(sb.cli('iterm2', 'reattach', 'c').stdout.trim(), 'my-launcher --attach c');
 });
 
 test('tmux install adds one managed block and snapshot hooks; uninstall removes only them', async (t) => {
@@ -80,6 +94,8 @@ test('tmux install adds one managed block and snapshot hooks; uninstall removes 
   const hooks = sb.tmux('show-hooks', '-g', 'session-created');
   assert.match(hooks, /session-created\[0\] display-message mine/);
   assert.match(hooks, /session-created\[97\] run-shell -b/);
+  assert.match(sb.tmux('show-hooks', '-g', 'client-attached'), /\[97\].*attached --session/);
+  assert.match(sb.tmux('show-hooks', '-g', 'client-session-changed'), /\[97\].*attached --session/);
 
   // A rename triggers a snapshot through the installed hook.
   sb.cli('new', 'claude', '--cwd', sb.makeDir('hooked'));
@@ -93,21 +109,21 @@ test('tmux install adds one managed block and snapshot hooks; uninstall removes 
   assert.doesNotMatch(left, /\[97\]/);
 });
 
-test('state sequences: progress and title for every terminal, badge and colour for iTerm2', () => {
+test('I4 state sequences: OSC 9;4 and title for most terminals, OSC 21337 status for iTerm2', () => {
   const plain = sequencesFor('working', 'web', false);
   assert.ok(plain.includes('\x1b]9;4;3;0\x07'));
   assert.ok(plain.includes('\x1b]2;● web\x07'));
-  assert.ok(!plain.includes('1337'));
-  const iterm = sequencesFor('waiting', 'web', true);
-  assert.ok(!iterm.includes(']9;4;'), 'no progress sequence for iTerm2');
-  assert.ok(iterm.includes(`1337;SetBadgeFormat=${Buffer.from('◐ waiting').toString('base64')}`));
-  assert.ok(iterm.includes('6;1;bg;red;brightness;235'));
-  assert.ok(iterm.includes('\x1b]9;web: waiting for you\x07'), 'iTerm2 notification');
-  assert.ok(!plain.includes(']9;web'), 'no notification text for other terminals');
-  assert.ok(sequencesFor('', 'web', true).includes('6;1;bg;*;default'));
+  assert.ok(!plain.includes('21337'));
+  const waiting = sequencesFor('waiting', 'web', true, 'needs; approval');
+  assert.equal(waiting, '\x1b]21337;indicator=#ebaa28;status=needs  approval;status-color=#ebaa28\x07');
+  assert.equal(sequencesFor('done', 'web', true), '\x1b]21337;indicator=#50b464;status=done;status-color=#50b464\x07');
+  assert.equal(sequencesFor('', 'web', true), '\x1b]21337;indicator=;status=\x07');
+  for (const seq of [waiting, sequencesFor('working', 'web', true)]) {
+    assert.ok(!/1337;SetBadgeFormat|6;1;bg|\]9;4;|\]9;[^4]/.test(seq), 'no badge, colour, progress or notification for iTerm2');
+  }
 });
 
-test('presentState writes to each attached client and ignores ones that are gone', (t) => {
+test('I4 presentState writes to each attached client and ignores ones that are gone', (t) => {
   const sb = sandbox(t);
   const ttys = join(sb.root, 'ttys');
   mkdirSync(ttys);
@@ -116,15 +132,16 @@ test('presentState writes to each attached client and ignores ones that are gone
   writeFileSync(vscode, '');
   writeFileSync(iterm, '');
   const tmux = new Tmux({ bin: 'tmux', socket: sb.socket });
-  const written = presentState(tmux, 'web', 'done', [
-    { tty: vscode, termtype: 'xterm.js' },
-    { tty: iterm, termtype: 'iTerm2 3.5.0' },
-    { tty: join(ttys, 'missing', 'tty'), termtype: '' },
-  ]);
+  const written = presentState(tmux, 'web', 'done', {
+    clients: [
+      { tty: vscode, termtype: 'xterm.js(6.1.0)' },
+      { tty: iterm, termtype: 'iTerm2 3.7.0' },
+      { tty: join(ttys, 'missing', 'tty'), termtype: '' },
+    ],
+  });
   assert.equal(written, 2);
   assert.ok(readFileSync(vscode, 'utf8').includes('9;4;0;0'));
-  assert.ok(!readFileSync(vscode, 'utf8').includes('1337'));
-  assert.ok(readFileSync(iterm, 'utf8').includes('1337;SetBadgeFormat'));
+  assert.ok(readFileSync(iterm, 'utf8').includes('21337;indicator=#50b464'));
 });
 
 test('C14 a terminal bell marks agents without hooks as waiting; hooked agents and seen sessions are left alone', async (t) => {

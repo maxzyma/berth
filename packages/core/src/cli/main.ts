@@ -13,7 +13,8 @@ import { takeSnapshot } from '../snapshot/take.js';
 import { ensure, restoreFrom, type RestoreResult } from '../restore/ensure.js';
 import { presentState } from '../present/state.js';
 import { installTmux, uninstallTmux } from '../tmux/install.js';
-import { installIterm2, refreshIterm2IfInstalled, uninstallIterm2 } from '../iterm2/install.js';
+import { installIterm2, reattach, uninstallIterm2 } from '../iterm2/install.js';
+import { clientAttached } from '../present/attach.js';
 import { toolsFor } from '../tools.js';
 
 const USAGE = `usage: berth <command> [options]
@@ -30,7 +31,8 @@ const USAGE = `usage: berth <command> [options]
   doctor [--json]
   hooks install|uninstall <agent>
   tmux install|uninstall                       snapshot hooks in ~/.tmux.conf
-  iterm2 install|uninstall                     Berth for iTerm2
+  iterm2 install|uninstall                     Berth for iTerm2 (AutoLaunch script)
+  iterm2 reattach <session>                    rebuild if missing, print attach command
   present <session>                            show its state on attached terminals
 
 global: --socket <name>   tmux -L socket (overrides BERTH_TMUX_SOCKET)`;
@@ -125,13 +127,12 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
     }
     case 'snapshot':
       out(takeSnapshot(ctx));
-      refreshIterm2IfInstalled(ctx, toolsFor(ctx, cliPath()));
       return ExitCode.ok;
     case 'present': {
       const name = need(rest[0], 'session');
       requireLive(ctx, name);
-      const state = ctx.tmux.listSessions().find((s) => s.name === name)?.meta.state ?? '';
-      out(String(presentState(ctx.tmux, name, state)));
+      const meta = ctx.tmux.listSessions().find((s) => s.name === name)?.meta ?? {};
+      out(String(presentState(ctx.tmux, name, meta.state ?? '', { note: meta.note })));
       return ExitCode.ok;
     }
     case 'tmux': {
@@ -141,9 +142,15 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
       return ExitCode.ok;
     }
     case 'iterm2': {
-      if (rest[0] === 'install') out(Object.values(installIterm2(ctx, toolsFor(ctx, cliPath()))).join('\n'));
-      else if (rest[0] === 'uninstall') out(Object.values(uninstallIterm2()).join('\n'));
-      else throw new BerthError(`iterm2: expected install or uninstall\n${USAGE}`, ExitCode.usage);
+      if (rest[0] === 'install') out(installIterm2(toolsFor(ctx, cliPath())).script);
+      else if (rest[0] === 'uninstall') out(uninstallIterm2().script);
+      else if (rest[0] === 'reattach') out(reattach(ctx, toolsFor(ctx, cliPath()), need(rest[1], 'session')));
+      else throw new BerthError(`iterm2: expected install, uninstall or reattach\n${USAGE}`, ExitCode.usage);
+      return ExitCode.ok;
+    }
+    case 'attached': {
+      const { values } = parse(rest, { session: { type: 'string' }, tty: { type: 'string' }, termtype: { type: 'string' } });
+      clientAttached(ctx, { session: need(values.session, '--session'), tty: need(values.tty, '--tty'), termtype: values.termtype ?? '' });
       return ExitCode.ok;
     }
     case 'ensure': {
