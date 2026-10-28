@@ -11,7 +11,7 @@ const LAYOUT_BACKUP = 'berth.layoutBackup';
 const WELCOMED = 'berth.welcomed';
 const BERTH_CONTAINER = 'workbench.view.extension.berth';
 /** Bump when Apply Agent Layout changes what it does, so users who applied an older one are offered the new one. */
-const LAYOUT_VERSION = 5;
+const LAYOUT_VERSION = 6;
 const APPLIED_LAYOUT = 'berth.appliedLayoutVersion';
 
 type Node = { kind: 'group'; group: GroupView } | { kind: 'unmanaged'; rows: RowView[] } | { kind: 'row'; row: RowView };
@@ -89,6 +89,10 @@ class TerminalHost implements Host {
     if (!this.main) return;
     this.main.session = session;
     this.main.terminal.show();
+  }
+
+  focusMain(): void {
+    this.main?.terminal.show(false);
   }
 
   /** Session shown by a terminal, if it is one of Berth's. */
@@ -202,8 +206,9 @@ export function activate(context: vscode.ExtensionContext): void {
     void (async () => {
       await vscode.commands.executeCommand('workbench.files.action.collapseExplorerFolders');
       await vscode.commands.executeCommand('revealInExplorer', vscode.Uri.file(target));
-      // Revealing focuses the explorer; give focus back to the terminal.
-      await vscode.commands.executeCommand('workbench.action.terminal.focus');
+      // Revealing focuses the explorer; give focus back to the session terminal
+      // (terminal.focus would create a panel shell when none is active).
+      host.focusMain();
     })();
   };
   host.onShown = follow;
@@ -282,6 +287,10 @@ export function activate(context: vscode.ExtensionContext): void {
     // Terminal view or the panel.
     await vscode.commands.executeCommand('vscode.moveViews', { viewIds: ['terminal'], destinationId: 'terminal' });
     await vscode.commands.executeCommand('workbench.action.positionPanelBottom');
+    // Session terminals live in the editor area; the panel (Problems, Output,
+    // plain shells) is closed and comes back with Cmd/Ctrl+J. It always spans the
+    // whole editor area, so it cannot sit under the files group alone.
+    await vscode.commands.executeCommand('workbench.action.closePanel');
     await vscode.commands.executeCommand(BERTH_CONTAINER);
   });
   command('berth.revertLayout', async () => {

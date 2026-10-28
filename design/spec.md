@@ -212,7 +212,8 @@ Berth runs with no config file.
   group locks, so files open in the group beside it. Left to right: Berth
   sessions (secondary side bar), session terminals, files, the explorer
   (primary side bar). The panel, with Problems, Output and plain terminals,
-  stays at the bottom. Berth does not move views it does not own, such as
+  stays at the bottom and is closed; it opens on demand. It spans the whole
+  editor area, so it cannot sit under the files group alone. Berth does not move views it does not own, such as
   Chat.
   *Revert Agent Layout* restores the settings and returns the panel to the
   bottom. On first activation the
