@@ -36,5 +36,16 @@
     "agents",
     "terminal"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "prepublishOnly": "tsc -b"
+  },
+  "homepage": "https://github.com/maxzyma/berth#readme",
+  "bugs": {
+    "url": "https://github.com/maxzyma/berth/issues"
+  }
 }
