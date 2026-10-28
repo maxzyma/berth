@@ -60,12 +60,13 @@ class TerminalHost implements Host {
   focusSession?: (name: string) => void;
   onShown?: (row: SessionRow) => void;
 
-  openTerminal(session: string, argv: string[], role: TerminalRole): void {
+  openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string): void {
     const [shellPath, ...shellArgs] = argv;
     // No `name`: VS Code then follows the title the session sets (`${sequence}`).
     const terminal = vscode.window.createTerminal({
       shellPath,
       shellArgs,
+      cwd,
       isTransient: true,
       location: { viewColumn: role === 'main' ? vscode.ViewColumn.One : vscode.ViewColumn.Beside, preserveFocus: false },
     });
@@ -105,10 +106,9 @@ class TerminalHost implements Host {
     return this.side.get(terminal);
   }
 
-  runInTerminal(command: string, cwd: string): void {
-    const terminal = vscode.window.createTerminal({ cwd });
-    terminal.show();
-    terminal.sendText(command);
+  /** The main terminal now shows `session` (learned from its tmux client); no focus change. */
+  noteMainSession(session: string): void {
+    if (this.main) this.main.session = session;
   }
 
   forget(terminal: vscode.Terminal): void {
@@ -174,6 +174,7 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
       const item = new vscode.TreeItem(node.group.label, vscode.TreeItemCollapsibleState.Expanded);
       item.description = node.group.cwd;
       item.iconPath = new vscode.ThemeIcon('folder');
+      item.contextValue = 'group';
       return item;
     }
     if (node.kind === 'unmanaged') return new vscode.TreeItem('Other tmux sessions', vscode.TreeItemCollapsibleState.Collapsed);
@@ -218,6 +219,9 @@ export function activate(context: vscode.ExtensionContext): void {
   host.onShown = follow;
 
   const refresh = () => {
+    void controller.mainSession().then((session) => {
+      if (session) host.noteMainSession(session);
+    });
     try {
       const { tree: model } = controller.refresh();
       tree.update(model.groups, model.unmanaged);
@@ -265,16 +269,32 @@ export function activate(context: vscode.ExtensionContext): void {
     const agent = await pickAgent();
     if (agent) controller.adopt(name, agent);
   }));
-  command('berth.new', async () => {
+  const folders = () => (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
+  // A project in the sessions view is a folder with sessions; a new session in a folder starts one.
+  const pickFolder = async (): Promise<string | undefined> => {
+    const known = [...new Set([...folders(), ...controller.tree().groups.map((g) => g.cwd)])];
+    const items: (vscode.QuickPickItem & { path?: string })[] = known.map((p) => ({ label: p.split('/').pop() || p, description: p, path: p }));
+    items.push({ label: '$(folder-opened) Choose Folder…' });
+    const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Folder for the new session' });
+    if (!pick) return undefined;
+    if (pick.path) return pick.path;
+    const chosen = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, canSelectMany: false });
+    return chosen?.[0]?.fsPath;
+  };
+  const startSession = async (cwd: string | undefined) => {
     const agent = await pickAgent();
-    const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-    if (!agent) return;
+    if (!agent || !cwd) return;
     try {
-      await controller.newSession(agent, folder, vscode.workspace.getConfiguration('berth').get<string>('customLauncher', ''));
+      await controller.newSession(agent, cwd, vscode.workspace.getConfiguration('berth').get<string>('customLauncher', ''), folders());
     } catch (error) {
       void vscode.window.showErrorMessage(`Berth: ${(error as Error).message}`);
     }
     refresh();
+  };
+  command('berth.new', async () => startSession(await pickFolder()));
+  command('berth.newInFolder', async (arg: unknown) => {
+    const node = arg as { kind?: string; group?: { cwd: string } } | undefined;
+    await startSession(node?.kind === 'group' ? node.group?.cwd : await pickFolder());
   });
   command('berth.applyLayout', async () => {
     const config = vscode.workspace.getConfiguration();

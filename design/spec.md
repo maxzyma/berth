@@ -286,10 +286,19 @@ Berth runs with no config file.
   notifications. "Open" in the editor notification focuses the session;
   clicking the OS notification brings the editor forward (on macOS this needs
   `terminal-notifier`).
-- **Actions.** New session (pick agent; runs `berth new --origin vscode` and
-  shows it, or the configured custom launcher in a new terminal), show (also
-  re-stamps origin), open to the side, detach, rename, kill (with
-  confirmation), adopt.
+- **Projects.** A project in the sessions view is a folder that has sessions;
+  starting a session in a folder creates its group. *New Session* asks for
+  the agent and the folder (workspace folders, existing groups, or any folder
+  chosen); a group's *New Session Here* uses that group's folder.
+- **Custom launcher.** `berth.customLauncher`, when set, starts sessions
+  instead of `berth new` (the §5.2 contract): it runs in the session terminal,
+  in the chosen folder, and creates, stamps and attaches the session itself;
+  Berth then learns the session from that terminal's tmux client.
+  Placeholders: `{agent}`, `{cwd}` (absolute folder), `{relative}` (folder
+  relative to the workspace folder containing it, empty at its root) and
+  `{name}` (folder name), each shell-quoted.
+- **Actions.** New session, show (also re-stamps origin), open to the side,
+  detach, rename, kill (with confirmation), adopt.
 - **Startup.** On startup, missing `vscode`-origin sessions are rebuilt and
   the first one not attached anywhere is shown in the session terminal; the
   rest stay in the list. Session terminals are ordinary unnamed terminals, so

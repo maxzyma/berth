@@ -52,6 +52,12 @@
         "icon": "$(add)"
       },
       {
+        "command": "berth.newInFolder",
+        "title": "New Session Here",
+        "category": "Berth",
+        "icon": "$(add)"
+      },
+      {
         "command": "berth.nextAttention",
         "title": "Go to Next Session Needing You",
         "category": "Berth",
@@ -129,6 +135,16 @@
       ],
       "view/item/context": [
         {
+          "command": "berth.newInFolder",
+          "when": "view == berth.sessions && viewItem == group",
+          "group": "inline"
+        },
+        {
+          "command": "berth.newInFolder",
+          "when": "view == berth.sessions && viewItem == group",
+          "group": "1@0"
+        },
+        {
           "command": "berth.attach",
           "when": "view == berth.sessions && viewItem =~ /^session/",
           "group": "1@1"
@@ -171,7 +187,7 @@
         "berth.customLauncher": {
           "type": "string",
           "default": "",
-          "description": "Command run in a new terminal instead of `berth new`; it must call `berth stamp` (spec \u00a75.2). `{agent}` is replaced by the chosen agent."
+          "markdownDescription": "Command that starts an agent session instead of `berth new`, run in the session terminal. It creates the tmux session, stamps it (`berth stamp`, or the `@berth_*` options) and attaches. Placeholders: `{agent}`, `{cwd}` (absolute folder), `{relative}` (folder relative to its workspace folder), `{name}` (folder name). Example: `/path/to/open --cli {agent} {relative}`."
         },
         "berth.osNotifications": {
           "type": "boolean",

@@ -11,7 +11,8 @@ import {
   type Context,
   type SessionRow,
 } from '@berthdev/berth';
-import { buildTree, nextAttention, transitions, type Transition, type TreeView } from './model.js';
+import { basename } from 'node:path';
+import { buildTree, nextAttention, relativeToWorkspace, renderLauncher, transitions, type Transition, type TreeView } from './model.js';
 
 export type TerminalRole = 'main' | 'side';
 
@@ -21,13 +22,11 @@ export interface Host {
    * session terminal that follows the selection; `side` terminals are extra
    * views opened on request. Terminals are unnamed, so tab titles follow tmux.
    */
-  openTerminal(session: string, argv: string[], role: TerminalRole): void;
+  openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string): void;
   /** Process id of the main session terminal, when one is open. */
   mainTerminalPid(): Promise<number | undefined>;
   /** Bring the main terminal forward; it now shows `session`. */
   showMain(session: string): void;
-  /** Run a command in a new terminal (custom launchers). */
-  runInTerminal(command: string, cwd: string): void;
   /** Sessions shown by a terminal in this window. */
   sessionsHere(): Set<string>;
   closeTerminals(session: string): void;
@@ -88,6 +87,21 @@ export class Controller {
     return first.name;
   }
 
+  /**
+   * The session the main terminal's tmux client is on, e.g. after a custom
+   * launcher attached it or the user switched sessions inside tmux.
+   */
+  async mainSession(): Promise<string | undefined> {
+    const pid = await this.host.mainTerminalPid();
+    if (!pid) return undefined;
+    const result = this.ctx.tmux.run(['list-clients', '-F', '#{client_pid}\t#{session_name}'], true);
+    for (const line of result.ok ? result.stdout.split('\n') : []) {
+      const [clientPid, session] = line.split('\t');
+      if (Number(clientPid) === pid && session) return session;
+    }
+    return undefined;
+  }
+
   /** tmux client of a terminal process, found by its pid. */
   private clientTty(pid: number): string | undefined {
     const result = this.ctx.tmux.run(['list-clients', '-F', '#{client_pid}\t#{client_tty}'], true);
@@ -143,9 +157,15 @@ export class Controller {
     this.host.closeTerminals(name);
   }
 
-  async newSession(agent: string, cwd: string, customLauncher = ''): Promise<string | undefined> {
+  /**
+   * New session in `cwd`. With a custom launcher (spec §5.2) the launcher runs
+   * in the session terminal and creates, stamps and attaches the session
+   * itself; Berth learns which session it is from the terminal's tmux client.
+   */
+  async newSession(agent: string, cwd: string, customLauncher = '', workspaceFolders: string[] = []): Promise<string | undefined> {
     if (customLauncher) {
-      this.host.runInTerminal(customLauncher.replace(/\{agent\}/g, agent), cwd);
+      const command = renderLauncher(customLauncher, { agent, cwd, relative: relativeToWorkspace(cwd, workspaceFolders), name: basename(cwd) });
+      this.host.openTerminal('', [process.env.SHELL || '/bin/sh', '-lc', command], 'main', cwd);
       return undefined;
     }
     const name = create(this.ctx, { agent, cwd, origin: 'vscode' });

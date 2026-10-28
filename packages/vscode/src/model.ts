@@ -176,3 +176,33 @@ export function nextAttention(rows: SessionRow[], unread: ReadonlySet<string>, c
   const at = current ? order.indexOf(current) : -1;
   return order[(at + 1) % order.length];
 }
+
+export interface LauncherValues {
+  agent: string;
+  /** Absolute folder the session runs in. */
+  cwd: string;
+  /** `cwd` relative to the workspace folder containing it; empty at that folder or outside all. */
+  relative: string;
+  /** The folder's base name. */
+  name: string;
+}
+
+/** Fill a custom launcher command's placeholders (spec §6); values are shell-quoted. */
+export function renderLauncher(template: string, values: LauncherValues): string {
+  const quote = (v: string) => (v === '' ? '' : /^[A-Za-z0-9_@%+=:,./-]+$/.test(v) ? v : `'${v.replace(/'/g, `'\\''`)}'`);
+  return template
+    .replace(/\{(agent|cwd|relative|name)\}/g, (_, key: keyof LauncherValues) => quote(values[key]))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** `cwd` relative to the workspace folder that contains it, or '' (spec §6). */
+export function relativeToWorkspace(cwd: string, workspaceFolders: string[]): string {
+  const target = cwd.replace(/\/+$/, '');
+  for (const folder of [...workspaceFolders].sort((a, b) => b.length - a.length)) {
+    const base = folder.replace(/\/+$/, '');
+    if (target === base) return '';
+    if (target.startsWith(`${base}/`)) return target.slice(base.length + 1);
+  }
+  return '';
+}

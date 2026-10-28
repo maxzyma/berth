@@ -259,7 +259,9 @@ manual cases are recorded as checked, and the de-identification check passes.
   (rebuilding a stopped one first), or opens it when there is none; open to
   the side adds a second terminal; the explorer follows only folders inside
   the workspace.
-- **V3** New / attach / detach / rename / kill / adopt act on the test server.
+- **V3** New / attach / detach / rename / kill / adopt act on the test server;
+  a custom launcher runs in the session terminal in the chosen folder with its
+  placeholders filled, and the terminal then learns its session from tmux.
 - **V4** On startup, missing `vscode`-origin sessions are rebuilt and one is
   shown in the session terminal; sessions of other origins are not.
 - **V5** Native tabs show state through `${progress}` and `${sequence}`.

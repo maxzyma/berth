@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import type { Context } from '@berthdev/berth';
 import { spawn } from 'node:child_process';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { buildTree, explorerTarget, layoutChanges, nextAttention, type Transition } from '../src/model.js';
+import { buildTree, explorerTarget, layoutChanges, nextAttention, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -25,26 +25,22 @@ const helpersPath = '../../../core/dist/test/helpers.js';
 const { sandbox, killServer, waitFor } = (await import(helpersPath)) as Helpers;
 
 class FakeHost implements Host {
-  terminals: { session: string; argv: string[]; role: TerminalRole }[] = [];
-  launched: { command: string; cwd: string }[] = [];
+  terminals: { session: string; argv: string[]; role: TerminalRole; cwd?: string }[] = [];
   notified: Transition[] = [];
   shown: string[] = [];
   /** pid of a real tmux client standing in for the main terminal, when a test provides one. */
   mainPid?: number;
   main?: string;
-  openTerminal(session: string, argv: string[], role: TerminalRole) {
-    this.terminals.push({ session, argv, role });
+  openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string) {
+    this.terminals.push({ session, argv, role, cwd });
     if (role === 'main') this.main = session;
   }
   async mainTerminalPid() {
-    return this.main ? this.mainPid : undefined;
+    return this.main !== undefined ? this.mainPid : undefined;
   }
   showMain(session: string) {
     this.main = session;
     this.shown.push(session);
-  }
-  runInTerminal(command: string, cwd: string) {
-    this.launched.push({ command, cwd });
   }
   sessionsHere() {
     return new Set([...(this.main ? [this.main] : []), ...this.terminals.filter((t) => t.role === 'side').map((t) => t.session)]);
@@ -148,8 +144,13 @@ test('V3 new / detach / rename / kill / adopt act on the test server', async (t)
   assert.equal(sb.tmux('display-message', '-p', '-t', '=loose:', '#{@berth_agent}').trim(), 'gemini');
   controller.kill('v3b');
   assert.ok(!sb.ctx().tmux.hasSession('v3b'));
-  await controller.newSession('codex', dir, 'my-launcher --agent {agent}');
-  assert.deepEqual(host.launched, [{ command: 'my-launcher --agent codex', cwd: dir }]);
+  const sub = sb.makeDir('ws/projects/p one');
+  const ws = sub.replace(/\/projects\/p one$/, '');
+  await controller.newSession('codex', sub, '/x/open --cli {agent} {relative} # {name} {cwd}', [ws]);
+  const launched = host.terminals.at(-1)!;
+  assert.equal(launched.role, 'main', 'the launcher runs in the session terminal');
+  assert.equal(launched.cwd, sub);
+  assert.equal(launched.argv.at(-1), `/x/open --cli codex 'projects/p one' # 'p one' '${sub}'`);
 });
 
 test('V4 startup rebuilds vscode sessions and shows one in the main terminal', async (t) => {
@@ -214,6 +215,23 @@ test('V7 the layout preset writes only its listed settings, tab hiding off by de
   const hidden = layoutChanges(() => undefined, true); // default in the extension
   assert.deepEqual(hidden.at(-1), { key: 'terminal.integrated.tabs.enabled', value: false });
   assert.equal(buildTree([], { here: new Set(), unread: new Set(), branch: () => '' }).waiting, 0);
+});
+
+test('V3 a launcher at the workspace root gets an empty {relative}', () => {
+  assert.equal(relativeToWorkspace('/w/root', ['/w/root']), '');
+  assert.equal(relativeToWorkspace('/w/root/a/b', ['/w/root', '/w/root/a']), 'b');
+  assert.equal(relativeToWorkspace('/elsewhere', ['/w/root']), '');
+  assert.equal(renderLauncher('open --cli {agent} {relative}', { agent: 'claude', cwd: '/w', relative: '', name: 'w' }), 'open --cli claude');
+});
+
+test('V3 after a launcher attaches, the main terminal learns its session from the tmux client', async (t) => {
+  const { sb, host, controller } = setup(t);
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('l'));
+  const client = spawn('script', ['-q', '/dev/null', 'tmux', '-L', sb.socket, 'attach-session', '-t', '=l'], { env: process.env, stdio: 'ignore' });
+  t.after(() => client.kill());
+  host.mainPid = await waitFor(() => Number(sb.tmux('list-clients', '-t', '=l', '-F', '#{client_pid}').trim()) || undefined, 'client attached');
+  host.main = '';
+  assert.equal(await controller.mainSession(), 'l');
 });
 
 test('V10 go to the next session needing you: waiting first, then unread, wrapping', async (t) => {
