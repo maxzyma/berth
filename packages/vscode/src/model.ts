@@ -126,11 +126,17 @@ function asObject(value: unknown): Record<string, unknown> {
 
 export function layoutChanges(current: (key: string) => unknown, hideTerminalTabs: boolean): SettingChange[] {
   const description = String(current('terminal.integrated.tabs.description') ?? '${task}${separator}${local}${separator}${cwdFolder}');
+  const title = String(current('terminal.integrated.tabs.title') ?? '${process}');
   const changes: SettingChange[] = [
     // Session terminals open as editors in the first group, which locks so files open beside it.
     { key: 'workbench.editor.autoLockGroups', value: { ...(asObject(current('workbench.editor.autoLockGroups'))), terminalEditor: true } },
     { key: 'workbench.sideBar.location', value: 'right' },
     { key: 'workbench.secondarySideBar.defaultVisibility', value: 'visible' },
+    {
+      // Tabs show the title tmux sends: the session name with its state.
+      key: 'terminal.integrated.tabs.title',
+      value: title.includes('${sequence}') ? title : '${sequence}',
+    },
     {
       key: 'terminal.integrated.tabs.description',
       value: description.includes('${progress}') ? description : `\${progress}\${separator}${description}`,

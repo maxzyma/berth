@@ -245,7 +245,10 @@ Berth runs with no config file.
   `${progress}` in `terminal.integrated.tabs.description`, driven by the
   OSC 9;4 sequence (spinner / warning / error), and `${sequence}`, the OSC 2
   title, which VS Code records only on unnamed terminals — another reason
-  Berth's terminals are unnamed.
+  Berth's terminals are unnamed. Berth turns on tmux's `set-titles` for its
+  sessions with the session name prefixed by the state glyph, and the layout
+  makes tab titles use `${sequence}`, so a tab reads like "● work" and follows
+  `switch-client`.
 - **Notifications.** When an agent starts waiting for the user or finishes a
   turn: an in-editor notification through the VS Code API, and a native OS
   notification through a platform helper, because VS Code has no API for OS

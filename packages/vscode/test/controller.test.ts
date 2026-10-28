@@ -189,6 +189,12 @@ test('V6 waiting and done produce one notification each and mark the row unread'
   assert.equal(controller.tree().groups[0].rows[0].unread, false);
 });
 
+test('V5 tab titles use the title tmux sends, keeping a template that already does', () => {
+  const title = (current: unknown) => layoutChanges((k) => (k === 'terminal.integrated.tabs.title' ? current : undefined), false).find((c) => c.key === 'terminal.integrated.tabs.title')?.value;
+  assert.equal(title(undefined), '${sequence}');
+  assert.equal(title('${sequence}${separator}${cwdFolder}'), '${sequence}${separator}${cwdFolder}');
+});
+
 test('V7 the layout keeps the user\'s other auto-lock choices and adds terminal editors', () => {
   const lock = layoutChanges((k) => (k === 'workbench.editor.autoLockGroups' ? { 'workbench.editor.chatSession': true } : undefined), false)
     .find((c) => c.key === 'workbench.editor.autoLockGroups');
@@ -201,6 +207,7 @@ test('V7 the layout preset writes only its listed settings, tab hiding off by de
     'workbench.editor.autoLockGroups',
     'workbench.sideBar.location',
     'workbench.secondarySideBar.defaultVisibility',
+    'terminal.integrated.tabs.title',
     'terminal.integrated.tabs.description',
   ]);
   const hidden = layoutChanges(() => undefined, true); // default in the extension

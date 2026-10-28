@@ -83,6 +83,7 @@ export function create(ctx: Context, options: NewOptions): string {
     argv: command,
     origin: checkOrigin(options.origin ?? 'none'),
   });
+  ctx.tmux.setTitle(name);
   return name;
 }
 
@@ -100,6 +101,7 @@ export function adopt(ctx: Context, name: string, agent: string, origin?: string
     argv: live?.meta.argv ?? adapter.launch.replace(/\{\w+\}/g, '').trim(),
     origin: checkOrigin(origin ?? live?.meta.origin ?? 'none'),
   });
+  ctx.tmux.setTitle(name);
 }
 
 const STAMPABLE = new Set(['agent', 'cwd', 'argv', 'conversation', 'origin', 'state', 'note']);

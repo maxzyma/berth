@@ -46,6 +46,8 @@ test('C2 new runs the launch template, stamps metadata, picks a unique name', as
   assert.equal(sb.cli('new', 'claude', '--cwd', dir).stdout.trim(), 'api-2');
   const argv = await waitFor(() => sb.argv('api'), 'stand-in argv');
   assert.deepEqual(argv, ['claude', 'launch', '--model', 'opus']);
+  assert.match(sb.tmux('show-options', '-t', '=api:', 'set-titles-string'), /#S/, 'tmux sends the session name as title');
+  assert.match(sb.tmux('show-options', '-t', '=api:', 'set-titles'), /on/);
   const row = rows(sb).find((r) => r.name === 'api');
   assert.equal(row?.agent, 'claude');
   assert.equal(row?.origin, 'none');

@@ -89,6 +89,16 @@ export class Tmux {
     }
   }
 
+  /**
+   * Make tmux send the session's name, prefixed by its agent state, as the
+   * outer terminal's title (OSC 2). Per session, so switch-client updates it.
+   */
+  setTitle(name: string): void {
+    const glyph = '#{?#{==:#{@berth_state},working},● ,}#{?#{==:#{@berth_state},waiting},◐ ,}#{?#{==:#{@berth_state},done},✓ ,}';
+    this.run(['set-option', '-t', `=${name}:`, 'set-titles', 'on'], true);
+    this.run(['set-option', '-t', `=${name}:`, 'set-titles-string', `${glyph}#S`], true);
+  }
+
   renameSession(from: string, to: string): void {
     this.run(['rename-session', '-t', `=${from}`, to]);
   }

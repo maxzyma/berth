@@ -11,7 +11,7 @@ const LAYOUT_BACKUP = 'berth.layoutBackup';
 const WELCOMED = 'berth.welcomed';
 const BERTH_CONTAINER = 'workbench.view.extension.berth';
 /** Bump when Apply Agent Layout changes what it does, so users who applied an older one are offered the new one. */
-const LAYOUT_VERSION = 6;
+const LAYOUT_VERSION = 7;
 const APPLIED_LAYOUT = 'berth.appliedLayoutVersion';
 
 type Node = { kind: 'group'; group: GroupView } | { kind: 'unmanaged'; rows: RowView[] } | { kind: 'row'; row: RowView };

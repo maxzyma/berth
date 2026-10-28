@@ -107,6 +107,7 @@ export class Controller {
     this.unread.delete(name);
     if (!this.ctx.tmux.hasSession(name)) ensure(this.ctx, { session: name });
     stamp(this.ctx, name, { origin: 'vscode' });
+    this.ctx.tmux.setTitle(name);
     const pid = await this.host.mainTerminalPid();
     const tty = pid ? this.clientTty(pid) : undefined;
     if (tty) {

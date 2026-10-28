@@ -53,6 +53,7 @@ function rebuild(ctx: Context, s: SnapshotSession): RestoreResult {
     conversation: s.conversation || undefined,
     origin: s.origin,
   });
+  ctx.tmux.setTitle(s.name);
   return { name: s.name, outcome, detail: outcome === 'shell' ? `${binary} not found` : undefined };
 }
 
