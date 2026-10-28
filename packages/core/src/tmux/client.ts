@@ -73,6 +73,13 @@ export class Tmux {
     return result.ok && name ? name : undefined;
   }
 
+  /** Working directory of the session's active pane, as the shell or agent left it. */
+  paneCurrentPath(name: string): string | undefined {
+    const result = this.run(['display-message', '-p', '-t', `=${name}:`, '#{pane_current_path}'], true);
+    const path = result.stdout.trim();
+    return result.ok && path ? path : undefined;
+  }
+
   hasSession(name: string): boolean {
     return this.run(['has-session', '-t', `=${name}`], true).ok;
   }

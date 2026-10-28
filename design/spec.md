@@ -188,8 +188,13 @@ resume = "codex resume {conversation}"
 ```
 
 A **custom launcher** (any user script) may replace `berth new` entirely. Its
-contract: create the tmux session, run the agent, and call `berth stamp` with
-at least `agent`, `cwd`, `origin`. Berth then treats it like its own.
+contract is only: create the tmux session, run the agent in it, and attach
+the terminal it was started in. Berth needs nothing else from it: the
+frontend that ran it learns the session from that terminal's tmux client and
+adopts it with the agent the user chose and the directory detected from the
+session's active pane (a launcher may resolve a project name and change into
+it). A launcher may also stamp metadata itself (`berth stamp`, or the
+`@berth_*` options); what it stamps is kept.
 
 When the agent exits, the session ends — Berth does not leave a stray shell.
 
@@ -292,8 +297,9 @@ Berth runs with no config file.
   chosen); a group's *New Session Here* uses that group's folder.
 - **Custom launcher.** `berth.customLauncher`, when set, starts sessions
   instead of `berth new` (the §5.2 contract): it runs in the session terminal,
-  in the chosen folder, and creates, stamps and attaches the session itself;
-  Berth then learns the session from that terminal's tmux client.
+  in the chosen folder, and creates and attaches the session; Berth learns the
+  session from that terminal's tmux client and adopts it unless the launcher
+  stamped it, with the directory detected from the session's pane.
   Placeholders: `{agent}`, `{cwd}` (absolute folder), `{relative}` (folder
   relative to the workspace folder containing it, empty at its root) and
   `{name}` (folder name), each shell-quoted.

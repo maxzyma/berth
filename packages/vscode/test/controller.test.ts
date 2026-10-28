@@ -234,6 +234,31 @@ test('V3 after a launcher attaches, the main terminal learns its session from th
   assert.equal(await controller.mainSession(), 'l');
 });
 
+test('V3 a session from a launcher that knows nothing of Berth is adopted with the chosen agent and its real directory', async (t) => {
+  const { sb, host, controller } = setup(t);
+  const chosen = sb.makeDir('ws');
+  const project = sb.makeDir('ws/projects/real');
+  await controller.newSession('codex', chosen, 'any-launcher {relative}', [chosen]);
+  // The launcher: creates its own session, changes into the project, runs a shell.
+  sb.tmux('new-session', '-d', '-s', 'from-launcher', '-c', chosen, `sh -c 'cd "${project}" && exec sleep 3600'`);
+  await waitFor(() => sb.tmux('display-message', '-p', '-t', '=from-launcher:', '#{pane_current_path}').trim().endsWith('/projects/real'), 'launcher changed dir');
+  assert.equal(controller.settleLaunch('from-launcher'), true);
+  const meta = sb.tmux('display-message', '-p', '-t', '=from-launcher:', '#{@berth_agent}|#{@berth_origin}|#{@berth_cwd}').trim();
+  assert.match(meta, /^codex\|vscode\|.*\/ws\/projects\/real$/);
+  assert.equal(controller.settleLaunch('from-launcher'), false, 'settled once');
+  assert.equal(host.terminals.at(-1)?.role, 'main');
+});
+
+test('V3 a launcher that stamps its own metadata keeps it', async (t) => {
+  const { sb, controller } = setup(t);
+  const dir = sb.makeDir('own');
+  await controller.newSession('codex', dir, 'stamping-launcher', [dir]);
+  sb.tmux('new-session', '-d', '-s', 'stamped', '-c', dir, 'sleep 3600');
+  sb.cli('stamp', '--session', 'stamped', 'agent=kimi', `cwd=${dir}`, 'origin=none');
+  controller.settleLaunch('stamped');
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=stamped:', '#{@berth_agent}|#{@berth_origin}').trim(), 'kimi|vscode');
+});
+
 test('V10 go to the next session needing you: waiting first, then unread, wrapping', async (t) => {
   const row = (name: string, state = '') => ({ name, managed: true, agent: 'claude', cwd: '/w', conversation: '', origin: 'vscode', state, note: '', attachedClients: 0, live: true });
   const rows = [row('a'), row('b', 'waiting'), row('c'), row('d', 'waiting')];

@@ -220,7 +220,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const refresh = () => {
     void controller.mainSession().then((session) => {
-      if (session) host.noteMainSession(session);
+      if (!session) return;
+      host.noteMainSession(session);
+      if (controller.settleLaunch(session)) {
+        const row = controller.row(session);
+        if (row) follow(row);
+      }
     });
     try {
       const { tree: model } = controller.refresh();

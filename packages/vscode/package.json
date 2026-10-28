@@ -187,7 +187,7 @@
         "berth.customLauncher": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Command that starts an agent session instead of `berth new`, run in the session terminal. It creates the tmux session, stamps it (`berth stamp`, or the `@berth_*` options) and attaches. Placeholders: `{agent}`, `{cwd}` (absolute folder), `{relative}` (folder relative to its workspace folder), `{name}` (folder name). Example: `/path/to/open --cli {agent} {relative}`."
+          "markdownDescription": "Command that starts an agent session instead of `berth new`, run in the session terminal in the chosen folder. It only has to create a tmux session, run the agent and attach; Berth then finds that session, detects its directory and adopts it (metadata the launcher stamps itself is kept). Placeholders: `{agent}`, `{cwd}` (absolute folder), `{relative}` (folder relative to its workspace folder), `{name}` (folder name). Example: `my-launcher --agent {agent} {relative}`."
         },
         "berth.osNotifications": {
           "type": "boolean",

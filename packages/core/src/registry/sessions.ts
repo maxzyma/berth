@@ -93,13 +93,18 @@ export function requireLive(ctx: Context, name: string): void {
   if (!ctx.tmux.hasSession(name)) throw new BerthError(`no such session: ${name}`, ExitCode.notFound);
 }
 
+/**
+ * Make a live session managed. Its directory is the one it records, else the
+ * active pane's current directory (a launcher may have changed into the
+ * project), else the session's start directory.
+ */
 export function adopt(ctx: Context, name: string, agent: string, origin?: string): void {
   requireLive(ctx, name);
   const adapter = requireAdapter(agent);
   const live = ctx.tmux.listSessions().find((s) => s.name === name);
   ctx.tmux.setMeta(name, {
     agent: adapter.id,
-    cwd: live?.meta.cwd ?? live?.path ?? '',
+    cwd: live?.meta.cwd ?? ctx.tmux.paneCurrentPath(name) ?? live?.path ?? '',
     argv: live?.meta.argv ?? adapter.launch.replace(/\{\w+\}/g, '').trim(),
     origin: checkOrigin(origin ?? live?.meta.origin ?? 'none'),
   });

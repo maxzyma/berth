@@ -37,6 +37,8 @@ export interface Host {
 
 export class Controller {
   private rows: SessionRow[] = [];
+  /** Agent chosen for a custom launcher whose session is not known yet. */
+  private pendingLaunch?: { agent: string };
   readonly unread = new Set<string>();
   private branches = new Map<string, string>();
 
@@ -102,6 +104,23 @@ export class Controller {
     return undefined;
   }
 
+  /**
+   * Called when the main terminal's session is known. A session a custom
+   * launcher created without Berth metadata is adopted with the chosen agent
+   * and its detected directory; one the launcher stamped is left as it is.
+   */
+  settleLaunch(session: string): boolean {
+    if (!this.pendingLaunch) return false;
+    const { agent } = this.pendingLaunch;
+    this.pendingLaunch = undefined;
+    const live = this.ctx.tmux.listSessions().find((s) => s.name === session);
+    if (!live) return false;
+    if (!live.meta.agent) adopt(this.ctx, session, agent, 'vscode');
+    else stamp(this.ctx, session, { origin: 'vscode' });
+    this.ctx.tmux.setTitle(session);
+    return true;
+  }
+
   /** tmux client of a terminal process, found by its pid. */
   private clientTty(pid: number): string | undefined {
     const result = this.ctx.tmux.run(['list-clients', '-F', '#{client_pid}\t#{client_tty}'], true);
@@ -165,6 +184,7 @@ export class Controller {
   async newSession(agent: string, cwd: string, customLauncher = '', workspaceFolders: string[] = []): Promise<string | undefined> {
     if (customLauncher) {
       const command = renderLauncher(customLauncher, { agent, cwd, relative: relativeToWorkspace(cwd, workspaceFolders), name: basename(cwd) });
+      this.pendingLaunch = { agent };
       this.host.openTerminal('', [process.env.SHELL || '/bin/sh', '-lc', command], 'main', cwd);
       return undefined;
     }
