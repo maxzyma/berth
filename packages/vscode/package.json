@@ -256,7 +256,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/maxzyma/berth.git",
+    "url": "git+https://github.com/maxzyma/berth.git",
     "directory": "packages/vscode"
   },
   "keywords": [
