@@ -1,6 +1,7 @@
 /** Session actions for Berth for VS Code; talks to the editor only through `Host`. */
 import { spawnSync } from 'node:child_process';
 import {
+  ADAPTERS,
   adopt,
   clearBell,
   create,
@@ -59,6 +60,7 @@ function descendsFrom(pid: number, ancestor: number): boolean {
 export class Controller {
   private rows: SessionRow[] = [];
   /** Agent chosen for a custom launcher whose session is not known yet, and when it started. */
+  /** `agent` is '' when the launcher picks the agent itself. */
   private pendingLaunch?: { agent: string; startedAt: number };
   readonly unread = new Set<string>();
   /** Agents already offered hooks in this window. */
@@ -135,7 +137,8 @@ export class Controller {
   /**
    * Called when the main terminal's session is known. A session a custom
    * launcher created without Berth metadata is adopted with the chosen agent
-   * and its detected directory; one the launcher stamped is left as it is.
+   * (or, when the launcher picked it, the agent running in the pane) and its
+   * detected directory; one the launcher stamped is left as it is.
    */
   settleLaunch(session: string): boolean {
     if (!this.pendingLaunch) return false;
@@ -151,8 +154,9 @@ export class Controller {
     this.pendingLaunch = undefined;
     const live = this.ctx.tmux.listSessions().find((s) => s.name === session);
     if (!live) return false;
-    if (!live.meta.agent) adopt(this.ctx, session, agent, 'vscode');
-    else stamp(this.ctx, session, { origin: 'vscode' });
+    const chosen = agent || this.agentRunningIn(session);
+    if (!live.meta.agent && chosen) adopt(this.ctx, session, chosen, 'vscode');
+    else if (live.meta.agent) stamp(this.ctx, session, { origin: 'vscode' });
     this.ctx.tmux.setTitle(session);
     return true;
   }
@@ -220,14 +224,42 @@ export class Controller {
    * in the session terminal and creates, stamps and attaches the session
    * itself; Berth learns which session it is from the terminal's tmux client.
    */
-  async newSession(agent: string, cwd: string, customLauncher = '', workspaceFolders: string[] = []): Promise<string | undefined> {
-    if (customLauncher) {
-      const command = renderLauncher(customLauncher, { agent, cwd, relative: relativeToWorkspace(cwd, workspaceFolders), name: basename(cwd) });
-      this.pendingLaunch = { agent, startedAt: Date.now() };
+  /**
+   * The agent running in the session's active pane, if any: the pane's
+   * process or a descendant whose program (or script, for `node <cli>`) is an
+   * agent binary. tmux's pane_current_command is not enough: some agents
+   * run as a binary named after their version.
+   */
+  private agentRunningIn(session: string): string | undefined {
+    const panePid = Number(this.ctx.tmux.run(['display-message', '-p', '-t', `=${session}:`, '#{pane_pid}'], true).stdout.trim());
+    if (!panePid) return undefined;
+    const ps = spawnSync('ps', ['-axo', 'pid=,ppid=,args='], { encoding: 'utf8' });
+    const procs = (ps.stdout ?? '').split('\n').map((line) => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line)).filter((m) => m !== null);
+    const binaries = new Map(ADAPTERS.filter((a) => a.binary).map((a) => [a.binary, a.id]));
+    const program = (word = '') => word.split('/').pop() ?? '';
+    for (let level = [panePid], depth = 0; level.length && depth < 6; depth++) {
+      for (const m of procs.filter((m) => level.includes(Number(m[1])))) {
+        const [first, second] = m[3].split(/\s+/);
+        const found = binaries.get(program(first)) ?? binaries.get(program(second));
+        if (found) return found;
+      }
+      level = procs.filter((m) => level.includes(Number(m[2]))).map((m) => Number(m[1]));
+    }
+    return undefined;
+  }
+
+  /**
+   * Start a session. A custom launcher starts agents (spec §6); a plain shell
+   * is always Berth's own. `agent` is undefined when the launcher picks it.
+   */
+  async newSession(agent: string | undefined, cwd: string, customLauncher = '', workspaceFolders: string[] = []): Promise<string | undefined> {
+    if (customLauncher && agent !== 'shell') {
+      const command = renderLauncher(customLauncher, { agent: agent ?? '', cwd, relative: relativeToWorkspace(cwd, workspaceFolders), name: basename(cwd) });
+      this.pendingLaunch = { agent: agent ?? '', startedAt: Date.now() };
       this.host.openTerminal('', [process.env.SHELL || '/bin/sh', '-lc', command], 'main', cwd);
       return undefined;
     }
-    const name = create(this.ctx, { agent, cwd, origin: 'vscode' });
+    const name = create(this.ctx, { agent: agent ?? 'shell', cwd, origin: 'vscode' });
     await this.show(name);
     return name;
   }

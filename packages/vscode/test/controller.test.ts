@@ -5,9 +5,11 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Context } from '@berthdev/berth';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { chmodSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { buildTree, explorerTarget, layoutBackup, layoutChanges, nextAttention, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
+import { buildTree, defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, nextAttention, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -284,6 +286,33 @@ test('V3 a pending launch never adopts a session that existed before it', async 
   // tmux records creation in whole seconds; the launch started > 2 s after it.
   assert.equal(controller.settleLaunch('older'), false);
   assert.equal(sb.tmux('display-message', '-p', '-t', '=older:', '#{@berth_agent}').trim(), '');
+});
+
+test('V12 a shell never goes through the launcher; a launcher without {agent} picks the agent itself', async (t) => {
+  assert.equal(launcherPicksAgent('/x/open {relative}'), true);
+  assert.equal(launcherPicksAgent('/x/open --cli {agent} {relative}'), false);
+  assert.equal(launcherPicksAgent(''), false);
+  assert.equal(defaultFolder('/shown', ['/a', '/b']), '/shown');
+  assert.equal(defaultFolder(undefined, ['/a']), '/a');
+  assert.equal(defaultFolder(undefined, ['/a', '/b']), undefined, 'ambiguous: ask');
+
+  const { sb, host, controller } = setup(t);
+  const dir = sb.makeDir('sh');
+  const name = await controller.newSession('shell', dir, '/x/open --cli {agent} {relative}', [dir]);
+  assert.equal(name, 'sh', 'Berth starts the shell itself');
+  assert.equal(host.terminals.at(-1)?.argv.join(' ').includes('/x/open'), false);
+
+  // The launcher asked the user and started kimi: the pane runs a `kimi` binary.
+  const bin = sb.makeDir('bin');
+  writeFileSync(join(bin, 'kimi'), '#!/bin/sh\nsleep 3600\n');
+  chmodSync(join(bin, 'kimi'), 0o755);
+  await controller.newSession(undefined, dir, '/x/open {relative}', [dir]);
+  assert.match(host.terminals.at(-1)!.argv.at(-1)!, /^\/x\/open$/);
+  // A launcher's shell runs the agent as a child, the way `open` does.
+  sb.tmux('new-session', '-d', '-s', 'picked', '-c', dir, `sh -c '${join(bin, 'kimi')} --flag; true'`);
+  await waitFor(() => spawnSync('pgrep', ['-f', join(bin, 'kimi')]).status === 0, 'kimi running');
+  assert.equal(controller.settleLaunch('picked'), true);
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=picked:', '#{@berth_agent}').trim(), 'kimi');
 });
 
 test('V11 an agent without hooks is offered hooks once; its rows say why they are unbound', (t) => {

@@ -278,6 +278,10 @@ manual cases are recorded as checked, and the de-identification check passes.
   rather than writing the defaults.
 - **V10** *Go to Next Session Needing You* shows waiting sessions first, then
   unread ones, in name order, wrapping around.
+- **V12** A plain shell never goes through the custom launcher; a launcher
+  without `{agent}` is started without asking, and its session is adopted with
+  the agent running in its pane. *New Session* takes the shown session's
+  folder, else the only workspace folder, and asks only otherwise.
 - **V11** An agent whose hooks are missing is offered hooks once per window;
   agents Berth has no hooks for are not; its rows say why they are unbound and
   offer *Install Agent Hooks*.

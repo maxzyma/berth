@@ -3,7 +3,7 @@
   "displayName": "Berth",
   "description": "Every terminal coding agent in one list: kept running in tmux, resumed after restarts, state on your terminal tabs.",
   "icon": "media/icon.png",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "berthdev",
   "license": "MIT",
   "type": "module",
@@ -51,6 +51,11 @@
         "title": "New Agent Session",
         "category": "Berth",
         "icon": "$(add)"
+      },
+      {
+        "command": "berth.newChooseFolder",
+        "title": "New Agent Session in Folder…",
+        "category": "Berth"
       },
       {
         "command": "berth.newInFolder",
@@ -132,6 +137,11 @@
           "command": "berth.refresh",
           "when": "view == berth.sessions",
           "group": "navigation@3"
+        },
+        {
+          "command": "berth.newChooseFolder",
+          "when": "view == berth.sessions",
+          "group": "1@1"
         }
       ],
       "view/item/context": [

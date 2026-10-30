@@ -4,7 +4,7 @@ import { platform } from 'node:os';
 import * as vscode from 'vscode';
 import { ADAPTERS, createContext, type SessionRow } from '@berthdev/berth';
 import { Controller, type Host, type TerminalRole } from './controller.js';
-import { explorerTarget, layoutBackup, layoutChanges, type GroupView, type RowView, type Transition } from './model.js';
+import { defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, type GroupView, type RowView, type Transition } from './model.js';
 
 const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
@@ -155,12 +155,18 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
   readonly onDidChangeTreeData = this.changed.event;
   roots: Node[] = [];
 
-  update(groups: GroupView[], unmanaged: RowView[]): void {
+  /**
+   * With one folder its sessions sit at the top level and the folder names the
+   * view; a tree level costs width in a narrow side bar (spec §6).
+   */
+  update(groups: GroupView[], unmanaged: RowView[]): string | undefined {
+    const single = groups.length === 1 ? groups[0] : undefined;
     this.roots = [
-      ...groups.map((group): Node => ({ kind: 'group', group })),
+      ...(single ? single.rows.map((row): Node => ({ kind: 'row', row })) : groups.map((group): Node => ({ kind: 'group', group }))),
       ...(unmanaged.length ? [{ kind: 'unmanaged', rows: unmanaged } as Node] : []),
     ];
     this.changed.fire(undefined);
+    return single?.label;
   }
 
   getChildren(node?: Node): Node[] {
@@ -284,7 +290,7 @@ export function activate(context: vscode.ExtensionContext): void {
       .catch(() => undefined); // tmux gone or a snapshot unreadable: the next refresh tries again
     try {
       const { tree: model } = controller.refresh();
-      tree.update(model.groups, model.unmanaged);
+      view.description = tree.update(model.groups, model.unmanaged);
       view.badge = model.waiting ? { value: model.waiting, tooltip: `${model.waiting} waiting for you` } : undefined;
     } catch (error) {
       view.message = `Berth: ${(error as Error).message}`;
@@ -319,11 +325,15 @@ export function activate(context: vscode.ExtensionContext): void {
     const ok = await vscode.window.showWarningMessage(`Kill session ${name}? The agent process ends.`, { modal: true }, 'Kill');
     if (ok === 'Kill') controller.kill(name);
   }));
-  const pickAgent = async () =>
-    (await vscode.window.showQuickPick(
-      ADAPTERS.map((a) => ({ label: a.displayName, description: a.id, id: a.id })),
-      { placeHolder: 'Agent' },
+  const launcher = () => vscode.workspace.getConfiguration('berth').get<string>('customLauncher', '');
+  const pickAgent = async (forNewSession = false) => {
+    const custom = forNewSession ? launcher() : '';
+    const via = custom ? ` · ${custom.trim().split(/\s+/)[0].split('/').pop()}` : '';
+    return (await vscode.window.showQuickPick(
+      ADAPTERS.map((a) => ({ label: a.displayName, description: a.id === 'shell' ? a.id : `${a.id}${via}`, id: a.id })),
+      { placeHolder: custom ? 'Agent — agents start with your launcher, a shell with Berth' : 'Agent' },
     ))?.id;
+  };
   command('berth.installHooks', async (arg: unknown) => {
     const name = sessionArg(arg);
     const agent = name ? controller.row(name)?.agent : await pickAgent();
@@ -346,16 +356,23 @@ export function activate(context: vscode.ExtensionContext): void {
     return chosen?.[0]?.fsPath;
   };
   const startSession = async (cwd: string | undefined) => {
-    const agent = await pickAgent();
-    if (!agent || !cwd) return;
+    if (!cwd) return;
+    // A launcher without {agent} asks for the agent in the terminal itself.
+    const agent = launcherPicksAgent(launcher()) ? undefined : await pickAgent(true);
+    if (agent === undefined && !launcherPicksAgent(launcher())) return;
     try {
-      await controller.newSession(agent, cwd, vscode.workspace.getConfiguration('berth').get<string>('customLauncher', ''), folders());
+      await controller.newSession(agent, cwd, launcher(), folders());
     } catch (error) {
       void vscode.window.showErrorMessage(`Berth: ${(error as Error).message}`);
     }
     refresh();
   };
-  command('berth.new', async () => startSession(await pickFolder()));
+  const shownCwd = () => {
+    const shown = host.mainSession();
+    return shown ? controller.row(shown)?.cwd : undefined;
+  };
+  command('berth.new', async () => startSession(defaultFolder(shownCwd(), folders()) ?? (await pickFolder())));
+  command('berth.newChooseFolder', async () => startSession(await pickFolder()));
   command('berth.newInFolder', async (arg: unknown) => {
     const node = arg as { kind?: string; group?: { cwd: string } } | undefined;
     await startSession(node?.kind === 'group' ? node.group?.cwd : await pickFolder());

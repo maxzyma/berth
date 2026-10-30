@@ -218,6 +218,20 @@ export function renderLauncher(template: string, values: LauncherValues): string
     .join(' ');
 }
 
+/** A launcher without `{agent}` chooses the agent itself (spec §6). */
+export function launcherPicksAgent(template: string): boolean {
+  return template.trim() !== '' && !template.includes('{agent}');
+}
+
+/**
+ * Folder for a new session when the user did not name one: the folder of the
+ * session shown in the main terminal, else the only workspace folder.
+ */
+export function defaultFolder(shownCwd: string | undefined, workspaceFolders: string[]): string | undefined {
+  if (shownCwd) return shownCwd;
+  return workspaceFolders.length === 1 ? workspaceFolders[0] : undefined;
+}
+
 /** `cwd` relative to the workspace folder that contains it, or '' (spec §6). */
 export function relativeToWorkspace(cwd: string, workspaceFolders: string[]): string {
   const target = cwd.replace(/\/+$/, '');

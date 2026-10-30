@@ -316,13 +316,20 @@ Berth runs with no config file.
   no hooks installed, it says that such sessions start a new conversation
   after a restart and offers *Install*, *Not now* and *Don't ask again* (per
   agent). The session row's tooltip says why it is unbound, and its context
-  menu offers *Install Agent Hooks*. Installing runs the `berth` CLI on the
-  login PATH, so the hooks keep pointing at a stable path across extension
-  updates.
+  menu offers *Install Agent Hooks*. Installing runs the user's `berth` CLI
+  (found through VS Code's environment, then an interactive login shell, since
+  version managers such as nvm load only there), so the hooks keep pointing at
+  a stable path across extension updates.
 - **Projects.** A project in the sessions view is a folder that has sessions;
-  starting a session in a folder creates its group. *New Session* asks for
-  the agent and the folder (workspace folders, existing groups, or any folder
-  chosen); a group's *New Session Here* uses that group's folder.
+  starting a session in a folder creates its group. With a single group its
+  sessions sit at the top level and the view's title shows the folder: a side
+  bar is narrow, and every tree level costs indentation the extension cannot
+  reduce (it follows `workbench.tree.indent`, and leaf rows keep the twistie
+  column). *New Session* uses the folder of the session shown in the session
+  terminal, else the only workspace folder, and asks only when neither
+  exists; *New Agent Session in Folder…* always asks (workspace folders,
+  existing groups, or any folder); a group's *New Session Here* uses that
+  group's folder.
 - **Custom launcher.** `berth.customLauncher`, when set, starts sessions
   instead of `berth new` (the §5.2 contract): it runs in the session terminal,
   in the chosen folder, and creates and attaches the session; Berth learns the
@@ -330,7 +337,13 @@ Berth runs with no config file.
   stamped it, with the directory detected from the session's pane.
   Placeholders: `{agent}`, `{cwd}` (absolute folder), `{relative}` (folder
   relative to the workspace folder containing it, empty at its root) and
-  `{name}` (folder name), each shell-quoted.
+  `{name}` (folder name), each shell-quoted. A launcher is for agents: a plain
+  shell is always started by Berth. Without `{agent}` the launcher chooses
+  the agent itself (for example with its own menu in the terminal), Berth asks
+  nothing, and a session the launcher did not stamp is adopted with the agent
+  found running in its pane (by program name, or script name for `node <cli>`);
+  if none is found it stays unmanaged. With `{agent}` Berth asks, and its list
+  says which agents the launcher starts.
 - **Actions.** New session, show (also re-stamps origin), open to the side,
   detach, rename, kill (with confirmation), adopt.
 - **Startup.** On startup, missing `vscode`-origin sessions are rebuilt and
@@ -341,8 +354,9 @@ Berth runs with no config file.
   WSL: the extension runs on the workspace side, next to the tmux server it
   manages.
 - Disabled in untrusted workspaces. Bundles the core library and calls it
-  in-process, so it never depends on a `berth` CLI on `PATH` or on its
-  version; it shells out to tmux only through the core.
+  in-process, so apart from installing agent hooks it never depends on a
+  `berth` CLI on `PATH` or on its version; it shells out to tmux only through
+  the core.
 
 ## 7. Berth for iTerm2
 
