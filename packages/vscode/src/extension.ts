@@ -4,7 +4,7 @@ import { platform } from 'node:os';
 import * as vscode from 'vscode';
 import { ADAPTERS, createContext, type SessionRow } from '@berthdev/berth';
 import { Controller, type Host, type TerminalRole } from './controller.js';
-import { defaultFolder, escapeMarkdown, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, orderAgents, placeOf, type Place, type GroupView, type RowView, type Transition } from './model.js';
+import { defaultFolder, escapeMarkdown, explorerTarget, type Attention, type TreeView, launcherPicksAgent, layoutBackup, layoutChanges, orderAgents, placeOf, type Place, type GroupView, type RowView, type Transition } from './model.js';
 
 const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
@@ -19,43 +19,58 @@ type Node = { kind: 'group'; group: GroupView } | { kind: 'unmanaged'; rows: Row
 /** Agents with their own icon in media/agents; a shell uses the terminal icon. */
 const AGENT_ICONS = new Set(['claude', 'codex', 'gemini', 'opencode', 'copilot', 'cursor', 'kimi', 'qoder']);
 
-/** State shows as the colour of a row's name (spec §6). */
-const STATE_COLORS: Partial<Record<RowView['icon'], string>> = {
-  working: 'charts.blue',
-  waiting: 'charts.yellow',
-  done: 'charts.green',
-  stopped: 'disabledForeground',
+/**
+ * Colour goes only to what needs the user, as in cmux: waiting is amber,
+ * unread blue; stopped rows are grey and everything else keeps the default.
+ */
+const ATTENTION_COLORS: Record<Exclude<Attention, ''>, string> = {
+  waiting: 'list.warningForeground',
+  unread: 'charts.blue',
 };
+const ATTENTION_BADGE: Record<Exclude<Attention, ''>, string> = { waiting: '!', unread: '•' };
 
 const ROW_SCHEME = 'berth-session';
+const GROUP_SCHEME = 'berth-group';
 const rowUri = (name: string) => vscode.Uri.from({ scheme: ROW_SCHEME, path: `/${encodeURIComponent(name)}` });
+const groupUri = (cwd: string) => vscode.Uri.from({ scheme: GROUP_SCHEME, path: `/${encodeURIComponent(cwd)}` });
 
-/** Colour and badge for session rows, which carry a berth-session: URI. */
+interface Mark { badge: string; color: string }
+
+function rowMark(row: RowView): Mark {
+  const color = row.attention ? ATTENTION_COLORS[row.attention] : row.icon === 'stopped' ? 'disabledForeground' : '';
+  return { badge: row.badge, color };
+}
+
+/** A collapsed group shows its most urgent session; an expanded one shows nothing. */
+function groupMark(group: GroupView, collapsed: boolean): Mark {
+  if (!collapsed || !group.attention) return { badge: '', color: '' };
+  return { badge: ATTENTION_BADGE[group.attention], color: ATTENTION_COLORS[group.attention] };
+}
+
+/** Colour and badge for rows, which carry berth-session: and berth-group: URIs. */
 class RowDecorations implements vscode.FileDecorationProvider {
   private readonly changed = new vscode.EventEmitter<vscode.Uri[]>();
   readonly onDidChangeFileDecorations = this.changed.event;
-  private rows = new Map<string, RowView>();
+  private marks = new Map<string, Mark>();
 
   /**
-   * Announce only the rows whose decoration changed: an announcement with no
+   * Announce only the URIs whose decoration changed: an announcement with no
    * URIs makes every view re-ask every provider for every file, which
    * redraws the explorer and source control on each refresh.
    */
-  update(rows: RowView[]): void {
-    const next = new Map(rows.map((r) => [r.name, r]));
-    const key = (r?: RowView) => (r ? `${r.badge}|${r.icon}` : '');
-    const changed = [...new Set([...this.rows.keys(), ...next.keys()])].filter((n) => key(this.rows.get(n)) !== key(next.get(n)));
-    this.rows = next;
-    if (changed.length) this.changed.fire(changed.map(rowUri));
+  update(entries: [vscode.Uri, Mark][]): void {
+    const next = new Map(entries.map(([uri, mark]) => [uri.toString(), mark]));
+    const key = (m?: Mark) => (m ? `${m.badge}|${m.color}` : '');
+    const changed = [...new Set([...this.marks.keys(), ...next.keys()])].filter((k) => key(this.marks.get(k)) !== key(next.get(k)));
+    this.marks = next;
+    if (changed.length) this.changed.fire(changed.map((k) => vscode.Uri.parse(k)));
   }
 
   provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
-    if (uri.scheme !== ROW_SCHEME) return undefined;
-    const row = this.rows.get(decodeURIComponent(uri.path.slice(1)));
-    if (!row) return undefined;
-    const color = STATE_COLORS[row.icon];
-    if (!row.badge && !color) return undefined;
-    return new vscode.FileDecoration(row.badge || undefined, undefined, color ? new vscode.ThemeColor(color) : undefined);
+    if (uri.scheme !== ROW_SCHEME && uri.scheme !== GROUP_SCHEME) return undefined;
+    const mark = this.marks.get(uri.toString());
+    if (!mark || (!mark.badge && !mark.color)) return undefined;
+    return new vscode.FileDecoration(mark.badge || undefined, undefined, mark.color ? new vscode.ThemeColor(mark.color) : undefined);
   }
 }
 
@@ -94,6 +109,13 @@ class TerminalHost implements Host {
   focusSession?: (name: string) => void;
   onShown?: (row: SessionRow) => void;
   suggestHooks?: (agent: string) => void;
+
+  extensionUri?: vscode.Uri;
+
+  agentImage(agent: string): string {
+    if (!this.extensionUri || !AGENT_ICONS.has(agent)) return '';
+    return `![](${vscode.Uri.joinPath(this.extensionUri, 'media', 'agents', `${agent}.svg`).toString()}|width=14,height=14) `;
+  }
 
   workspaceFolders(): string[] {
     return (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
@@ -227,6 +249,7 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
     if (node.kind === 'group') {
       const item = new vscode.TreeItem(node.group.label, vscode.TreeItemCollapsibleState.Expanded);
       // The folder's name is enough on the row; where it is goes in the tooltip.
+      item.resourceUri = groupUri(node.group.cwd);
       item.iconPath = PLACE_ICONS[node.group.place];
       item.tooltip = markdown(`**${escapeMarkdown(node.group.label)}**\n\n$(folder) \`${node.group.cwd.replace(/`/g, "'")}\`\n\n$(${PLACE_CODICON[node.group.place]}) ${PLACE_TEXT[node.group.place]}`);
       item.contextValue = 'group';
@@ -236,11 +259,7 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
     const item = new vscode.TreeItem(node.row.label, vscode.TreeItemCollapsibleState.None);
     item.resourceUri = rowUri(node.row.name);
     item.description = node.row.description;
-    // The card opens with the agent's own icon, as on the row.
-    const image = AGENT_ICONS.has(node.row.agent)
-      ? `![](${vscode.Uri.joinPath(this.extensionUri, 'media', 'agents', `${node.row.agent}.svg`).toString()}|width=14,height=14) `
-      : '';
-    item.tooltip = markdown(`${image}${node.row.tooltip}`);
+    item.tooltip = markdown(node.row.tooltip);
     item.contextValue = node.row.contextValue;
     item.iconPath = AGENT_ICONS.has(node.row.agent)
       ? vscode.Uri.joinPath(this.extensionUri, 'media', 'agents', `${node.row.agent}.svg`)
@@ -306,12 +325,30 @@ export function activate(context: vscode.ExtensionContext): void {
   const socket = vscode.workspace.getConfiguration('berth').get<string>('tmuxSocket', '');
   const ctx = createContext({ ...process.env, ...(socket ? { BERTH_TMUX_SOCKET: socket } : {}) });
   const host = new TerminalHost();
+  host.extensionUri = context.extensionUri;
   const controller = new Controller(ctx, host);
   const tree = new SessionTree(context.extensionUri);
   const decorations = new RowDecorations();
   context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorations));
   const view = vscode.window.createTreeView('berth.sessions', { treeDataProvider: tree });
   host.focusSession = (name) => void controller.show(name);
+  // Folders the user collapsed: their rows then show the most urgent session.
+  const collapsed = new Set<string>();
+  let lastModel: TreeView | undefined;
+  const decorate = () => {
+    if (!lastModel) return;
+    decorations.update([
+      ...[...lastModel.groups.flatMap((g) => g.rows), ...lastModel.unmanaged].map((r): [vscode.Uri, Mark] => [rowUri(r.name), rowMark(r)]),
+      ...lastModel.groups.map((g): [vscode.Uri, Mark] => [groupUri(g.cwd), groupMark(g, collapsed.has(g.cwd))]),
+    ]);
+  };
+  const onFold = (fold: boolean) => (e: vscode.TreeViewExpansionEvent<Node>) => {
+    if (e.element.kind !== 'group') return;
+    if (fold) collapsed.add(e.element.group.cwd);
+    else collapsed.delete(e.element.group.cwd);
+    decorate();
+  };
+  context.subscriptions.push(view.onDidCollapseElement(onFold(true)), view.onDidExpandElement(onFold(false)));
   // Follow the shown session in the explorer when its folder is in the workspace.
   const follow = (row: SessionRow) => {
     if (!vscode.workspace.getConfiguration('berth').get<boolean>('explorer.followSession', true)) return;
@@ -368,7 +405,8 @@ export function activate(context: vscode.ExtensionContext): void {
     try {
       const { tree: model } = controller.refresh();
       view.description = tree.update(model.groups, model.unmanaged);
-      decorations.update([...model.groups.flatMap((g) => g.rows), ...model.unmanaged]);
+      lastModel = model;
+      decorate();
       view.badge = model.waiting ? { value: model.waiting, tooltip: `${model.waiting} waiting for you` } : undefined;
     } catch (error) {
       view.message = `Berth: ${(error as Error).message}`;
@@ -416,6 +454,7 @@ export function activate(context: vscode.ExtensionContext): void {
       { placeHolder: custom ? 'Agent — agents start with your launcher, a shell with Berth' : 'Agent' },
     ))?.id;
   };
+  command('berth.markRead', guarded((name) => controller.markRead(name)));
   command('berth.forget', guarded(async (name) => {
     const ok = await vscode.window.showWarningMessage(`Forget ${name}? It will not be restored.`, { modal: true }, 'Forget');
     if (ok === 'Forget') controller.forget(name);

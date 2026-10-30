@@ -71,6 +71,12 @@
         "icon": "$(bell)"
       },
       {
+        "command": "berth.markRead",
+        "title": "Mark as Read",
+        "category": "Berth",
+        "icon": "$(check)"
+      },
+      {
         "command": "berth.refresh",
         "title": "Refresh",
         "category": "Berth",
@@ -157,6 +163,11 @@
           "group": "1@1"
         },
         {
+          "command": "berth.markRead",
+          "when": "view == berth.sessions && viewItem =~ /unread/",
+          "group": "1@1"
+        },
+        {
           "command": "berth.newInFolder",
           "when": "view == berth.sessions && viewItem == group",
           "group": "inline"
@@ -233,6 +244,10 @@
         },
         {
           "command": "berth.forget",
+          "when": "false"
+        },
+        {
+          "command": "berth.markRead",
           "when": "false"
         }
       ]

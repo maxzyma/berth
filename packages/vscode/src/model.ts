@@ -21,16 +21,23 @@ export interface RowView {
   icon: 'working' | 'waiting' | 'done' | 'stopped' | 'idle' | 'unmanaged';
   /** One character beside the name: the state, else unread. */
   badge: string;
+  /** Colour goes only to what needs the user; everything else stays grey. */
+  attention: Attention;
   unread: boolean;
 }
 
 /** Where a folder sits relative to this window's workspace (spec §6). */
 export type Place = 'workspace' | 'inside' | 'outside';
 
+/** What needs the user: someone waiting outranks something unread (spec §6). */
+export type Attention = 'waiting' | 'unread' | '';
+
 export interface GroupView {
   cwd: string;
   label: string;
   place: Place;
+  /** The most urgent of its sessions, shown on the group row when collapsed. */
+  attention: Attention;
   rows: RowView[];
 }
 
@@ -84,7 +91,8 @@ const STATE_TEXT: Record<RowView['icon'], string> = {
   unmanaged: '',
 };
 
-const BADGE: Partial<Record<RowView['icon'], string>> = { working: '⋯', waiting: '!', done: '✓' };
+// A finished turn is only shown while unread, so it wears the unread dot.
+const BADGE: Partial<Record<RowView['icon'], string>> = { working: '⋯', waiting: '!', done: '•' };
 
 /** One icon per tooltip line (spec §6). */
 const CONNECTION_CODICON: Record<Connection, string> = {
@@ -113,6 +121,8 @@ export interface ViewInput {
   unread: ReadonlySet<string>;
   branch: (cwd: string) => string;
   workspaceFolders?: readonly string[];
+  /** Markdown image of an agent's icon for the tooltip card, or ''. */
+  agentImage?: (agent: string) => string;
 }
 
 const HOOKS_MISSING = "This agent's Berth hooks are not installed, so after a restart the session starts a new conversation. Right-click → Install Agent Hooks.";
@@ -130,6 +140,7 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
       contextValue: `session unmanaged live ${conn}`,
       icon: 'unmanaged',
       badge: '',
+      attention: '',
       unread: false,
     };
   }
@@ -142,10 +153,11 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
   const note = (icon === 'waiting' || icon === 'done') && row.note ? row.note : '';
 
   const warning = hooksMissing ? `$(warning) ${HOOKS_MISSING}` : !row.conversation ? '$(info) Conversation not bound yet: a restore would start a new one.' : '';
+  // The notification comes first: it is what the user hovers to read.
   const tooltip = [
-    `**${escapeMarkdown(row.name)}** · ${escapeMarkdown(agentName)}`,
-    `$(${STATE_CODICON[icon]}) ${STATE_TEXT[icon]}`,
     note ? `> $(comment) ${escapeMarkdown(note)}` : '',
+    `${input.agentImage?.(row.agent) ?? ''}**${escapeMarkdown(row.name)}** · ${escapeMarkdown(agentName)}`,
+    `$(${STATE_CODICON[icon]}) ${STATE_TEXT[icon]}`,
     '---',
     `$(${CONNECTION_CODICON[conn]}) ${CONNECTION_TEXT[conn]}`,
     branch ? `$(git-branch) ${escapeMarkdown(branch)}` : '',
@@ -158,9 +170,10 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
     agent: row.agent,
     description: note,
     tooltip: tooltip.filter(Boolean).join('\n\n'),
-    contextValue: `session managed ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing ? ' hooks-missing' : ''}`,
+    contextValue: `session managed ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing ? ' hooks-missing' : ''}${unread ? ' unread' : ''}`,
     icon,
     badge: BADGE[icon] ?? (unread ? '•' : ''),
+    attention: icon === 'waiting' ? 'waiting' : unread ? 'unread' : '',
     unread,
   };
 }
@@ -179,7 +192,13 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
   }
   const folders = input.workspaceFolders ?? [];
   const ordered = [...groups.entries()]
-    .map(([cwd, list]) => ({ cwd, label: basename(cwd) || cwd, place: placeOf(cwd, folders), rows: list.sort((x, y) => x.name.localeCompare(y.name)) }))
+    .map(([cwd, list]) => ({
+      cwd,
+      label: basename(cwd) || cwd,
+      place: placeOf(cwd, folders),
+      attention: (list.some((r) => r.attention === 'waiting') ? 'waiting' : list.some((r) => r.attention === 'unread') ? 'unread' : '') as Attention,
+      rows: list.sort((x, y) => x.name.localeCompare(y.name)),
+    }))
     .sort((a, b) => PLACE_RANK[a.place] - PLACE_RANK[b.place] || a.cwd.localeCompare(b.cwd));
   return {
     groups: ordered,

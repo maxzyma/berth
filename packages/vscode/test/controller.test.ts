@@ -83,8 +83,12 @@ test('V1 the session view groups by cwd, shows state and counts waiting sessions
   const a1 = tree.groups[0].rows[0];
   assert.deepEqual([a1.label, a1.agent, a1.icon, a1.badge, a1.description], ['a1', 'claude', 'waiting', '!', 'needs approval']);
   assert.equal(tree.groups[0].rows[1].description, '', 'nothing to read while idle');
-  assert.match(a1.tooltip, /^\*\*a1\*\* · Claude Code\n\n\$\(bell-dot\) Waiting for you\n\n> \$\(comment\) needs approval\n\n---\n\n\$\(debug-disconnect\) Not open in any terminal/);
-  for (const line of a1.tooltip.split('\n\n').slice(1)) assert.match(line, /^(> )?\$\(|^---$/, `every line has its icon: ${line}`);
+  // The card leads with what the agent said, then who it is; every detail line has its icon.
+  assert.match(a1.tooltip, /^> \$\(comment\) needs approval\n\n\*\*a1\*\* · Claude Code\n\n\$\(bell-dot\) Waiting for you\n\n---\n\n\$\(debug-disconnect\) Not open in any terminal/);
+  for (const line of a1.tooltip.split('\n\n').filter((l) => !l.startsWith('**'))) assert.match(line, /^(> )?\$\(|^---$/, `every line has its icon: ${line}`);
+  assert.equal(a1.attention, 'waiting');
+  assert.equal(tree.groups[0].attention, 'waiting', 'a group carries its most urgent session');
+  assert.equal(tree.groups[1].attention, '');
   assert.equal(escapeMarkdown('a_b $(x)'), 'a\\_b \\$\\(x\\)', 'session text cannot inject Markdown or icons');
   assert.match(tree.groups[0].rows[1].tooltip, /starts a new conversation/, "why it will not resume");
   assert.equal(tree.groups[0].rows[1].badge, '', 'idle and read: no badge');
@@ -337,8 +341,9 @@ test('V11 an agent without hooks is offered hooks once; its rows say why they ar
 test('V1 a finished turn shows until the user has seen it; a new state replaces the old notification', (t) => {
   const row = { name: 'f', managed: true, agent: 'claude', cwd: '/w', conversation: 'c', origin: 'vscode', state: 'done', note: 'All set', attachedClients: 0, live: true, hooks: 'installed' as const };
   const view = (unread: boolean) => buildTree([row], { here: new Set(), unread: new Set(unread ? ['f'] : []), branch: () => '' }).groups[0].rows[0];
-  assert.deepEqual([view(true).icon, view(true).badge, view(true).description], ['done', '✓', 'All set']);
-  assert.deepEqual([view(false).icon, view(false).badge, view(false).description], ['idle', '', '']);
+  assert.deepEqual([view(true).icon, view(true).badge, view(true).attention, view(true).description], ['done', '•', 'unread', 'All set']);
+  assert.deepEqual([view(false).icon, view(false).badge, view(false).attention, view(false).description], ['idle', '', '', '']);
+  assert.match(view(true).contextValue, / unread$/, 'offers Mark as Read');
 });
 
 test('V10 go to the next session needing you: waiting first, then unread, wrapping', async (t) => {

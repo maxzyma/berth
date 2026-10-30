@@ -38,6 +38,8 @@ export interface Host {
   sessionShown?(row: SessionRow): void;
   /** This window's workspace folders. */
   workspaceFolders?(): string[];
+  /** Markdown image of an agent's icon for tooltip cards, or ''. */
+  agentImage?(agent: string): string;
   /** An agent in use has no Berth hooks: offer to install them (spec §6). */
   suggestHooks?(agent: string): void;
 }
@@ -99,6 +101,7 @@ export class Controller {
       unread: this.unread,
       branch: (cwd) => this.branch(cwd),
       workspaceFolders: this.host.workspaceFolders?.() ?? [],
+      agentImage: (agent) => this.host.agentImage?.(agent) ?? '',
     });
   }
 
@@ -262,6 +265,11 @@ export class Controller {
   kill(name: string): void {
     this.host.closeTerminals(name);
     this.ctx.tmux.killSession(name);
+  }
+
+  /** The user has seen it without opening it. */
+  markRead(name: string): void {
+    this.unread.delete(name);
   }
 
   /** Stop restoring a stopped session. */

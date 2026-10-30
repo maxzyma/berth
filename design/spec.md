@@ -313,19 +313,23 @@ Berth runs with no config file.
   detached / stopped — in snapshot, not live); conversation bound or not. A
   side bar row is narrow, and words there get cut off and crowd one another,
   so the row itself shows the session name, the latest notification while
-  waiting or done (what the agent needs from the user), the agent as its icon (one
-  coloured letter per agent on a transparent background, a terminal icon for
-  a shell), and the state
-  as the name's colour and a one-character badge (working `⋯` blue, waiting
-  `!` yellow, done `✓` green, stopped grey, otherwise `•` when unread); the
-  tooltip spells out everything as a small card (Markdown with icons: name
-  and agent, state, the notification as a quote, then branch, connection,
-  folder and any warning; session text is escaped). How soon a tooltip opens
-  is VS Code's `workbench.hover.delay`, not Berth's. A finished turn is shown
-  as done only until the user has seen it; after that the row looks idle,
-  since a finished turn is the normal resting state. A new state replaces the
-  notification, so a finished row never shows an old permission request.
-  Group rows show the folder's name; where it is is in their tooltip. The view
+  waiting or done (what the agent needs from the user), the agent as its icon
+  (one coloured letter per agent on a transparent background, a terminal icon
+  for a shell), and the state as a one-character badge: working `⋯`, waiting
+  `!`, unread `•` (an unseen finished turn is unread). As in cmux, colour goes
+  only to what needs the user: waiting colours the name amber, unread blue;
+  stopped rows are grey and the rest keep the default colour. A finished turn
+  the user has seen looks idle, since it is the normal resting state, and a
+  new state replaces the notification, so a finished row never shows an old
+  permission request. *Mark as Read* clears unread without opening the
+  session. The tooltip is a small card (Markdown): the notification first, as
+  a quote, then the agent's icon with name and agent, state, connection,
+  branch, folder and any warning, each line led by its icon; session text is
+  escaped. How soon a tooltip opens is VS Code's `workbench.hover.delay`, not
+  Berth's.
+  Group rows show the folder's name; where it is is in their tooltip; a
+  collapsed group shows its most urgent session (waiting, else unread) with
+  the same badge and colour. The view
   refreshes every few seconds but redraws, and announces decoration changes,
   only for rows that changed: a blanket announcement makes every view in the
   window (explorer, source control) redraw. A view
