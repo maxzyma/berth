@@ -3,7 +3,7 @@
   "displayName": "Berth",
   "description": "Every terminal coding agent in one list: kept running in tmux, resumed after restarts, state on your terminal tabs.",
   "icon": "media/icon.png",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "publisher": "berthdev",
   "license": "MIT",
   "type": "module",
