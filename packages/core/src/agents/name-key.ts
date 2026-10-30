@@ -3,24 +3,32 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 /**
- * Name key (spec §4.2): a Claude Code session started with `--name X` records
- * X as a `custom-title` entry near the top of its transcript. The newest
- * transcript in the session's directory carrying that title is the session's
- * conversation. Claude keeps a directory's transcripts under
- * ~/.claude/projects/<cwd with every non-alphanumeric character as '-'>.
+ * Name key (spec §4.2): an agent started with `--name X` records X as a
+ * `custom-title` entry near the top of its transcript. The newest transcript
+ * in the session's directory carrying that title is the session's
+ * conversation. Claude Code and Qoder CLI keep a directory's transcripts as
+ * <root>/projects/<encoded cwd>/<id>.jsonl; Claude encodes every
+ * non-alphanumeric character as '-', Qoder documents '/' as '-'.
  */
 const HEADER_LINES = 40;
 
-function projectDirs(cwd: string, home: string): string[] {
-  const encode = (p: string) => join(home, '.claude', 'projects', p.replace(/[^A-Za-z0-9]/g, '-'));
-  const dirs = [encode(cwd)];
+const ROOTS: Record<string, (env: Record<string, string | undefined>) => string> = {
+  claude: (env) => join(env.HOME || homedir(), '.claude'),
+  qoder: (env) => env.QODER_CONFIG_DIR || join(env.HOME || homedir(), '.qoder'),
+};
+
+const ENCODINGS = [(p: string) => p.replace(/[^A-Za-z0-9]/g, '-'), (p: string) => p.replace(/\//g, '-')];
+
+function projectDirs(root: string, cwd: string): string[] {
+  const paths = [cwd];
   try {
     const real = realpathSync(cwd);
-    if (real !== cwd) dirs.push(encode(real));
+    if (real !== cwd) paths.push(real);
   } catch {
     // The directory may be gone; the recorded path still names its transcripts.
   }
-  return dirs.filter((d) => existsSync(d));
+  const dirs = paths.flatMap((p) => ENCODINGS.map((encode) => join(root, 'projects', encode(p))));
+  return [...new Set(dirs)].filter((d) => existsSync(d));
 }
 
 function titleOf(file: string): string | undefined {
@@ -42,8 +50,10 @@ function titleOf(file: string): string | undefined {
   }
 }
 
-export function claudeConversationByName(cwd: string, name: string, home = process.env.HOME || homedir()): string | undefined {
-  const files = projectDirs(cwd, home)
+export function conversationByName(agent: string, cwd: string, name: string, env = process.env): string | undefined {
+  const root = ROOTS[agent];
+  if (!root) return undefined;
+  const files = projectDirs(root(env), cwd)
     .flatMap((dir) => readdirSync(dir).filter((f) => f.endsWith('.jsonl')).map((f) => join(dir, f)))
     .map((file) => ({ file, mtime: statSync(file).mtimeMs }))
     .sort((a, b) => b.mtime - a.mtime);

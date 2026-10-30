@@ -87,3 +87,17 @@ test('R-lock a lock left without a pid by a crashed owner is taken over', (t) =>
   utimesSync(lock, old, old);
   assert.equal(withLock(state, () => 'ran', 2_000), 'ran');
 });
+
+test('R-name-key Qoder sessions are bound through the same transcript title', async (t) => {
+  const sb = sandbox(t);
+  const dir = sb.makeDir('qoder.proj');
+  sb.cli('new', 'qoder', '--cwd', dir, '--name', 'qtitled');
+  const project = join(sb.env.HOME, '.qoder', 'projects', dir.replace(/\//g, '-'));
+  mkdirSync(project, { recursive: true });
+  writeFileSync(join(project, 'q-id.jsonl'), `${JSON.stringify({ type: 'custom-title', sessionId: 'q-id', customTitle: 'qtitled' })}\n`);
+  const env = { ...sb.env };
+  delete env.QODER_CONFIG_DIR;
+  const out = spawnSync(process.execPath, [CLI, 'snapshot'], { env, encoding: 'utf8' }).stdout.trim();
+  const data = JSON.parse(readFileSync(join(out, 'sessions.json'), 'utf8'));
+  assert.equal(data.sessions[0].conversation, 'q-id');
+});

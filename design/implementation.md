@@ -241,11 +241,12 @@ manual cases are recorded as checked, and the de-identification check passes.
 - **C10** A session without a conversation id is rebuilt with its launch
   template and reported as unbound.
 - **C11** `hooks install` / `uninstall` per agent are idempotent and leave
-  unrelated hook entries intact.
+  unrelated hook entries intact, for every hook format (nested JSON, flat
+  JSON, Copilot's own file, Kimi's TOML block, the OpenCode plugin).
 - **C12** Every edge case in §4 has a test.
 - **C14** With `berth tmux install`, a bell in a session whose agent has no
-  installed hooks sets `waiting` / `bell`; one whose hooks are installed is
-  left alone; showing the session clears a bell-raised `waiting`.
+  installed hooks sets `waiting` / `bell`; one whose installed hooks report
+  waiting is left alone; showing the session clears a bell-raised `waiting`.
 - **C13** Every baseline adapter passes its unit tests (§5.4) and its spec §8
   row records its source (help-checked or cmux reference).
 - **L1** (live, manual trigger) Every installed baseline agent resumes its own

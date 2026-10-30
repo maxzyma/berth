@@ -3,7 +3,8 @@
  *
  * `source` records where each row's commands and events come from:
  * - `help <version>`: checked against the CLI's own --help on that version;
- * - `cmux`: follows cmux's handling of that agent (reference commit in spec §8).
+ * - `cmux`: follows cmux's handling of that agent (reference commit in spec §8);
+ * - `docs`: the CLI's official documentation (links in spec §8).
  * No code is taken from other projects; facts about the CLIs are restated here.
  */
 
@@ -17,6 +18,17 @@ export interface HookEvents {
   done: string[];
 }
 
+/** Hook file formats Berth can write (see hook-files.ts). */
+export type HookTarget =
+  | 'claude-settings'
+  | 'codex-hooks'
+  | 'gemini-settings'
+  | 'qoder-settings'
+  | 'cursor-hooks'
+  | 'copilot-hooks'
+  | 'kimi-config'
+  | 'opencode-plugin';
+
 export interface Adapter {
   id: string;
   displayName: string;
@@ -27,8 +39,10 @@ export interface Adapter {
   /** Options kept on resume; value says whether the option takes an argument. */
   keep: Record<string, boolean>;
   /** Where Berth writes hooks for this agent, when it supports them. */
-  hookTarget?: 'claude-settings' | 'codex-hooks';
+  hookTarget?: HookTarget;
   events: HookEvents;
+  /** For a waiting event that also fires for other reasons: whether this payload asks for the user. */
+  waitingWhen?: (payload: Record<string, unknown>) => boolean;
   source: string;
 }
 
@@ -59,6 +73,7 @@ export const ADAPTERS: Adapter[] = [
     },
     hookTarget: 'claude-settings',
     events: claudeEvents,
+    waitingWhen: (p) => /permission/i.test(String(p.message ?? '')),
     source: 'help 2.1.310',
   },
   {
@@ -91,8 +106,10 @@ export const ADAPTERS: Adapter[] = [
     launch: 'gemini {args}',
     resume: 'gemini --resume {conversation} {args}',
     keep: { '--model': true, '-m': true, '--yolo': false, '--approval-mode': true },
-    events: noEvents,
-    source: 'cmux',
+    hookTarget: 'gemini-settings',
+    events: { start: ['SessionStart'], working: ['BeforeAgent'], waiting: ['Notification'], done: ['AfterAgent'] },
+    waitingWhen: (p) => p.notification_type === 'ToolPermission',
+    source: 'docs (hooks, hooks on by default since 0.27); cmux',
   },
   {
     id: 'opencode',
@@ -101,18 +118,21 @@ export const ADAPTERS: Adapter[] = [
     launch: 'opencode {args}',
     resume: 'opencode --session {conversation} {args}',
     keep: { '--model': true, '-m': true, '--agent': true },
+    hookTarget: 'opencode-plugin',
     events: { start: ['session.created'], working: [], waiting: [], done: ['session.idle'] },
-    source: 'cmux',
+    source: 'docs (plugins); cmux',
   },
   {
     id: 'copilot',
     displayName: 'GitHub Copilot CLI',
     binary: 'copilot',
     launch: 'copilot {args}',
-    resume: 'copilot --resume {conversation} {args}',
+    resume: 'copilot --resume={conversation} {args}',
     keep: { '--model': true, '--allow-all-tools': false, '--add-dir': true },
-    events: { start: [], working: [], waiting: [], done: ['Notification'] },
-    source: 'cmux',
+    hookTarget: 'copilot-hooks',
+    events: { start: ['sessionStart'], working: ['userPromptSubmitted'], waiting: ['notification'], done: ['agentStop'] },
+    waitingWhen: (p) => /permission/i.test(String(p.notification_type ?? p.notificationType ?? '')),
+    source: 'docs (hooks, CLI 1.0.21+); cmux',
   },
   {
     id: 'cursor',
@@ -121,8 +141,9 @@ export const ADAPTERS: Adapter[] = [
     launch: 'cursor-agent {args}',
     resume: 'cursor-agent --resume {conversation} {args}',
     keep: { '--model': true, '--force': false },
-    events: noEvents,
-    source: 'help 2025.09.12 (commands); cmux',
+    hookTarget: 'cursor-hooks',
+    events: { start: ['sessionStart'], working: ['beforeSubmitPrompt'], waiting: [], done: ['stop'] },
+    source: 'help 2025.09.12 (commands); docs (hooks, CLI 2026.01+); cmux',
   },
   {
     id: 'kimi',
@@ -131,8 +152,9 @@ export const ADAPTERS: Adapter[] = [
     launch: 'kimi {args}',
     resume: 'kimi --session {conversation} {args}',
     keep: { '--agent': true, '--add-dir': true, '--model': true, '-m': true },
-    events: noEvents,
-    source: 'help 0.31.1',
+    hookTarget: 'kimi-config',
+    events: { start: ['SessionStart'], working: ['UserPromptSubmit'], waiting: ['PermissionRequest'], done: ['Stop'] },
+    source: 'help 0.31.1 (commands); docs (hooks); cmux',
   },
   {
     id: 'qoder',
@@ -141,8 +163,9 @@ export const ADAPTERS: Adapter[] = [
     launch: 'qodercli --name {name} {args}',
     resume: 'qodercli --resume {conversation} {args}',
     keep: { '--model': true, '--yolo': false },
-    events: noEvents,
-    source: 'help 1.0.48 (commands); cmux',
+    hookTarget: 'qoder-settings',
+    events: { start: ['SessionStart'], working: ['UserPromptSubmit'], waiting: ['PermissionRequest'], done: ['Stop'] },
+    source: 'help 1.0.48 (commands); docs (hooks); cmux',
   },
   {
     id: 'shell',

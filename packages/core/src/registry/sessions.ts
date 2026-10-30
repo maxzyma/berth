@@ -141,15 +141,15 @@ export const BELL_NOTE = 'bell';
 /**
  * A terminal bell from a managed session (tmux alert-bell). Agents without
  * Berth hooks get state `waiting`, so every agent can ask for attention; for
- * agents whose hooks are installed the hooks are more precise and the bell
- * is ignored. Returns whether the state changed.
+ * agents whose installed hooks report waiting the hooks are more precise and
+ * the bell is ignored. Returns whether the state changed.
  */
 export function bellRang(ctx: Context, name: string, env = process.env): boolean {
   const live = ctx.tmux.listSessions().find((s) => s.name === name);
   const agent = live?.meta.agent;
   if (!agent) return false;
   const adapter = getAdapter(agent);
-  if (adapter?.hookTarget && hooksInstalled(agent, env)) return false;
+  if (adapter?.events.waiting.length && hooksInstalled(agent, env)) return false;
   stamp(ctx, name, { state: 'waiting', note: BELL_NOTE });
   return true;
 }

@@ -109,7 +109,7 @@ Order of preference, first hit wins:
    `SessionStart`, which also fires on resume, clear, compact and fork, so the
    stamp follows id changes). The hook runs `berth stamp --conversation <id>`.
 2. **Name key.** When the agent supports naming a conversation at launch
-   (Claude Code `--name`), Berth passes the session name, and later resolves
+   (Claude Code and Qoder CLI `--name`), Berth passes the session name, and later resolves
    the newest conversation in that directory carrying that name.
 3. **Unbound.** Restore relaunches without resuming and the session row says
    so. Berth never falls back to "most recent conversation in this directory".
@@ -120,8 +120,9 @@ The same hooks keep `@berth_state` current from the agent's lifecycle events
 
 Agents without Berth hooks can still ask for attention: a terminal bell in
 their session (tmux `alert-bell`, hooked by `berth tmux install`) sets
-`@berth_state` to `waiting` with note `bell`. Agents whose hooks are installed
-ignore the bell, since hooks are more precise. Showing the session in a
+`@berth_state` to `waiting` with note `bell`. Agents whose installed hooks
+report `waiting` ignore the bell, since hooks are more precise; agents whose
+hooks have no waiting event (Cursor CLI, OpenCode) keep it. Showing the session in a
 frontend clears a bell-raised `waiting`.
 
 Hooks are written only by `berth hooks install <agent>`, are marked as Berth's,
@@ -395,32 +396,58 @@ text.
 The baseline set below must all be supported by milestone 1 (G8).
 
 "Help" means checked against the CLI's own `--help` on the version shown.
-"Reference" means the command and hook semantics follow cmux's implementation
-for that agent (commit `473e77e`, 2026-10-26) and have not been run against the
-CLI by Berth.
+"Docs" means the hook or plugin interface follows the CLI's official
+documentation (sources below, read 2026-10-30) and has not been run against
+the CLI by Berth. "cmux" means cmux integrates the same interface (commit
+`6bb44996`, read 2026-10-30).
 
 | Agent | Launch | Resume | Conversation id source | Status |
 |---|---|---|---|---|
-| Claude Code | `claude --name {name}` | `claude --resume {id}` | `SessionStart` hook, then name key | Proven in a private prototype; help 2.1.310 |
-| Codex CLI | `codex` | `codex resume {id}` (id or session name) | Codex hooks | Help 0.162.1; id source to verify |
-| Gemini CLI | `gemini` | `gemini --resume {id}` | none yet (defect) | Reference only |
-| OpenCode | `opencode` | `opencode --session {id}` | plugin events, no installer yet (defect) | Reference only |
-| GitHub Copilot CLI | `copilot` | `copilot --resume {id}` | none yet (defect) | Reference only |
-| Cursor CLI | `cursor-agent` | `cursor-agent --resume {id}` | none yet (defect) | Help 2025.09.12 |
-| Kimi CLI | `kimi` | `kimi --session {id}` | none yet (defect) | Help 0.31.1 (other tools use `--resume`; follow the CLI) |
-| Qoder CLI | `qodercli --name {name}` | `qodercli --resume {id}` | none yet (defect); name key possible | Help 1.0.48 |
+| Claude Code | `claude --name {name}` | `claude --resume {id}` | `SessionStart` hook (`~/.claude/settings.json`), then name key | Proven in a private prototype; help 2.1.310 |
+| Codex CLI | `codex` | `codex resume {id}` (id or session name) | `SessionStart` hook (`~/.codex/hooks.json`) | Help 0.162.1; cmux |
+| Gemini CLI | `gemini` | `gemini --resume {id}` | `SessionStart` hook (`~/.gemini/settings.json`) | Docs; hooks on by default from 0.27 |
+| OpenCode | `opencode` | `opencode --session {id}` | `session.created` event via a plugin (`~/.config/opencode/plugins/berth.js`) | Docs; cmux |
+| GitHub Copilot CLI | `copilot` | `copilot --resume={id}` | `sessionStart` hook (`~/.copilot/hooks/berth.json`) | Docs; 1.0.21 or later; cmux |
+| Cursor CLI | `cursor-agent` | `cursor-agent --resume {id}` | `sessionStart` hook (`~/.cursor/hooks.json`) | Help 2025.09.12; docs: the CLI runs hooks from 2026.01; cmux |
+| Kimi Code | `kimi` | `kimi --session {id}` | `SessionStart` hook (`[[hooks]]` in `~/.kimi-code/config.toml`) | Help 0.31.1; docs; cmux |
+| Qoder CLI | `qodercli --name {name}` | `qodercli --resume {id}` | `SessionStart` hook (`~/.qoder/settings.json`), then name key | Help 1.0.48; docs; cmux |
 | `shell` | user shell | — | — | — |
 
-Known defect (G8): only Claude Code (hooks, name key) and Codex CLI (hooks)
-can record a conversation id today. The other baseline agents have no id
-source yet, so a rebuilt session starts a fresh conversation in the right
-folder instead of resuming. Each needs a hook or name-key integration
-verified against the CLI.
+Every hook receives a JSON payload on stdin and the id is read from
+`session_id`, `sessionId`, `sessionID` or `conversation_id`. The other hooks
+installed per agent map prompt submitted → `working`, permission request →
+`waiting`, turn finished → `done`; where the agent's notification event also
+fires for idle reminders, only a permission notification counts.
+
+Agent-specific limits:
+
+- Kimi Code refuses to load its whole config on an unknown hook field or
+  event, so Berth writes only `event` and `command`, as one marked block at the
+  end of `config.toml`. The legacy Python Kimi CLI (`~/.kimi/config.toml`, hooks
+  from 1.28) is used only when `~/.kimi-code` does not exist.
+- Cursor CLI and OpenCode have no hook for "needs approval" in Berth's set,
+  so the terminal bell still marks them `waiting`.
+- An OpenCode session spawns child sessions for subagents; the plugin ignores
+  sessions with a parent, so the conversation id stays the one the user resumes.
+
+Sources: [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks),
+[Gemini CLI hooks](https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/index.md),
+[Gemini CLI sessions](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/session-management.md),
+[OpenCode plugins](https://opencode.ai/docs/plugins/),
+[OpenCode CLI](https://opencode.ai/docs/cli/),
+[Copilot CLI hooks](https://github.com/github/docs/blob/main/content/copilot/reference/hooks-reference.md),
+[Copilot CLI changelog](https://github.com/github/copilot-cli/blob/main/changelog.md),
+[Cursor hooks](https://cursor.com/docs/agent/hooks),
+[Cursor CLI changelog](https://cursor.com/docs/cli/changelog),
+[Kimi Code hooks](https://moonshotai.github.io/kimi-code/en/customization/hooks.html),
+[Qoder CLI hooks](https://docs.qoder.com/en/cli/hooks),
+[Qoder CLI sessions](https://docs.qoder.com/cli/sessions),
+[cmux agent hooks](https://github.com/manaflow-ai/cmux/blob/main/docs/agent-hooks.md).
 
 A row is done when it is implemented, covered by unit tests, and its source
-is recorded: help-checked against the CLI, or reference to cmux as above.
+is recorded: help-checked against the CLI, official docs, or cmux as above.
 Live verification (implementation §5.5) covers the agents installed where it
-runs; the rest stay "reference" until someone runs them.
+runs; the rest stay "docs" until someone runs them.
 
 Agents outside the baseline set may be added later. Adding an adapter means
 filling its row and passing the adapter tests; no change elsewhere.

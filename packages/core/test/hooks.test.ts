@@ -34,7 +34,7 @@ test('C11 (C12.12) hooks install / uninstall are idempotent and keep unrelated h
 
   assert.equal(sb.cli('hooks', 'install', 'codex').status, 0);
   assert.equal(berthEntries(read(join(sb.env.HOME, '.codex', 'hooks.json'))).length, 2);
-  assert.equal(sb.cli('hooks', 'install', 'gemini').status, 2, 'agents without hook support say so');
+  assert.equal(sb.cli('hooks', 'install', 'shell').status, 2, 'agents without hook support say so');
 });
 
 test('C5 (C12.6) hook events from inside a pane stamp conversation and state', async (t) => {

@@ -14,7 +14,7 @@ const EXPECTED: Record<string, { launch: string[]; resume: string[] }> = {
   codex: { launch: ['codex'], resume: ['codex', 'resume', 'ID'] },
   gemini: { launch: ['gemini'], resume: ['gemini', '--resume', 'ID'] },
   opencode: { launch: ['opencode'], resume: ['opencode', '--session', 'ID'] },
-  copilot: { launch: ['copilot'], resume: ['copilot', '--resume', 'ID'] },
+  copilot: { launch: ['copilot'], resume: ['copilot', '--resume=ID'] },
   cursor: { launch: ['cursor-agent'], resume: ['cursor-agent', '--resume', 'ID'] },
   kimi: { launch: ['kimi'], resume: ['kimi', '--session', 'ID'] },
   qoder: { launch: ['qodercli', '--name', 'web'], resume: ['qodercli', '--resume', 'ID'] },
@@ -72,4 +72,24 @@ test('C13 hook events map to state and conversation id', () => {
   assert.deepEqual(metaForEvent(codex, 'SessionStart', { session_id: 'cx' }), { conversation: 'cx' });
   assert.deepEqual(metaForEvent(codex, 'Stop', {}), { state: 'done' });
   assert.deepEqual(metaForEvent(getAdapter('gemini')!, 'Anything', {}), {});
+});
+
+test('C13 each agent reports its conversation id and asks for attention only on permission', () => {
+  const meta = (id: string, event: string, payload: Record<string, unknown>) => metaForEvent(getAdapter(id)!, event, payload);
+  assert.deepEqual(meta('gemini', 'SessionStart', { session_id: 'g1' }), { conversation: 'g1' });
+  assert.deepEqual(meta('gemini', 'BeforeAgent', {}), { state: 'working' });
+  assert.deepEqual(meta('gemini', 'Notification', { notification_type: 'ToolPermission', message: 'Allow?' }), { state: 'waiting', note: 'Allow?' });
+  assert.deepEqual(meta('gemini', 'Notification', { notification_type: 'Other' }), {});
+  assert.deepEqual(meta('gemini', 'AfterAgent', {}), { state: 'done' });
+  assert.deepEqual(meta('copilot', 'sessionStart', { sessionId: 'cp1' }), { conversation: 'cp1' }, 'camelCase payload');
+  assert.deepEqual(meta('copilot', 'notification', { notificationType: 'permission_prompt' }), { state: 'waiting' });
+  assert.deepEqual(meta('copilot', 'notification', { notification_type: 'agent_idle' }), {});
+  assert.deepEqual(meta('cursor', 'sessionStart', { conversation_id: 'cu1' }), { conversation: 'cu1' });
+  assert.deepEqual(meta('cursor', 'beforeSubmitPrompt', {}), { state: 'working' });
+  for (const id of ['kimi', 'qoder']) {
+    assert.deepEqual(meta(id, 'SessionStart', { session_id: `${id}1` }), { conversation: `${id}1` });
+    assert.deepEqual(meta(id, 'PermissionRequest', {}), { state: 'waiting' });
+    assert.deepEqual(meta(id, 'Stop', {}), { state: 'done' });
+  }
+  for (const id of BASELINE) assert.ok(getAdapter(id)!.hookTarget, `${id} has a conversation id source (spec G8)`);
 });
