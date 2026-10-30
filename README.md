@@ -5,25 +5,25 @@ Codex CLI, and others) running in tmux, list them all in one place, and bring
 each one back — conversation included — in the terminal it came from after an
 editor restart or a reboot.
 
-> Status: early; latest release 0.1.0. Core, `berth` CLI, Berth for VS Code and Berth for
-> iTerm2 work and are tested; packages are on GitHub Releases, not yet on npm
-> or the VS Code Marketplace. The spec is [design/spec.md](design/spec.md).
+> Status: early. The core and `berth` CLI are on npm as
+> [`@berthdev/berth`](https://www.npmjs.com/package/@berthdev/berth); Berth for
+> VS Code is on [GitHub Releases](https://github.com/maxzyma/berth/releases), not
+> yet on the Marketplace. The spec is [design/spec.md](design/spec.md).
 
 ## Install
 
-Requires tmux ≥ 3.0 and Node ≥ 20. From the
-[latest release](https://github.com/maxzyma/berth/releases/latest):
+Requires tmux ≥ 3.0 and Node ≥ 20.
 
 ```sh
-npm install -g https://github.com/maxzyma/berth/releases/download/v0.1.0/berthdev-berth-0.1.0.tgz
-code --install-extension berth-vscode-0.1.0.vsix   # after downloading it
+npm install -g @berthdev/berth
+code --install-extension berth-vscode-<version>.vsix   # downloaded from GitHub Releases
 ```
 
 Then, once per machine:
 
 ```sh
 berth hooks install claude    # and codex: agents report conversation id and state
-berth tmux install            # snapshot automatically as sessions change
+berth tmux install            # snapshot, bell and attach hooks
 berth iterm2 install          # optional: Berth for iTerm2
 ```
 
