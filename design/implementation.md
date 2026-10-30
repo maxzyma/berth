@@ -312,9 +312,14 @@ Cases marked (human) need the maintainer's decision or accounts.
   old references stays in a separate private repository.
 - **R4** `npm pack` of `packages/core` contains only `dist/src`, `README.md`
   and the manifest; `vsce package` of `packages/vscode` succeeds.
-- **R5** (human) Create the `berthdev` npm organization and Marketplace
-  publisher, then publish `@berthdev/berth` and the extension. Until then,
-  each release attaches the npm tarball and the `.vsix` to its GitHub release.
+- **R5** Releases go through `.github/workflows/release.yml`: pushing a tag
+  `vX.Y.Z` (or `vX.Y.Z-pre`, published under `next` as a prerelease) checks the
+  tag against both package versions, runs `npm test` on macOS, publishes
+  `@berthdev/berth` through npm trusted publishing (no stored token,
+  provenance attached; a version already on npm is skipped), and creates the
+  GitHub release with the npm tarball and the `.vsix`. (human) The npm
+  trusted publisher for this repository and workflow is registered once with
+  `npm trust github`; the Marketplace publisher is still to be created.
 - **R6** (human) Run the manual cases V8, V9, I5 following
   [manual-acceptance.md](manual-acceptance.md), and `npm run test:vscode`,
   before each release.
