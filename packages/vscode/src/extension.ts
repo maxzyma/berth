@@ -424,7 +424,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const items: (vscode.QuickPickItem & { path?: string })[] = known
       .map((p) => ({ p, place: placeOf(p, folders()) }))
       .sort((a, b) => rank[a.place] - rank[b.place] || a.p.localeCompare(b.p))
-      .map(({ p, place }) => ({ label: p.split('/').pop() || p, description: p, path: p, iconPath: PLACE_ICONS[place], tooltip: PLACE_TEXT[place] }));
+      .map(({ p, place }) => ({ label: p.split('/').pop() || p, description: p, path: p, iconPath: PLACE_ICONS[place] }));
     items.push({ label: '$(folder-opened) Choose Folder…' });
     const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Folder for the new session' });
     if (!pick) return undefined;
