@@ -15,8 +15,8 @@ test('C16 agents are recognised by program name, also behind an interpreter or a
     { pid: 20, ppid: 1, args: 'node /usr/local/lib/node_modules/@x/codex/bin/codex -m o3' },
     { pid: 30, ppid: 1, args: 'vim notes.md' },
   ];
-  assert.deepEqual(agentAmong(10, procs), { agent: 'claude', argv: 'claude --name w --model opus' });
-  assert.deepEqual(agentAmong(20, procs), { agent: 'codex', argv: 'codex -m o3' });
+  assert.deepEqual(agentAmong(10, procs), { agent: 'claude', argv: 'claude --name w --model opus', pid: 12 });
+  assert.deepEqual(agentAmong(20, procs), { agent: 'codex', argv: 'codex -m o3', pid: 20 });
   assert.equal(agentAmong(30, procs), undefined);
 });
 
@@ -27,9 +27,10 @@ test('C16 a session a launcher started without Berth is managed, restorable, and
   chmodSync(join(bin, 'kimi'), 0o755);
   const project = sb.makeDir('ws/projects/p');
   // Like a launcher: the session starts at the root, the agent runs in a project.
-  sb.tmux('new-session', '-d', '-s', 'foreign', '-c', sb.makeDir('ws'), `sh -c 'cd "${project}" && ${join(bin, 'kimi')} --yolo'`);
+  sb.tmux('new-session', '-d', '-s', 'foreign', '-c', sb.makeDir('ws'), `sh -c '(cd "${project}" && ${join(bin, 'kimi')} --yolo); sleep 3600'`);
   sb.tmux('new-session', '-d', '-s', 'plain', 'sleep 3600');
-  await waitFor(() => sb.tmux('display-message', '-p', '-t', '=foreign:', '#{pane_current_path}').trim().endsWith('/projects/p'), 'agent in project');
+  // The pane's leader stays in the root: only the agent's own directory is right.
+  await waitFor(() => spawnSync('pgrep', ['-f', join(bin, 'kimi')]).status === 0, 'agent running');
 
   const off = { ...sb.env, BERTH_AUTO_ADOPT: '0' };
   spawnSync(process.execPath, [CLI, 'ls'], { env: off });

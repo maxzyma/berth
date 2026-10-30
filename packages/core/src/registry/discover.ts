@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { readlinkSync } from 'node:fs';
 import type { Context } from '../context.js';
 import { ADAPTERS } from '../agents/registry.js';
 import { isIterm2 } from '../present/state.js';
@@ -13,6 +14,7 @@ export interface Detected {
   agent: string;
   /** The agent's command line, starting with its binary. */
   argv: string;
+  pid: number;
 }
 
 interface Proc { pid: number; ppid: number; args: string }
@@ -42,13 +44,29 @@ export function agentAmong(rootPid: number, procs: Proc[]): Detected | undefined
     for (const p of procs.filter((q) => level.includes(q.pid))) {
       const words = p.args.split(/\s+/);
       const direct = BINARIES.get(program(words[0]));
-      if (direct) return { agent: direct, argv: [program(words[0]), ...words.slice(1)].join(' ') };
+      if (direct) return { agent: direct, argv: [program(words[0]), ...words.slice(1)].join(' '), pid: p.pid };
       const viaInterpreter = BINARIES.get(program(words[1]));
-      if (viaInterpreter) return { agent: viaInterpreter, argv: [program(words[1]), ...words.slice(2)].join(' ') };
+      if (viaInterpreter) return { agent: viaInterpreter, argv: [program(words[1]), ...words.slice(2)].join(' '), pid: p.pid };
     }
     level = procs.filter((q) => level.includes(q.ppid)).map((q) => q.pid);
   }
   return undefined;
+}
+
+/**
+ * A process's working directory. The pane's current path is not it: tmux
+ * reads the foreground process group's leader, which is a launcher's shell
+ * when the agent runs under one.
+ */
+export function cwdOf(pid: number): string | undefined {
+  try {
+    return readlinkSync(`/proc/${pid}/cwd`);
+  } catch {
+    // Not Linux: ask lsof.
+  }
+  const r = spawnSync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], { encoding: 'utf8' });
+  const line = (r.stdout ?? '').split('\n').find((l) => l.startsWith('n'));
+  return line ? line.slice(1) : undefined;
 }
 
 /** The agent running in a session's active pane, if any. */
@@ -79,7 +97,7 @@ export function discover(ctx: Context): string[] {
         const [session, termtype = ''] = l.split('\t');
         return session === s.name && isIterm2(termtype);
       });
-      ctx.tmux.setMeta(s.name, { agent: found.agent, cwd: pane[4] || s.path, argv: found.argv, origin: iterm2 ? 'iterm2' : 'none' });
+      ctx.tmux.setMeta(s.name, { agent: found.agent, cwd: cwdOf(found.pid) || pane[4] || s.path, argv: found.argv, origin: iterm2 ? 'iterm2' : 'none' });
       ctx.tmux.setTitle(s.name);
       stamped.push(s.name);
     }

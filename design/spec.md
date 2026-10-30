@@ -144,9 +144,10 @@ knowledge of Berth. A live session without metadata whose active pane runs an
 agent is managed automatically: Berth finds the agent among the pane's
 processes by program name, or by script name behind an interpreter (`node
 <cli>`), since some agents run as a binary named after their version. It
-records the agent, that process's command line as `argv`, the pane's current
-directory as `cwd` (a launcher often starts the session elsewhere and changes
-into the project), and origin `iterm2` when an iTerm2 client is attached,
+records the agent, that process's command line as `argv`, that process's own
+working directory as `cwd` (a launcher often starts the session elsewhere and
+changes into the project; the pane's current path names the foreground
+group's leader, which may be the launcher's shell), and origin `iterm2` when an iTerm2 client is attached,
 else `none`. A plain shell is never discovered.
 
 Discovery runs whenever Berth looks at sessions — every snapshot (so every
