@@ -313,10 +313,14 @@ Berth runs with no config file.
   detached / stopped — in snapshot, not live); conversation bound or not. A
   side bar row is narrow, and words there get cut off and crowd one another,
   so the row itself shows only the session name, the agent as its icon (one
-  coloured letter tile per agent, a terminal icon for a shell), and the state
+  coloured letter per agent on a transparent background, a terminal icon for
+  a shell), and the state
   as the name's colour and a one-character badge (working `⋯` blue, waiting
   `!` yellow, done `✓` green, stopped grey, otherwise `•` when unread); the
-  tooltip spells out everything, including the notification text. A view
+  tooltip spells out everything, including the notification text. The view
+  refreshes every few seconds but redraws, and announces decoration changes,
+  only for rows that changed: a blanket announcement makes every view in the
+  window (explorer, source control) redraw. A view
   badge counts sessions waiting for the user. Unmanaged sessions are listed
   separately.
 - **One session terminal.** Selecting a row shows that session in the one

@@ -32,13 +32,21 @@ const rowUri = (name: string) => vscode.Uri.from({ scheme: ROW_SCHEME, path: `/$
 
 /** Colour and badge for session rows, which carry a berth-session: URI. */
 class RowDecorations implements vscode.FileDecorationProvider {
-  private readonly changed = new vscode.EventEmitter<undefined>();
+  private readonly changed = new vscode.EventEmitter<vscode.Uri[]>();
   readonly onDidChangeFileDecorations = this.changed.event;
   private rows = new Map<string, RowView>();
 
+  /**
+   * Announce only the rows whose decoration changed: an announcement with no
+   * URIs makes every view re-ask every provider for every file, which
+   * redraws the explorer and source control on each refresh.
+   */
   update(rows: RowView[]): void {
-    this.rows = new Map(rows.map((r) => [r.name, r]));
-    this.changed.fire(undefined);
+    const next = new Map(rows.map((r) => [r.name, r]));
+    const key = (r?: RowView) => (r ? `${r.badge}|${r.icon}` : '');
+    const changed = [...new Set([...this.rows.keys(), ...next.keys()])].filter((n) => key(this.rows.get(n)) !== key(next.get(n)));
+    this.rows = next;
+    if (changed.length) this.changed.fire(changed.map(rowUri));
   }
 
   provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
@@ -184,6 +192,7 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
   private readonly changed = new vscode.EventEmitter<Node | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
   roots: Node[] = [];
+  private shown = '';
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -198,7 +207,12 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
       ...(single ? single.rows.map((row): Node => ({ kind: 'row', row })) : groups.map((group): Node => ({ kind: 'group', group }))),
       ...(unmanaged.length ? [{ kind: 'unmanaged', rows: unmanaged } as Node] : []),
     ];
-    this.changed.fire(undefined);
+    // Redraw only when something shown changed; the view refreshes every few seconds.
+    const shown = JSON.stringify(this.roots);
+    if (shown !== this.shown) {
+      this.shown = shown;
+      this.changed.fire(undefined);
+    }
     return single?.label;
   }
 
