@@ -325,9 +325,12 @@ Cases marked (human) need the maintainer's decision or accounts.
   tag against both package versions, runs `npm test` on macOS, publishes
   `@berthdev/berth` through npm trusted publishing (no stored token,
   provenance attached; a version already on npm is skipped), and creates the
-  GitHub release with the npm tarball and the `.vsix`. (human) The npm
-  trusted publisher for this repository and workflow is registered once with
-  `npm trust github`; the Marketplace publisher is still to be created.
+  GitHub release with the npm tarball and the `.vsix`; a release that is not
+  a prerelease then publishes the `.vsix` to the VS Code Marketplace through
+  its trusted publishing (`vsce publish --oidc`, vsce 4.1.0 or later; a
+  version already there is skipped). (human) Each registry trusts this
+  repository and workflow once: npm with `npm trust github`, the Marketplace
+  with a Trusted Publishing policy on the `berthdev` publisher.
 - **R6** (human) Run the manual cases V8, V9, I5 following
   [manual-acceptance.md](manual-acceptance.md), and `npm run test:vscode`,
   before each release.

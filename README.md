@@ -96,7 +96,8 @@ creating Unix sockets.
 Set the same version in `packages/core` and `packages/vscode`, commit, then
 push a tag `vX.Y.Z` (or `vX.Y.Z-rc.N` for a prerelease under npm's `next`).
 The release workflow tests, publishes to npm through trusted publishing with
-provenance, and creates the GitHub release with the `.vsix`
+provenance, creates the GitHub release with the `.vsix`, and, for a release
+that is not a prerelease, publishes the extension to the VS Code Marketplace
 ([implementation R5](design/implementation.md)).
 
 ## License

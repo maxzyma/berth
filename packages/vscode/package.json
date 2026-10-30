@@ -2,6 +2,7 @@
   "name": "berth",
   "displayName": "Berth",
   "description": "Every terminal coding agent in one list: kept running in tmux, resumed after restarts, state on your terminal tabs.",
+  "icon": "media/icon.png",
   "version": "0.2.1",
   "publisher": "berthdev",
   "license": "MIT",
@@ -86,22 +87,22 @@
       },
       {
         "command": "berth.rename",
-        "title": "Rename\u2026",
+        "title": "Rename…",
         "category": "Berth"
       },
       {
         "command": "berth.kill",
-        "title": "Kill Session\u2026",
+        "title": "Kill Session…",
         "category": "Berth"
       },
       {
         "command": "berth.adopt",
-        "title": "Adopt as Agent Session\u2026",
+        "title": "Adopt as Agent Session…",
         "category": "Berth"
       },
       {
         "command": "berth.installHooks",
-        "title": "Install Agent Hooks\u2026",
+        "title": "Install Agent Hooks…",
         "category": "Berth"
       },
       {
@@ -268,6 +269,10 @@
     "type": "git",
     "url": "git+https://github.com/maxzyma/berth.git",
     "directory": "packages/vscode"
+  },
+  "homepage": "https://github.com/maxzyma/berth#readme",
+  "bugs": {
+    "url": "https://github.com/maxzyma/berth/issues"
   },
   "keywords": [
     "tmux",

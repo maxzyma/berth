@@ -1,7 +1,8 @@
 # Release on a version tag (vX.Y.Z, or vX.Y.Z-pre for a prerelease).
-# npm publishing uses trusted publishing (OIDC): no token is stored anywhere,
-# and npm adds a provenance attestation. The package's trusted publisher on
-# npmjs.com names this repository and this workflow file.
+# npm and the VS Code Marketplace both use trusted publishing (OIDC): no token
+# is stored anywhere, and npm adds a provenance attestation. The trusted
+# publisher on npmjs.com and the Trusted Publishing policy of the Marketplace
+# publisher `berthdev` both name this repository and this workflow file.
 name: release
 
 on:
@@ -10,7 +11,7 @@ on:
 
 permissions:
   contents: write   # GitHub release
-  id-token: write   # npm trusted publishing
+  id-token: write   # npm and Marketplace trusted publishing
 
 jobs:
   release:
@@ -57,7 +58,7 @@ jobs:
         run: |
           mkdir -p out
           (cd packages/core && npm pack --pack-destination ../../out)
-          (cd packages/vscode && npx --yes @vscode/vsce@3 package --no-dependencies -o "../../out/berth-vscode-${GITHUB_REF_NAME#v}.vsix")
+          (cd packages/vscode && npx --yes @vscode/vsce@4.1.0 package --no-dependencies -o "../../out/berth-vscode-${GITHUB_REF_NAME#v}.vsix")
 
       - name: GitHub release
         env:
@@ -66,3 +67,10 @@ jobs:
           prerelease=""
           case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
           gh release create "$GITHUB_REF_NAME" out/* --generate-notes $prerelease
+
+      # After the GitHub release, so a Marketplace problem never blocks it.
+      # Prereleases stay on GitHub and npm `next`.
+      - name: Publish to the VS Code Marketplace
+        if: ${{ !contains(github.ref_name, '-') }}
+        working-directory: packages/vscode
+        run: npx --yes @vscode/vsce@4.1.0 publish --oidc --skip-duplicate --packagePath "../../out/berth-vscode-${GITHUB_REF_NAME#v}.vsix"
