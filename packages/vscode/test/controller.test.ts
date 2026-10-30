@@ -94,9 +94,9 @@ test('V2 selecting a row switches the one session terminal to it; with none, one
   assert.equal(sb.tmux('display-message', '-p', '-t', '=a:', '#{@berth_origin}').trim(), 'vscode', 'showing here moves origin');
 
   // A real tmux client stands in for the main terminal.
-  const client = spawn('script', ['-q', '/dev/null', 'tmux', '-L', sb.socket, 'attach-session', '-t', '=a'], { env: process.env, stdio: 'ignore' });
+  const client = spawn('script', ['-q', '/dev/null', 'tmux', '-L', sb.socket, 'attach-session', '-t', '=a'], { env: { ...process.env, TERM: 'xterm-256color' }, stdio: 'ignore' });
   t.after(() => client.kill());
-  const pid = await waitFor(() => Number(sb.tmux('list-clients', '-t', '=a', '-F', '#{client_pid}').trim()) || undefined, 'client attached');
+  const pid = await waitFor(() => Number(sb.tmux('list-clients', '-t', '=a', '-F', '#{client_pid}').trim()) || undefined, 'client attached', 20_000);
   host.mainPid = pid;
   await controller.show('b');
   assert.equal(host.terminals.length, 1, 'no second terminal: the main one switched');
@@ -227,9 +227,9 @@ test('V3 a launcher at the workspace root gets an empty {relative}', () => {
 test('V3 after a launcher attaches, the main terminal learns its session from the tmux client', async (t) => {
   const { sb, host, controller } = setup(t);
   sb.cli('new', 'claude', '--cwd', sb.makeDir('l'));
-  const client = spawn('script', ['-q', '/dev/null', 'tmux', '-L', sb.socket, 'attach-session', '-t', '=l'], { env: process.env, stdio: 'ignore' });
+  const client = spawn('script', ['-q', '/dev/null', 'tmux', '-L', sb.socket, 'attach-session', '-t', '=l'], { env: { ...process.env, TERM: 'xterm-256color' }, stdio: 'ignore' });
   t.after(() => client.kill());
-  host.mainPid = await waitFor(() => Number(sb.tmux('list-clients', '-t', '=l', '-F', '#{client_pid}').trim()) || undefined, 'client attached');
+  host.mainPid = await waitFor(() => Number(sb.tmux('list-clients', '-t', '=l', '-F', '#{client_pid}').trim()) || undefined, 'client attached', 20_000);
   host.main = '';
   assert.equal(await controller.mainSession(), 'l');
 });
