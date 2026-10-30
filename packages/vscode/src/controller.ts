@@ -1,8 +1,10 @@
 /** Session actions for Berth for VS Code; talks to the editor only through `Host`. */
 import { spawnSync } from 'node:child_process';
 import {
-  ADAPTERS,
   adopt,
+  adoptDiscovered,
+  detectAgent,
+  forget,
   clearBell,
   create,
   ensure,
@@ -75,6 +77,7 @@ export class Controller {
   ) {}
 
   refresh(): { tree: TreeView; transitions: Transition[] } {
+    adoptDiscovered(this.ctx);
     const next = list(this.ctx);
     const changed = transitions(this.rows, next);
     this.rows = next;
@@ -231,28 +234,9 @@ export class Controller {
    * in the session terminal and creates, stamps and attaches the session
    * itself; Berth learns which session it is from the terminal's tmux client.
    */
-  /**
-   * The agent running in the session's active pane, if any: the pane's
-   * process or a descendant whose program (or script, for `node <cli>`) is an
-   * agent binary. tmux's pane_current_command is not enough: some agents
-   * run as a binary named after their version.
-   */
+  /** The agent running in the session's active pane, if any (core discovery). */
   private agentRunningIn(session: string): string | undefined {
-    const panePid = Number(this.ctx.tmux.run(['display-message', '-p', '-t', `=${session}:`, '#{pane_pid}'], true).stdout.trim());
-    if (!panePid) return undefined;
-    const ps = spawnSync('ps', ['-axo', 'pid=,ppid=,args='], { encoding: 'utf8' });
-    const procs = (ps.stdout ?? '').split('\n').map((line) => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line)).filter((m) => m !== null);
-    const binaries = new Map(ADAPTERS.filter((a) => a.binary).map((a) => [a.binary, a.id]));
-    const program = (word = '') => word.split('/').pop() ?? '';
-    for (let level = [panePid], depth = 0; level.length && depth < 6; depth++) {
-      for (const m of procs.filter((m) => level.includes(Number(m[1])))) {
-        const [first, second] = m[3].split(/\s+/);
-        const found = binaries.get(program(first)) ?? binaries.get(program(second));
-        if (found) return found;
-      }
-      level = procs.filter((m) => level.includes(Number(m[2]))).map((m) => Number(m[1]));
-    }
-    return undefined;
+    return detectAgent(this.ctx, session)?.agent;
   }
 
   /**
@@ -278,6 +262,11 @@ export class Controller {
   kill(name: string): void {
     this.host.closeTerminals(name);
     this.ctx.tmux.killSession(name);
+  }
+
+  /** Stop restoring a stopped session. */
+  forget(name: string): void {
+    forget(this.ctx, name);
   }
 
   adopt(name: string, agent: string): void {

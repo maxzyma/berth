@@ -356,6 +356,10 @@ export function activate(context: vscode.ExtensionContext): void {
       { placeHolder: custom ? 'Agent — agents start with your launcher, a shell with Berth' : 'Agent' },
     ))?.id;
   };
+  command('berth.forget', guarded(async (name) => {
+    const ok = await vscode.window.showWarningMessage(`Forget ${name}? It will not be restored.`, { modal: true }, 'Forget');
+    if (ok === 'Forget') controller.forget(name);
+  }));
   command('berth.installHooks', async (arg: unknown) => {
     const name = sessionArg(arg);
     const agent = name ? controller.row(name)?.agent : await pickAgent();

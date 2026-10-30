@@ -10,6 +10,8 @@ export interface SnapshotSession {
   argv: string;
   conversation: string;
   origin: string;
+  /** The tmux server lifetime the session was last seen in (absent in older snapshots). */
+  serverStart?: string;
 }
 
 export interface Snapshot {

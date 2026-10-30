@@ -3,7 +3,7 @@
   "displayName": "Berth",
   "description": "Every terminal coding agent in one list: kept running in tmux, resumed after restarts, state on your terminal tabs.",
   "icon": "media/icon.png",
-  "version": "0.2.6",
+  "version": "0.3.0",
   "publisher": "berthdev",
   "license": "MIT",
   "type": "module",
@@ -101,6 +101,11 @@
         "category": "Berth"
       },
       {
+        "command": "berth.forget",
+        "title": "Forget Session…",
+        "category": "Berth"
+      },
+      {
         "command": "berth.adopt",
         "title": "Adopt as Agent Session…",
         "category": "Berth"
@@ -189,6 +194,11 @@
           "command": "berth.kill",
           "when": "view == berth.sessions && viewItem =~ /live/",
           "group": "3@1"
+        },
+        {
+          "command": "berth.forget",
+          "when": "view == berth.sessions && viewItem =~ /stopped/",
+          "group": "3@2"
         }
       ],
       "commandPalette": [
@@ -218,6 +228,10 @@
         },
         {
           "command": "berth.newInFolder",
+          "when": "false"
+        },
+        {
+          "command": "berth.forget",
           "when": "false"
         }
       ]

@@ -3,6 +3,7 @@ import type { Context } from '../context.js';
 import { stamp } from '../registry/sessions.js';
 import { isIterm2, presentState } from './state.js';
 import { hookHint, hookStatus } from '../agents/hooks.js';
+import { adoptDiscovered } from '../snapshot/take.js';
 
 /** iTerm2 user variable naming the session a pane shows (spec §7.3). */
 export const PANE_VARIABLE = 'berthSession';
@@ -24,6 +25,7 @@ export interface AttachedClient {
  * client is shown the session's current state.
  */
 export function clientAttached(ctx: Context, client: AttachedClient): void {
+  adoptDiscovered(ctx);
   const live = ctx.tmux.listSessions().find((s) => s.name === client.session);
   if (!live?.meta.agent) return;
   if (isIterm2(client.termtype)) {

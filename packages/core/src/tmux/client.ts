@@ -11,6 +11,8 @@ export interface LiveSession {
   attachedClients: number;
   path: string;
   meta: SessionMeta;
+  /** The tmux server's start time and pid: names one server lifetime. */
+  serverStart: string;
 }
 
 const SEP = '\x1f';
@@ -53,19 +55,19 @@ export class Tmux {
   }
 
   listSessions(): LiveSession[] {
-    const fields = ['#{session_name}', '#{session_attached}', '#{session_path}', ...META_KEYS.map((k) => `#{@berth_${k}}`)];
+    const fields = ['#{session_name}', '#{session_attached}', '#{session_path}', '#{start_time}-#{pid}', ...META_KEYS.map((k) => `#{@berth_${k}}`)];
     const result = this.run(['list-sessions', '-F', fields.join(SEP)], true);
     if (!result.ok) return [];
     return result.stdout
       .split('\n')
       .filter((line) => line.length > 0)
       .map((line) => {
-        const [name, attached, path, ...values] = line.split(SEP);
+        const [name, attached, path, serverStart, ...values] = line.split(SEP);
         const meta: SessionMeta = {};
         META_KEYS.forEach((key, i) => {
           if (values[i]) meta[key] = values[i];
         });
-        return { name, attachedClients: Number(attached) || 0, path, meta };
+        return { name, attachedClients: Number(attached) || 0, path, meta, serverStart };
       });
   }
 

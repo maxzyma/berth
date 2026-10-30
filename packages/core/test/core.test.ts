@@ -98,8 +98,9 @@ test('C6 snapshot writes the v1 format atomically and keeps the newest K', async
   const data = JSON.parse(readFileSync(join(kept[0], 'sessions.json'), 'utf8'));
   assert.equal(data.version, 1);
   assert.deepEqual(data.sessions, [
-    { name: 'c6', cwd: sb.makeDir('c6'), agent: 'codex', argv: data.sessions[0].argv, conversation: 'abc', origin: 'iterm2' },
+    { name: 'c6', cwd: sb.makeDir('c6'), agent: 'codex', argv: data.sessions[0].argv, conversation: 'abc', origin: 'iterm2', serverStart: data.sessions[0].serverStart },
   ]);
+  assert.match(data.sessions[0].serverStart, /^\d+-\d+$/, 'server start time and pid');
   assert.ok(existsSync(join(kept[0], 'scrollback', 'c6.txt')));
   assert.ok(!ctx.store.list().some((d) => d.includes('.tmp-')));
 });

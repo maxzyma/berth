@@ -73,7 +73,7 @@ a reason for Berth to exist.
 | Term | Meaning |
 |---|---|
 | **Session** | One tmux session. Berth keys everything by its name. |
-| **Managed session** | A session carrying Berth metadata (below). Created by `berth new`, or adopted with `berth adopt`. |
+| **Managed session** | A session carrying Berth metadata (below). Created by `berth new`, adopted with `berth adopt`, or discovered running an agent (§4.3). |
 | **Unmanaged session** | Any other tmux session. Listed, attachable, never snapshotted or restored. |
 | **Agent** | The CLI running in the session: an adapter id (`claude`, `codex`, `gemini`, …) or `shell`. |
 | **Conversation id** | The agent's own id for the conversation, used to resume it. |
@@ -137,6 +137,25 @@ this way); VS Code offers to install them (§6). Session rows carry the
 agent's hook status so every frontend decides the same way. Installing still
 needs the user's go-ahead, because it edits the agent's own configuration.
 
+### 4.3 Discovery
+
+Berth must not depend on how a session was started: a launcher needs no
+knowledge of Berth. A live session without metadata whose active pane runs an
+agent is managed automatically: Berth finds the agent among the pane's
+processes by program name, or by script name behind an interpreter (`node
+<cli>`), since some agents run as a binary named after their version. It
+records the agent, that process's command line as `argv`, the pane's current
+directory as `cwd` (a launcher often starts the session elsewhere and changes
+into the project), and origin `iterm2` when an iTerm2 client is attached,
+else `none`. A plain shell is never discovered.
+
+Discovery runs whenever Berth looks at sessions — every snapshot (so every
+hook-triggered snapshot), a client attaching, `berth ls`, `berth doctor`, and
+each VS Code refresh — and is switched off with `[sessions] auto_adopt =
+false` or `BERTH_AUTO_ADOPT=0`. Metadata a launcher stamps itself is still
+kept, and conversation ids come from agent hooks or the name key as for any
+session (§4.2).
+
 ## 5. Berth core
 
 TypeScript library plus the `berth` CLI. Node ≥ 20. No editor dependency.
@@ -172,6 +191,7 @@ The VS Code extension is published to the Marketplace, not npm.
 | `berth attach <session> [--origin]` | Attach, re-stamping origin when given. |
 | `berth stamp [--session] key=value…` | Set metadata; used by hooks and custom launchers. |
 | `berth snapshot` | Write a snapshot (§5.3). |
+| `berth forget <session>` | Stop restoring a stopped session (§5.3). |
 | `berth ensure [--origin <o>] [<session>]` | Rebuild missing managed sessions from the newest snapshot; idempotent and lock-protected so concurrent callers rebuild once. |
 | `berth restore [--origin <o>] [--session <s>] [<snapshot>]` | Explicit restore from a chosen snapshot, same rules as `ensure`. |
 | `berth show <session> [<snapshot>]` | Print saved scrollback. |
@@ -209,8 +229,9 @@ the terminal it was started in. Berth needs nothing else from it: the
 frontend that ran it learns the session from that terminal's tmux client and
 adopts it with the agent the user chose and the directory detected from the
 session's active pane (a launcher may resolve a project name and change into
-it). A launcher may also stamp metadata itself (`berth stamp`, or the
-`@berth_*` options); what it stamps is kept.
+it); sessions it starts elsewhere are discovered (§4.3). A launcher may also
+stamp metadata itself (`berth stamp`, or the `@berth_*` options); what it
+stamps is kept.
 
 When the agent exits, the session ends — Berth does not leave a stray shell.
 
@@ -222,12 +243,21 @@ When the agent exits, the session ends — Berth does not leave a stray shell.
   config; servers stay separate under it.
 - Contents:
   - `sessions.json` — one entry per managed session: name, cwd, agent, argv,
-    conversation id, origin.
+    conversation id, origin, and the tmux server lifetime it was seen in
+    (server start time and pid).
   - `scrollback/<name>.txt` — last N lines of each pane (default 3000), for
     reading only.
 - Triggers: `berth snapshot`; tmux hooks on session created / renamed / closed
   (installed by `berth tmux install`, which also hooks `alert-bell`, §4.2,
   and `client-attached` / `client-session-changed`, §7.3).
+- A snapshot also carries forward the sessions still waiting to be restored:
+  sessions in the previous snapshot that were seen in an earlier tmux server,
+  are not live now, and were not forgotten. A server that ends (reboot, crash)
+  fires no hook, so without this the first session started after a reboot
+  would snapshot a world without the others and they would never come back.
+  A session missing from the same server ended on purpose (the agent exited,
+  it was killed) and is dropped, also across a rename. `berth forget
+  <session>` (VS Code: *Forget Session…* on a stopped row) gives one up.
 - Retention: newest K snapshots (default 5).
 - Snapshots contain conversation text and are never meant for version control.
 

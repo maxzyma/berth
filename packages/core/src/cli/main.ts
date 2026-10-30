@@ -7,9 +7,9 @@ import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { createContext, type Context } from '../context.js';
 import { BerthError, ExitCode } from '../errors.js';
 import { handleHook, hookHint, hookStatus, installHooks, uninstallHooks } from '../agents/hooks.js';
-import { adopt, bellRang, checkOrigin, create, list, requireLive, stamp, type SessionRow } from '../registry/sessions.js';
+import { adopt, bellRang, checkOrigin, create, forget, list, requireLive, stamp, type SessionRow } from '../registry/sessions.js';
 import { doctor } from '../registry/doctor.js';
-import { takeSnapshot } from '../snapshot/take.js';
+import { adoptDiscovered, takeSnapshot } from '../snapshot/take.js';
 import { ensure, restoreFrom, type RestoreResult } from '../restore/ensure.js';
 import { presentState } from '../present/state.js';
 import { installTmux, uninstallTmux } from '../tmux/install.js';
@@ -25,6 +25,7 @@ const USAGE = `usage: berth <command> [options]
   attach <session> [--origin O]
   stamp [--session S] key=value...
   snapshot
+  forget <session>                             stop restoring a stopped session
   ensure [--origin O] [<session>]
   restore [--origin O] [--session S] [<snapshot dir>]
   show <session> [<snapshot dir>]
@@ -88,6 +89,7 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
   switch (command) {
     case 'ls': {
       const { values } = parse(rest, { json: { type: 'boolean' } });
+      adoptDiscovered(ctx);
       const rows = list(ctx);
       out(values.json ? JSON.stringify(rows, null, 2) : formatRows(rows));
       return ExitCode.ok;
@@ -136,6 +138,9 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
       stamp(ctx, need(session, '--session (not inside a tmux pane)'), pairs);
       return ExitCode.ok;
     }
+    case 'forget':
+      forget(ctx, need(rest[0], 'session'));
+      return ExitCode.ok;
     case 'snapshot':
       out(takeSnapshot(ctx));
       return ExitCode.ok;
@@ -184,6 +189,7 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
     }
     case 'doctor': {
       const { values } = parse(rest, { json: { type: 'boolean' } });
+      adoptDiscovered(ctx);
       const findings = doctor(ctx);
       out(values.json ? JSON.stringify(findings, null, 2) : findings.map((f) => `${f.session ? `${f.session}: ` : ''}${f.problem}`).join('\n') || 'ok');
       return ExitCode.ok;

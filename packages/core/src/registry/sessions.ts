@@ -5,7 +5,7 @@ import { launchCommand, requireAdapter } from '../agents/commands.js';
 import type { SessionMeta } from '../tmux/client.js';
 import { hooksInstalled, hookStatus, type HookStatus } from '../agents/hooks.js';
 import { getAdapter } from '../agents/registry.js';
-import { snapshotQuietly } from '../snapshot/take.js';
+import { snapshotQuietly, takeSnapshot } from '../snapshot/take.js';
 import { presentState } from '../present/state.js';
 
 /** One row of `berth ls` (implementation §2.2). */
@@ -121,6 +121,13 @@ export function adopt(ctx: Context, name: string, agent: string, origin?: string
   });
   ctx.tmux.setTitle(name);
   snapshotQuietly(ctx);
+}
+
+/** Give up a stopped session: it is no longer restored or listed (spec §5.3). */
+export function forget(ctx: Context, name: string): void {
+  if (ctx.tmux.hasSession(name)) throw new BerthError(`${name} is running; end it instead`, ExitCode.usage);
+  if (!ctx.store.newest()?.sessions.some((s) => s.name === name)) throw new BerthError(`no stopped session ${name}`, ExitCode.notFound);
+  takeSnapshot(ctx, new Date(), [name]);
 }
 
 const STAMPABLE = new Set(['agent', 'cwd', 'argv', 'conversation', 'origin', 'state', 'note']);

@@ -113,3 +113,34 @@ test('R-termtype a client reporting no terminal type does not make the attach ho
   assert.match(hook, /--termtype=#\{q:client_termtype\}/);
   assert.match(hook, /\|\| true/);
 });
+
+test('R-reboot a session started after a reboot does not erase the sessions waiting to be restored', async (t) => {
+  const sb = sandbox(t);
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('a'));
+  sb.cli('new', 'codex', '--cwd', sb.makeDir('b'));
+  sb.cli('snapshot');
+  killServer(sb); // the reboot: no session-closed hook fires
+  sb.cli('new', 'kimi', '--cwd', sb.makeDir('c')); // the user starts something first; its hook snapshots
+  const out = sb.cli('ensure').stdout;
+  assert.match(out, /a\t/);
+  assert.match(out, /b\t/);
+  assert.equal(sb.cli('ls', '--json').status, 0);
+  const names = (JSON.parse(sb.cli('ls', '--json').stdout) as { name: string; live: boolean }[]).filter((r) => r.live).map((r) => r.name).sort();
+  assert.deepEqual(names, ['a', 'b', 'c']);
+});
+
+test('R-reboot a session lost to a restart can be forgotten; one ended in the same server is dropped', async (t) => {
+  const sb = sandbox(t);
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('keep'));
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('drop'));
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('ended'));
+  sb.tmux('kill-session', '-t', '=ended:'); // ended in this server: not restored
+  sb.cli('snapshot');
+  killServer(sb);
+  sb.cli('new', 'kimi', '--cwd', sb.makeDir('later'));
+  assert.equal(sb.cli('forget', 'drop').status, 0);
+  assert.notEqual(sb.cli('forget', 'later').status, 0, 'a running session is ended, not forgotten');
+  const out = sb.cli('ensure').stdout;
+  assert.match(out, /keep\t/);
+  assert.doesNotMatch(out, /drop|ended/);
+});

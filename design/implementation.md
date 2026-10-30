@@ -45,7 +45,8 @@ Scripts at the repo root:
       "agent": "claude",
       "argv": "claude --name web-api",
       "conversation": "9f1c…",
-      "origin": "vscode"
+      "origin": "vscode",
+      "serverStart": "1793367307-35689"
     }
   ]
 }
@@ -53,6 +54,9 @@ Scripts at the repo root:
 
 - Readers reject an unknown `version`; writers only write the current one.
 - `conversation` and `origin` are always present; unknown is `""` / `"none"`.
+- `serverStart` names the tmux server lifetime the session was seen in
+  (`#{start_time}-#{pid}`); absent in snapshots from 0.2 and earlier, whose
+  sessions are never carried forward (spec §5.3).
 - A snapshot is written to a temporary directory and renamed into place, so a
   reader never sees a partial one.
 - Scrollback files sit beside it as `scrollback/<name>.txt`.
@@ -244,6 +248,14 @@ manual cases are recorded as checked, and the de-identification check passes.
   unrelated hook entries intact, for every hook format (nested JSON, flat
   JSON, Copilot's own file, Kimi's TOML block, the OpenCode plugin).
 - **C12** Every edge case in §4 has a test.
+- **C17** After the tmux server ends, a session started before `ensure`
+  runs does not erase the others from the snapshot; a session ended in the
+  same server is not restored; `forget` drops a stopped one and refuses a
+  running one.
+- **C16** A session started without Berth whose pane runs an agent (also
+  behind a launcher shell or an interpreter) becomes managed with that agent,
+  the agent's command line and directory; it is in the next snapshot and comes
+  back; a pane running no agent is left alone; `BERTH_AUTO_ADOPT=0` turns it off.
 - **C14** With `berth tmux install`, a bell in a session whose agent has no
   installed hooks sets `waiting` / `bell`; one whose installed hooks report
   waiting is left alone; showing the session clears a bell-raised `waiting`.

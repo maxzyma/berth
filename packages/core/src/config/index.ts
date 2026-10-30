@@ -19,6 +19,8 @@ export interface BerthConfig {
   scrollbackLines: number;
   retention: number;
   agents: Record<string, AgentOverride>;
+  /** Manage sessions found running an agent without being stamped (spec §4.3). */
+  autoAdopt: boolean;
   /** Command a restored iTerm2 pane runs to attach; `{session}` is the session name (spec §7.3). */
   iterm2Attach?: string;
 }
@@ -90,6 +92,7 @@ export function loadConfig(env: Env = process.env): BerthConfig {
     scrollbackLines: positiveInt(snapshot.scrollback_lines, 'snapshot.scrollback_lines', 3000),
     retention: positiveInt(snapshot.keep, 'snapshot.keep', 5),
     agents: agentOverrides(file.agents),
+    autoAdopt: env.BERTH_AUTO_ADOPT ? env.BERTH_AUTO_ADOPT !== '0' : (file.sessions as Record<string, unknown> | undefined)?.auto_adopt !== false,
     iterm2Attach: typeof (file.iterm2 as Record<string, unknown> | undefined)?.attach === 'string'
       ? ((file.iterm2 as Record<string, unknown>).attach as string)
       : undefined,
