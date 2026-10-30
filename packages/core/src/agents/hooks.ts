@@ -5,7 +5,7 @@ import { presentState } from '../present/state.js';
 import { createContext } from '../context.js';
 import { snapshotQuietly } from '../snapshot/take.js';
 import { requireAdapter } from './commands.js';
-import { stateForEvent, type Adapter } from './registry.js';
+import { getAdapter, stateForEvent, type Adapter } from './registry.js';
 import { containsBerth, hookFormat, MARKER } from './hook-files.js';
 
 function hookEvents(adapter: Adapter): string[] {
@@ -42,6 +42,25 @@ export function hooksInstalled(agentId: string, env = process.env): boolean {
   const adapter = requireAdapter(agentId);
   if (!adapter.hookTarget) return false;
   return containsBerth(hookFormat(adapter.hookTarget).file(env));
+}
+
+export type HookStatus = 'installed' | 'missing' | 'none';
+
+/** Whether an agent's hooks are installed; `none` when Berth has no hooks for it. */
+export function hookStatus(agentId: string, env = process.env): HookStatus {
+  const adapter = getAdapter(agentId);
+  if (!adapter?.hookTarget) return 'none';
+  try {
+    return hooksInstalled(agentId, env) ? 'installed' : 'missing';
+  } catch {
+    return 'missing';
+  }
+}
+
+/** What a user is told when an agent in use has no hooks (spec §4.2). */
+export function hookHint(agentId: string): string {
+  const name = getAdapter(agentId)?.displayName ?? agentId;
+  return `Berth: ${name} hooks are not installed, so after a restart this session starts a new conversation. Run: berth hooks install ${agentId}`;
 }
 
 /** What a hook event changes on the session, or nothing when the event does not matter. */

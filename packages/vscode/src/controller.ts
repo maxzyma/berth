@@ -33,6 +33,8 @@ export interface Host {
   notify(transition: Transition): void;
   /** Called after a session is brought forward, e.g. to follow it in the explorer. */
   sessionShown?(row: SessionRow): void;
+  /** An agent in use has no Berth hooks: offer to install them (spec §6). */
+  suggestHooks?(agent: string): void;
 }
 
 /** How long after starting a custom launcher its session is expected. */
@@ -59,6 +61,8 @@ export class Controller {
   /** Agent chosen for a custom launcher whose session is not known yet, and when it started. */
   private pendingLaunch?: { agent: string; startedAt: number };
   readonly unread = new Set<string>();
+  /** Agents already offered hooks in this window. */
+  private readonly offeredHooks = new Set<string>();
   private branches = new Map<string, string>();
 
   constructor(
@@ -73,6 +77,11 @@ export class Controller {
     for (const t of changed) {
       this.unread.add(t.name);
       this.host.notify(t);
+    }
+    for (const row of next) {
+      if (!row.managed || row.hooks !== 'missing' || this.offeredHooks.has(row.agent)) continue;
+      this.offeredHooks.add(row.agent);
+      this.host.suggestHooks?.(row.agent);
     }
     return { tree: this.tree(), transitions: changed };
   }

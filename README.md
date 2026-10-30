@@ -22,7 +22,7 @@ code --install-extension berth-vscode-<version>.vsix   # downloaded from GitHub 
 Then, once per machine:
 
 ```sh
-berth hooks install claude    # once per agent you use: it reports conversation id and state
+berth hooks install claude    # once per agent you use; Berth reminds you when one is missing
 berth tmux install            # snapshot, bell and attach hooks
 berth iterm2 install          # optional: Berth for iTerm2
 ```

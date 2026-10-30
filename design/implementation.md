@@ -247,8 +247,12 @@ manual cases are recorded as checked, and the de-identification check passes.
 - **C14** With `berth tmux install`, a bell in a session whose agent has no
   installed hooks sets `waiting` / `bell`; one whose installed hooks report
   waiting is left alone; showing the session clears a bell-raised `waiting`.
+- **C15** Starting or adopting a session for an agent whose hooks are missing
+  prints the install command on stderr; session rows report `hooks`
+  (`installed`, `missing`, `none`); a non-VS Code client attaching is told
+  once per agent per tmux server.
 - **C13** Every baseline adapter passes its unit tests (§5.4) and its spec §8
-  row records its source (help-checked or cmux reference).
+  row records its source (help-checked, official docs, or cmux).
 - **L1** (live, manual trigger) Every installed baseline agent resumes its own
   conversation after the server is killed.
 
@@ -274,6 +278,9 @@ manual cases are recorded as checked, and the de-identification check passes.
   rather than writing the defaults.
 - **V10** *Go to Next Session Needing You* shows waiting sessions first, then
   unread ones, in name order, wrapping around.
+- **V11** An agent whose hooks are missing is offered hooks once per window;
+  agents Berth has no hooks for are not; its rows say why they are unbound and
+  offer *Install Agent Hooks*.
 - **V8** (manual) The same flows work in Remote-SSH, a Dev Container and WSL.
 - **V9** (manual) OS notifications appear and focus the session when clicked.
 

@@ -3,7 +3,7 @@ import type { Context } from '../context.js';
 import { BerthError, ExitCode } from '../errors.js';
 import { launchCommand, requireAdapter } from '../agents/commands.js';
 import type { SessionMeta } from '../tmux/client.js';
-import { hooksInstalled } from '../agents/hooks.js';
+import { hooksInstalled, hookStatus, type HookStatus } from '../agents/hooks.js';
 import { getAdapter } from '../agents/registry.js';
 import { snapshotQuietly } from '../snapshot/take.js';
 import { presentState } from '../present/state.js';
@@ -20,12 +20,20 @@ export interface SessionRow {
   note: string;
   attachedClients: number;
   live: boolean;
+  /** Whether the agent's Berth hooks are installed (spec §4.2). */
+  hooks: HookStatus;
 }
 
 export const ORIGINS = ['vscode', 'iterm2', 'none'] as const;
 
 export function list(ctx: Context): SessionRow[] {
   const live = ctx.tmux.listSessions();
+  const statuses = new Map<string, HookStatus>();
+  const hooks = (agent: string): HookStatus => {
+    if (!agent) return 'none';
+    if (!statuses.has(agent)) statuses.set(agent, hookStatus(agent, ctx.env));
+    return statuses.get(agent)!;
+  };
   const rows: SessionRow[] = live.map((s) => ({
     name: s.name,
     managed: Boolean(s.meta.agent),
@@ -37,11 +45,12 @@ export function list(ctx: Context): SessionRow[] {
     note: s.meta.note ?? '',
     attachedClients: s.attachedClients,
     live: true,
+    hooks: hooks(s.meta.agent ?? ''),
   }));
   const liveNames = new Set(live.map((s) => s.name));
   for (const s of ctx.store.newest()?.sessions ?? []) {
     if (liveNames.has(s.name)) continue;
-    rows.push({ ...s, managed: true, state: '', note: '', attachedClients: 0, live: false });
+    rows.push({ ...s, managed: true, state: '', note: '', attachedClients: 0, live: false, hooks: hooks(s.agent) });
   }
   return rows;
 }

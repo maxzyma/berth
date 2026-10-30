@@ -2,6 +2,7 @@ import { appendFileSync } from 'node:fs';
 import type { Context } from '../context.js';
 import { stamp } from '../registry/sessions.js';
 import { isIterm2, presentState } from './state.js';
+import { hookHint, hookStatus } from '../agents/hooks.js';
 
 /** iTerm2 user variable naming the session a pane shows (spec §7.3). */
 export const PANE_VARIABLE = 'berthSession';
@@ -34,4 +35,19 @@ export function clientAttached(ctx: Context, client: AttachedClient): void {
     if (live.meta.origin !== 'iterm2') stamp(ctx, client.session, { origin: 'iterm2' });
   }
   presentState(ctx.tmux, client.session, live.meta.state ?? '', { note: live.meta.note, clients: [{ tty: client.tty, termtype: client.termtype }] });
+  if (live.meta.origin !== 'vscode') hintHooksOnce(ctx, live.meta.agent, client.tty);
+}
+
+const HINT_SECONDS = 10;
+
+/**
+ * Terminals other than VS Code (which asks in its own UI) get the hooks hint
+ * in tmux's status line, once per agent per tmux server.
+ */
+function hintHooksOnce(ctx: Context, agent: string, tty: string): void {
+  if (hookStatus(agent, ctx.env) !== 'missing') return;
+  const flag = `@berth_hinted_${agent}`;
+  if (ctx.tmux.run(['show-option', '-gqv', flag], true).stdout.trim()) return;
+  ctx.tmux.run(['set-option', '-g', flag, '1'], true);
+  ctx.tmux.run(['display-message', '-c', tty, '-d', String(HINT_SECONDS * 1000), hookHint(agent)], true);
 }

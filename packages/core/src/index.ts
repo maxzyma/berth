@@ -4,7 +4,7 @@ export { BerthError, ExitCode } from './errors.js';
 export { Tmux, type LiveSession, type SessionMeta } from './tmux/client.js';
 export { ADAPTERS, getAdapter, type Adapter } from './agents/registry.js';
 export { keptArgs, launchCommand, resumeCommand } from './agents/commands.js';
-export { installHooks, uninstallHooks, handleHook, metaForEvent } from './agents/hooks.js';
+export { installHooks, uninstallHooks, handleHook, metaForEvent, hookStatus, hookHint, type HookStatus } from './agents/hooks.js';
 export { list, create, adopt, stamp, bellRang, clearBell, BELL_NOTE, type SessionRow } from './registry/sessions.js';
 export { doctor } from './registry/doctor.js';
 export { SnapshotStore, type Snapshot, type SnapshotSession } from './snapshot/store.js';

@@ -100,6 +100,11 @@
         "category": "Berth"
       },
       {
+        "command": "berth.installHooks",
+        "title": "Install Agent Hooks\u2026",
+        "category": "Berth"
+      },
+      {
         "command": "berth.applyLayout",
         "title": "Apply Agent Layout",
         "category": "Berth"
@@ -163,6 +168,11 @@
           "command": "berth.adopt",
           "when": "view == berth.sessions && viewItem =~ /unmanaged/",
           "group": "2@2"
+        },
+        {
+          "command": "berth.installHooks",
+          "when": "view == berth.sessions && viewItem =~ /hooks-missing/",
+          "group": "2@3"
         },
         {
           "command": "berth.kill",

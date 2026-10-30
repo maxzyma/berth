@@ -49,6 +49,8 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+const HOOKS_MISSING = "This agent's Berth hooks are not installed, so after a restart the session starts a new conversation. Right-click → Install Agent Hooks.";
+
 export function rowView(row: SessionRow, input: ViewInput): RowView {
   const conn = connection(row, input.here);
   const unread = input.unread.has(row.name);
@@ -69,13 +71,14 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
   const parts = [row.agent, `${row.state || 'idle'}${note}`, CONNECTION_TEXT[conn]];
   if (branch) parts.push(branch);
   if (!row.conversation) parts.push('unbound');
+  const hooksMissing = row.hooks === 'missing';
   const icon = !row.live ? 'stopped' : row.state === 'working' || row.state === 'waiting' || row.state === 'done' ? row.state : 'idle';
   return {
     name: row.name,
     label: `${unread ? '● ' : ''}${row.name}`,
     description: parts.join(' · '),
-    tooltip: [row.name, row.cwd, row.note].filter(Boolean).join('\n'),
-    contextValue: `session managed ${row.live ? 'live' : 'stopped'} ${conn}`,
+    tooltip: [row.name, row.cwd, row.note, hooksMissing ? HOOKS_MISSING : ''].filter(Boolean).join('\n'),
+    contextValue: `session managed ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing ? ' hooks-missing' : ''}`,
     icon,
     unread,
   };

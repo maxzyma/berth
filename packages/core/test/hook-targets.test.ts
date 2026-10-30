@@ -105,3 +105,22 @@ test('C11 the OpenCode plugin forwards a top-level session id from inside a pane
   hooks(sb, 'uninstall', 'opencode');
   assert.equal(existsSync(plugin), false);
 });
+
+test('C15 an agent started without hooks is pointed at `berth hooks install`', async (t) => {
+  const sb = sandbox(t);
+  const env = cleanEnv(sb);
+  const run = (...args: string[]) => spawnSync(process.execPath, [CLI, ...args], { env, encoding: 'utf8' });
+  assert.match(run('new', 'kimi', '--cwd', sb.makeDir('k')).stderr, /berth hooks install kimi/);
+  assert.equal(run('new', 'shell', '--cwd', sb.makeDir('s')).stderr, '', 'nothing to install for a shell');
+  const row = JSON.parse(run('ls', '--json').stdout).find((r: { name: string }) => r.name === 'k');
+  assert.equal(row.hooks, 'missing');
+
+  // A terminal attaching (not VS Code) is told once per agent per server.
+  const flag = () => sb.tmux('show-option', '-gqv', '@berth_hinted_kimi').trim();
+  run('attached', '--session', 'k', '--tty', '/dev/null', '--termtype', 'xterm-256color');
+  assert.equal(flag(), '1');
+
+  run('hooks', 'install', 'kimi');
+  assert.equal(run('new', 'kimi', '--cwd', sb.makeDir('k2')).stderr, '');
+  assert.equal(JSON.parse(run('ls', '--json').stdout).find((r: { name: string }) => r.name === 'k').hooks, 'installed');
+});

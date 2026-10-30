@@ -128,6 +128,15 @@ frontend clears a bell-raised `waiting`.
 Hooks are written only by `berth hooks install <agent>`, are marked as Berth's,
 and are removed by `berth hooks uninstall <agent>`.
 
+Without hooks a session cannot be resumed, and nothing shows it until after
+a restart, so Berth says so when an agent without hooks is in use: `berth new`
+and `berth adopt` print the install command on stderr; a terminal other than
+VS Code attaching to such a session shows it in tmux's status line, once per
+agent per tmux server (sessions started by a custom launcher reach the user
+this way); VS Code offers to install them (§6). Session rows carry the
+agent's hook status so every frontend decides the same way. Installing still
+needs the user's go-ahead, because it edits the agent's own configuration.
+
 ## 5. Berth core
 
 TypeScript library plus the `berth` CLI. Node ≥ 20. No editor dependency.
@@ -157,7 +166,7 @@ The VS Code extension is published to the Marketplace, not npm.
 
 | Command | Behaviour |
 |---|---|
-| `berth ls [--json]` | All sessions: name, agent, cwd, conversation, origin, attached clients, managed or not. |
+| `berth ls [--json]` | All sessions: name, agent, cwd, conversation, origin, attached clients, managed or not, and whether the agent's hooks are installed. |
 | `berth new <agent> [--name] [--cwd] [--origin] [-- args]` | Create a managed session and run the agent's launch command in it, with any extra agent arguments. Name defaults to the cwd's basename, made unique. |
 | `berth adopt <session> --agent <id> [--origin]` | Stamp an existing session so it is managed. |
 | `berth attach <session> [--origin]` | Attach, re-stamping origin when given. |
@@ -299,6 +308,13 @@ Berth runs with no config file.
   notifications. "Open" in the editor notification focuses the session;
   clicking the OS notification brings the editor forward (on macOS this needs
   `terminal-notifier`).
+- **Missing hooks.** The first time a window sees a session whose agent has
+  no hooks installed, it says that such sessions start a new conversation
+  after a restart and offers *Install*, *Not now* and *Don't ask again* (per
+  agent). The session row's tooltip says why it is unbound, and its context
+  menu offers *Install Agent Hooks*. Installing runs the `berth` CLI on the
+  login PATH, so the hooks keep pointing at a stable path across extension
+  updates.
 - **Projects.** A project in the sessions view is a folder that has sessions;
   starting a session in a folder creates its group. *New Session* asks for
   the agent and the folder (workspace folders, existing groups, or any folder

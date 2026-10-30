@@ -52,6 +52,10 @@ class FakeHost implements Host {
   notify(t: Transition) {
     this.notified.push(t);
   }
+  suggested: string[] = [];
+  suggestHooks(agent: string) {
+    this.suggested.push(agent);
+  }
 }
 
 function setup(t: TestContext) {
@@ -282,8 +286,24 @@ test('V3 a pending launch never adopts a session that existed before it', async 
   assert.equal(sb.tmux('display-message', '-p', '-t', '=older:', '#{@berth_agent}').trim(), '');
 });
 
+test('V11 an agent without hooks is offered hooks once; its rows say why they are unbound', (t) => {
+  const { sb, host, controller } = setup(t);
+  sb.cli('new', 'kimi', '--cwd', sb.makeDir('k1'));
+  sb.cli('new', 'kimi', '--cwd', sb.makeDir('k2'));
+  sb.cli('new', 'shell', '--cwd', sb.makeDir('s1'));
+  const { tree } = controller.refresh();
+  controller.refresh();
+  assert.deepEqual(host.suggested, ['kimi'], 'once per agent; agents without hook support are not offered');
+  const k1 = tree.groups.flatMap((g) => g.rows).find((r) => r.name === 'k1')!;
+  assert.match(k1.contextValue, /hooks-missing/);
+  assert.match(k1.tooltip, /hooks are not installed/);
+  sb.cli('hooks', 'install', 'kimi');
+  const after = controller.refresh().tree.groups.flatMap((g) => g.rows).find((r) => r.name === 'k1')!;
+  assert.doesNotMatch(after.contextValue, /hooks-missing/);
+});
+
 test('V10 go to the next session needing you: waiting first, then unread, wrapping', async (t) => {
-  const row = (name: string, state = '') => ({ name, managed: true, agent: 'claude', cwd: '/w', conversation: '', origin: 'vscode', state, note: '', attachedClients: 0, live: true });
+  const row = (name: string, state = '') => ({ name, managed: true, agent: 'claude', cwd: '/w', conversation: '', origin: 'vscode', state, note: '', attachedClients: 0, live: true, hooks: 'none' as const });
   const rows = [row('a'), row('b', 'waiting'), row('c'), row('d', 'waiting')];
   assert.equal(nextAttention(rows, new Set(['c']), undefined), 'b');
   assert.equal(nextAttention(rows, new Set(['c']), 'b'), 'd');

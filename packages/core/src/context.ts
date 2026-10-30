@@ -6,6 +6,8 @@ export interface Context {
   config: BerthConfig;
   tmux: Tmux;
   store: SnapshotStore;
+  /** Environment the context was made from; locates agent configuration. */
+  env: Record<string, string | undefined>;
 }
 
 export function createContext(env: Record<string, string | undefined> = process.env): Context {
@@ -14,5 +16,6 @@ export function createContext(env: Record<string, string | undefined> = process.
     config,
     tmux: new Tmux({ bin: config.tmuxBin, socket: config.tmuxSocket, socketPath: config.tmuxSocketPath }),
     store: new SnapshotStore(config.snapshotRoot),
+    env,
   };
 }

@@ -59,6 +59,7 @@ class TerminalHost implements Host {
   private readonly side = new Map<vscode.Terminal, string>();
   focusSession?: (name: string) => void;
   onShown?: (row: SessionRow) => void;
+  suggestHooks?: (agent: string) => void;
 
   openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string): void {
     const [shellPath, ...shellArgs] = argv;
@@ -188,6 +189,26 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
   }
 }
 
+/** Agents the user asked never to be offered hooks for. */
+const HOOKS_DECLINED = 'berth.hooksDeclined';
+
+/**
+ * Install hooks with the `berth` on the login PATH: hook commands record the
+ * CLI's path, and the extension's own copy moves with every extension update.
+ */
+function installHooksWithCli(agent: string): { ok: boolean; detail: string } {
+  const shell = process.env.SHELL || '/bin/sh';
+  const r = spawnSync(shell, ['-lc', `berth hooks install ${agent}`], { encoding: 'utf8', timeout: 30_000 });
+  if (r.status === 0) return { ok: true, detail: r.stdout.trim() };
+  const missing = r.status === 127 || /not found/.test(r.stderr);
+  return {
+    ok: false,
+    detail: missing
+      ? `the berth command is not on PATH. Install it (npm install -g @berthdev/berth), then run: berth hooks install ${agent}`
+      : (r.stderr || r.error?.message || 'unknown error').trim(),
+  };
+}
+
 function sessionArg(arg: unknown): string | undefined {
   if (typeof arg === 'string') return arg;
   const node = arg as Node | undefined;
@@ -217,6 +238,31 @@ export function activate(context: vscode.ExtensionContext): void {
     })();
   };
   host.onShown = follow;
+
+  const installHooks = async (agent: string) => {
+    const name = ADAPTERS.find((a) => a.id === agent)?.displayName ?? agent;
+    const result = installHooksWithCli(agent);
+    if (result.ok) void vscode.window.showInformationMessage(`Berth: ${name} hooks installed (${result.detail}). New ${name} sessions resume their conversation after a restart.`);
+    else void vscode.window.showErrorMessage(`Berth: could not install ${name} hooks: ${result.detail}`);
+    refresh();
+  };
+  host.suggestHooks = (agent) => {
+    if ((context.globalState.get<string[]>(HOOKS_DECLINED) ?? []).includes(agent)) return;
+    const name = ADAPTERS.find((a) => a.id === agent)?.displayName ?? agent;
+    void vscode.window
+      .showInformationMessage(
+        `Berth: ${name} sessions start a new conversation after a restart, because ${name}'s Berth hooks are not installed. Install them? This adds Berth's entries to ${name}'s own hook configuration.`,
+        'Install',
+        'Not now',
+        "Don't ask again",
+      )
+      .then((choice) => {
+        if (choice === 'Install') void installHooks(agent);
+        if (choice === "Don't ask again") {
+          void context.globalState.update(HOOKS_DECLINED, [...(context.globalState.get<string[]>(HOOKS_DECLINED) ?? []), agent]);
+        }
+      });
+  };
 
   const refresh = () => {
     controller
@@ -272,6 +318,11 @@ export function activate(context: vscode.ExtensionContext): void {
       ADAPTERS.map((a) => ({ label: a.displayName, description: a.id, id: a.id })),
       { placeHolder: 'Agent' },
     ))?.id;
+  command('berth.installHooks', async (arg: unknown) => {
+    const name = sessionArg(arg);
+    const agent = name ? controller.row(name)?.agent : await pickAgent();
+    if (agent) await installHooks(agent);
+  });
   command('berth.adopt', guarded(async (name) => {
     const agent = await pickAgent();
     if (agent) controller.adopt(name, agent);

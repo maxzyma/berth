@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { createContext, type Context } from '../context.js';
 import { BerthError, ExitCode } from '../errors.js';
-import { handleHook, installHooks, uninstallHooks } from '../agents/hooks.js';
+import { handleHook, hookHint, hookStatus, installHooks, uninstallHooks } from '../agents/hooks.js';
 import { adopt, bellRang, checkOrigin, create, list, requireLive, stamp, type SessionRow } from '../registry/sessions.js';
 import { doctor } from '../registry/doctor.js';
 import { takeSnapshot } from '../snapshot/take.js';
@@ -67,6 +67,11 @@ function formatResults(results: RestoreResult[]): string {
   return results.map((r) => `${r.name}\t${r.outcome}${r.detail ? `\t${r.detail}` : ''}`).join('\n');
 }
 
+/** Tell the user, on stderr, when the agent just started has no hooks. */
+function hintHooks(agent: string | undefined): void {
+  if (agent && hookStatus(agent) === 'missing') process.stderr.write(`${hookHint(agent)}\n`);
+}
+
 function cliPath(): string {
   return realpathSync(fileURLToPath(import.meta.url));
 }
@@ -100,11 +105,14 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
         extraArgs,
       });
       out(name);
+      hintHooks(positionals[0]);
       return ExitCode.ok;
     }
     case 'adopt': {
       const { values, positionals } = parse(rest, { agent: { type: 'string' }, origin: { type: 'string' } });
-      adopt(ctx, need(positionals[0], 'session'), need(values.agent, '--agent'), values.origin);
+      const agent = need(values.agent, '--agent');
+      adopt(ctx, need(positionals[0], 'session'), agent, values.origin);
+      hintHooks(agent);
       return ExitCode.ok;
     }
     case 'attach': {
