@@ -16,14 +16,40 @@ const APPLIED_LAYOUT = 'berth.appliedLayoutVersion';
 
 type Node = { kind: 'group'; group: GroupView } | { kind: 'unmanaged'; rows: RowView[] } | { kind: 'row'; row: RowView };
 
-const ICONS: Record<RowView['icon'], vscode.ThemeIcon> = {
-  working: new vscode.ThemeIcon('loading~spin'),
-  waiting: new vscode.ThemeIcon('bell-dot', new vscode.ThemeColor('charts.yellow')),
-  done: new vscode.ThemeIcon('check', new vscode.ThemeColor('charts.green')),
-  stopped: new vscode.ThemeIcon('debug-stop'),
-  idle: new vscode.ThemeIcon('circle-outline'),
-  unmanaged: new vscode.ThemeIcon('terminal'),
+/** Agents with their own icon in media/agents; a shell uses the terminal icon. */
+const AGENT_ICONS = new Set(['claude', 'codex', 'gemini', 'opencode', 'copilot', 'cursor', 'kimi', 'qoder']);
+
+/** State shows as the colour of a row's name (spec §6). */
+const STATE_COLORS: Partial<Record<RowView['icon'], string>> = {
+  working: 'charts.blue',
+  waiting: 'charts.yellow',
+  done: 'charts.green',
+  stopped: 'disabledForeground',
 };
+
+const ROW_SCHEME = 'berth-session';
+const rowUri = (name: string) => vscode.Uri.from({ scheme: ROW_SCHEME, path: `/${encodeURIComponent(name)}` });
+
+/** Colour and badge for session rows, which carry a berth-session: URI. */
+class RowDecorations implements vscode.FileDecorationProvider {
+  private readonly changed = new vscode.EventEmitter<undefined>();
+  readonly onDidChangeFileDecorations = this.changed.event;
+  private rows = new Map<string, RowView>();
+
+  update(rows: RowView[]): void {
+    this.rows = new Map(rows.map((r) => [r.name, r]));
+    this.changed.fire(undefined);
+  }
+
+  provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
+    if (uri.scheme !== ROW_SCHEME) return undefined;
+    const row = this.rows.get(decodeURIComponent(uri.path.slice(1)));
+    if (!row) return undefined;
+    const color = STATE_COLORS[row.icon];
+    if (!row.badge && !color) return undefined;
+    return new vscode.FileDecoration(row.badge || undefined, undefined, color ? new vscode.ThemeColor(color) : undefined);
+  }
+}
 
 const MAC_BUNDLES: Record<string, string> = {
   'Visual Studio Code': 'com.microsoft.VSCode',
@@ -159,6 +185,8 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
   readonly onDidChangeTreeData = this.changed.event;
   roots: Node[] = [];
 
+  constructor(private readonly extensionUri: vscode.Uri) {}
+
   /**
    * With one folder its sessions sit at the top level and the folder names the
    * view; a tree level costs width in a narrow side bar (spec §6).
@@ -192,10 +220,12 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
     }
     if (node.kind === 'unmanaged') return new vscode.TreeItem('Other tmux sessions', vscode.TreeItemCollapsibleState.Collapsed);
     const item = new vscode.TreeItem(node.row.label, vscode.TreeItemCollapsibleState.None);
-    item.description = node.row.description;
+    item.resourceUri = rowUri(node.row.name);
     item.tooltip = node.row.tooltip;
     item.contextValue = node.row.contextValue;
-    item.iconPath = ICONS[node.row.icon];
+    item.iconPath = AGENT_ICONS.has(node.row.agent)
+      ? vscode.Uri.joinPath(this.extensionUri, 'media', 'agents', `${node.row.agent}.svg`)
+      : new vscode.ThemeIcon(node.row.agent === 'shell' ? 'terminal' : 'circle-outline');
     item.command = { command: 'berth.focus', title: 'Open Session', arguments: [node.row.name] };
     return item;
   }
@@ -250,7 +280,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const ctx = createContext({ ...process.env, ...(socket ? { BERTH_TMUX_SOCKET: socket } : {}) });
   const host = new TerminalHost();
   const controller = new Controller(ctx, host);
-  const tree = new SessionTree();
+  const tree = new SessionTree(context.extensionUri);
+  const decorations = new RowDecorations();
+  context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorations));
   const view = vscode.window.createTreeView('berth.sessions', { treeDataProvider: tree });
   host.focusSession = (name) => void controller.show(name);
   // Follow the shown session in the explorer when its folder is in the workspace.
@@ -309,6 +341,7 @@ export function activate(context: vscode.ExtensionContext): void {
     try {
       const { tree: model } = controller.refresh();
       view.description = tree.update(model.groups, model.unmanaged);
+      decorations.update([...model.groups.flatMap((g) => g.rows), ...model.unmanaged]);
       view.badge = model.waiting ? { value: model.waiting, tooltip: `${model.waiting} waiting for you` } : undefined;
     } catch (error) {
       view.message = `Berth: ${(error as Error).message}`;

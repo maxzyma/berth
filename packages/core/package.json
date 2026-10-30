@@ -1,6 +1,6 @@
 {
   "name": "@berthdev/berth",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Keep terminal-based coding agents running in tmux and bring each back, conversation included.",
   "type": "module",
   "main": "dist/src/index.js",

@@ -305,14 +305,20 @@ Berth runs with no config file.
   changes unless the user confirms.
 - **Session view.** The rich session list, contributed as an ordinary view so
   the user can place it in any side bar. A tree of every session from
-  `berth ls`, grouped by cwd. What a row shows follows the vertical tabs of
+  `berth ls`, grouped by cwd. What a row carries follows the vertical tabs of
   agent terminal apps (cmux, Warp), which set the bar users compare against:
-  agent; agent state (`@berth_state`), followed by the latest notification
-  text while the state is waiting or done; unread mark when an agent finished
-  or started waiting while the user looked elsewhere;
-  git branch; connection (attached here / elsewhere / detached / stopped — in
-  snapshot, not live); conversation bound or not. A view badge counts sessions
-  waiting for the user. Unmanaged sessions are listed separately.
+  agent; agent state (`@berth_state`) with the latest notification while
+  waiting or done; unread when an agent finished or started waiting while the
+  user looked elsewhere; git branch; connection (attached here / elsewhere /
+  detached / stopped — in snapshot, not live); conversation bound or not. A
+  side bar row is narrow, and words there get cut off and crowd one another,
+  so the row itself shows only the session name, the agent as its icon (one
+  coloured letter tile per agent, a terminal icon for a shell), and the state
+  as the name's colour and a one-character badge (working `⋯` blue, waiting
+  `!` yellow, done `✓` green, stopped grey, otherwise `•` when unread); the
+  tooltip spells out everything, including the notification text. A view
+  badge counts sessions waiting for the user. Unmanaged sessions are listed
+  separately.
 - **One session terminal.** Selecting a row shows that session in the one
   session terminal: the terminal's tmux client switches to it
   (`switch-client`), or the terminal opens attached when there is none. A

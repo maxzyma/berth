@@ -1,16 +1,24 @@
 /** Pure view logic for Berth for VS Code (spec §6); no `vscode` import, so it is unit-testable. */
 import { basename } from 'node:path';
-import type { SessionRow } from '@berthdev/berth';
+import { getAdapter, type SessionRow } from '@berthdev/berth';
 
 export type Connection = 'attached-here' | 'attached-elsewhere' | 'detached' | 'stopped';
 
+/**
+ * A session row says as much as it can without words (spec §6): its icon is
+ * the agent, its name's colour and badge the state; the rest is in the
+ * tooltip. Words on a narrow row get cut off and crowd one another.
+ */
 export interface RowView {
   name: string;
   label: string;
-  description: string;
+  /** Agent id, for the row's icon; '' for an unmanaged session. */
+  agent: string;
   tooltip: string;
   contextValue: string;
   icon: 'working' | 'waiting' | 'done' | 'stopped' | 'idle' | 'unmanaged';
+  /** One character beside the name: the state, else unread. */
+  badge: string;
   unread: boolean;
 }
 
@@ -59,21 +67,28 @@ export function connection(row: SessionRow, here: ReadonlySet<string>): Connecti
 }
 
 const CONNECTION_TEXT: Record<Connection, string> = {
-  'attached-here': 'here',
-  'attached-elsewhere': 'elsewhere',
-  detached: 'detached',
-  stopped: 'stopped',
+  'attached-here': 'Shown in this window',
+  'attached-elsewhere': 'Open in another terminal',
+  detached: 'Not open in any terminal',
+  stopped: 'Stopped; comes back on the next restore',
 };
+
+const STATE_TEXT: Record<RowView['icon'], string> = {
+  working: 'Working',
+  waiting: 'Waiting for you',
+  done: 'Finished its turn',
+  idle: 'Idle',
+  stopped: 'Stopped',
+  unmanaged: '',
+};
+
+const BADGE: Partial<Record<RowView['icon'], string>> = { working: '⋯', waiting: '!', done: '✓' };
 
 export interface ViewInput {
   here: ReadonlySet<string>;
   unread: ReadonlySet<string>;
   branch: (cwd: string) => string;
   workspaceFolders?: readonly string[];
-}
-
-function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
 const HOOKS_MISSING = "This agent's Berth hooks are not installed, so after a restart the session starts a new conversation. Right-click → Install Agent Hooks.";
@@ -85,28 +100,35 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
     return {
       name: row.name,
       label: row.name,
-      description: CONNECTION_TEXT[conn],
-      tooltip: `${row.name} — not an agent session (adopt to manage it)`,
+      agent: '',
+      tooltip: `${row.name} — not an agent session (adopt to manage it)\n${CONNECTION_TEXT[conn]}`,
       contextValue: `session unmanaged live ${conn}`,
       icon: 'unmanaged',
+      badge: '',
       unread: false,
     };
   }
   const branch = input.branch(row.cwd);
-  // The latest notification shows on the row itself while it matters.
-  const note = (row.state === 'waiting' || row.state === 'done') && row.note ? `: ${truncate(row.note, 40)}` : '';
-  const parts = [row.agent, `${row.state || 'idle'}${note}`, CONNECTION_TEXT[conn]];
-  if (branch) parts.push(branch);
-  if (!row.conversation) parts.push('unbound');
   const hooksMissing = row.hooks === 'missing';
   const icon = !row.live ? 'stopped' : row.state === 'working' || row.state === 'waiting' || row.state === 'done' ? row.state : 'idle';
+  const agentName = getAdapter(row.agent)?.displayName ?? row.agent;
+  const note = (row.state === 'waiting' || row.state === 'done') && row.note ? `: ${row.note}` : '';
+  const tooltip = [
+    `${row.name} — ${agentName}`,
+    `${STATE_TEXT[icon]}${note}`,
+    CONNECTION_TEXT[conn],
+    branch ? `Branch ${branch}` : '',
+    row.cwd,
+    hooksMissing ? HOOKS_MISSING : !row.conversation ? 'Conversation not bound yet: a restore would start a new one.' : '',
+  ];
   return {
     name: row.name,
-    label: `${unread ? '● ' : ''}${row.name}`,
-    description: parts.join(' · '),
-    tooltip: [row.name, row.cwd, row.note, hooksMissing ? HOOKS_MISSING : ''].filter(Boolean).join('\n'),
+    label: row.name,
+    agent: row.agent,
+    tooltip: tooltip.filter(Boolean).join('\n'),
     contextValue: `session managed ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing ? ' hooks-missing' : ''}`,
     icon,
+    badge: BADGE[icon] ?? (unread ? '•' : ''),
     unread,
   };
 }

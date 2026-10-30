@@ -270,8 +270,9 @@ manual cases are recorded as checked, and the de-identification check passes.
 
 ### Milestone 2 — Berth for VS Code
 
-- **V1** The session view shows the rows of spec §6, grouped by cwd, with the
-  latest notification on waiting / done rows and the waiting-count badge.
+- **V1** The session view shows the rows of spec §6, grouped by cwd: the name
+  with the agent's icon and the state's colour and badge, the rest (latest
+  notification included) in the tooltip, and the waiting-count badge.
 - **V2** Selecting a row switches the one session terminal to that session
   (rebuilding a stopped one first), or opens it when there is none; open to
   the side adds a second terminal; the explorer follows only folders inside
