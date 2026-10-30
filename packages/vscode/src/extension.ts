@@ -235,6 +235,7 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
     if (node.kind === 'unmanaged') return new vscode.TreeItem('Other tmux sessions', vscode.TreeItemCollapsibleState.Collapsed);
     const item = new vscode.TreeItem(node.row.label, vscode.TreeItemCollapsibleState.None);
     item.resourceUri = rowUri(node.row.name);
+    item.description = node.row.description;
     item.tooltip = node.row.tooltip;
     item.contextValue = node.row.contextValue;
     item.iconPath = AGENT_ICONS.has(node.row.agent)

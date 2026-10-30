@@ -312,7 +312,8 @@ Berth runs with no config file.
   user looked elsewhere; git branch; connection (attached here / elsewhere /
   detached / stopped — in snapshot, not live); conversation bound or not. A
   side bar row is narrow, and words there get cut off and crowd one another,
-  so the row itself shows only the session name, the agent as its icon (one
+  so the row itself shows the session name, the latest notification while
+  waiting or done (what the agent needs from the user), the agent as its icon (one
   coloured letter per agent on a transparent background, a terminal icon for
   a shell), and the state
   as the name's colour and a one-character badge (working `⋯` blue, waiting

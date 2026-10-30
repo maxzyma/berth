@@ -81,7 +81,8 @@ test('V1 the session view groups by cwd, shows state and counts waiting sessions
   ]);
   // The row itself carries no words: agent icon, state badge; details in the tooltip.
   const a1 = tree.groups[0].rows[0];
-  assert.deepEqual([a1.label, a1.agent, a1.icon, a1.badge], ['a1', 'claude', 'waiting', '!']);
+  assert.deepEqual([a1.label, a1.agent, a1.icon, a1.badge, a1.description], ['a1', 'claude', 'waiting', '!', 'needs approval']);
+  assert.equal(tree.groups[0].rows[1].description, '', 'nothing to read while idle');
   assert.match(a1.tooltip, /^a1 — Claude Code\nWaiting for you: needs approval\nNot open in any terminal/);
   assert.match(tree.groups[0].rows[1].tooltip, /starts a new conversation/, "why it will not resume");
   assert.equal(tree.groups[0].rows[1].badge, '', 'idle and read: no badge');

@@ -14,6 +14,8 @@ export interface RowView {
   label: string;
   /** Agent id, for the row's icon; '' for an unmanaged session. */
   agent: string;
+  /** The one thing worth reading at a glance: what a waiting or finished agent said. */
+  description: string;
   tooltip: string;
   contextValue: string;
   icon: 'working' | 'waiting' | 'done' | 'stopped' | 'idle' | 'unmanaged';
@@ -101,6 +103,7 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
       name: row.name,
       label: row.name,
       agent: '',
+      description: '',
       tooltip: `${row.name} — not an agent session (adopt to manage it)\n${CONNECTION_TEXT[conn]}`,
       contextValue: `session unmanaged live ${conn}`,
       icon: 'unmanaged',
@@ -125,6 +128,7 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
     name: row.name,
     label: row.name,
     agent: row.agent,
+    description: note ? row.note : '',
     tooltip: tooltip.filter(Boolean).join('\n'),
     contextValue: `session managed ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing ? ' hooks-missing' : ''}`,
     icon,
