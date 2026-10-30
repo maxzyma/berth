@@ -4,7 +4,7 @@ import { platform } from 'node:os';
 import * as vscode from 'vscode';
 import { ADAPTERS, createContext, type SessionRow } from '@berthdev/berth';
 import { Controller, type Host, type TerminalRole } from './controller.js';
-import { defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, type GroupView, type RowView, type Transition } from './model.js';
+import { defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, orderAgents, placeOf, type Place, type GroupView, type RowView, type Transition } from './model.js';
 
 const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
@@ -60,6 +60,10 @@ class TerminalHost implements Host {
   focusSession?: (name: string) => void;
   onShown?: (row: SessionRow) => void;
   suggestHooks?: (agent: string) => void;
+
+  workspaceFolders(): string[] {
+    return (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
+  }
 
   openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string): void {
     const [shellPath, ...shellArgs] = argv;
@@ -160,7 +164,8 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
    * view; a tree level costs width in a narrow side bar (spec §6).
    */
   update(groups: GroupView[], unmanaged: RowView[]): string | undefined {
-    const single = groups.length === 1 ? groups[0] : undefined;
+    // Only the workspace folder may lose its row: its place is then implied.
+    const single = groups.length === 1 && groups[0].place === 'workspace' ? groups[0] : undefined;
     this.roots = [
       ...(single ? single.rows.map((row): Node => ({ kind: 'row', row })) : groups.map((group): Node => ({ kind: 'group', group }))),
       ...(unmanaged.length ? [{ kind: 'unmanaged', rows: unmanaged } as Node] : []),
@@ -180,7 +185,8 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
     if (node.kind === 'group') {
       const item = new vscode.TreeItem(node.group.label, vscode.TreeItemCollapsibleState.Expanded);
       item.description = node.group.cwd;
-      item.iconPath = new vscode.ThemeIcon('folder');
+      item.iconPath = PLACE_ICONS[node.group.place];
+      item.tooltip = `${node.group.cwd}\n${PLACE_TEXT[node.group.place]}`;
       item.contextValue = 'group';
       return item;
     }
@@ -220,6 +226,18 @@ function installHooksWithCli(agent: string): { ok: boolean; detail: string } {
       : (r.stderr || r.error?.message || 'unknown error').trim(),
   };
 }
+
+/** A folder's place is shown by icon and colour; the words are in the tooltip (spec §6). */
+const PLACE_ICONS: Record<Place, vscode.ThemeIcon> = {
+  workspace: new vscode.ThemeIcon('root-folder', new vscode.ThemeColor('charts.blue')),
+  inside: new vscode.ThemeIcon('folder'),
+  outside: new vscode.ThemeIcon('folder', new vscode.ThemeColor('disabledForeground')),
+};
+const PLACE_TEXT: Record<Place, string> = {
+  workspace: "This window's workspace folder",
+  inside: "Inside this window's workspace",
+  outside: "Outside this window's workspace",
+};
 
 function sessionArg(arg: unknown): string | undefined {
   if (typeof arg === 'string') return arg;
@@ -330,7 +348,11 @@ export function activate(context: vscode.ExtensionContext): void {
     const custom = forNewSession ? launcher() : '';
     const via = custom ? ` · ${custom.trim().split(/\s+/)[0].split('/').pop()}` : '';
     return (await vscode.window.showQuickPick(
-      ADAPTERS.map((a) => ({ label: a.displayName, description: a.id === 'shell' ? a.id : `${a.id}${via}`, id: a.id })),
+      orderAgents(ADAPTERS, vscode.workspace.getConfiguration('berth').get<string[]>('newSession.order', [])).map((a) => ({
+        label: a.displayName,
+        description: a.id === 'shell' ? a.id : `${a.id}${via}`,
+        id: a.id,
+      })),
       { placeHolder: custom ? 'Agent — agents start with your launcher, a shell with Berth' : 'Agent' },
     ))?.id;
   };
@@ -347,7 +369,11 @@ export function activate(context: vscode.ExtensionContext): void {
   // A project in the sessions view is a folder with sessions; a new session in a folder starts one.
   const pickFolder = async (): Promise<string | undefined> => {
     const known = [...new Set([...folders(), ...controller.tree().groups.map((g) => g.cwd)])];
-    const items: (vscode.QuickPickItem & { path?: string })[] = known.map((p) => ({ label: p.split('/').pop() || p, description: p, path: p }));
+    const rank: Record<Place, number> = { workspace: 0, inside: 1, outside: 2 };
+    const items: (vscode.QuickPickItem & { path?: string })[] = known
+      .map((p) => ({ p, place: placeOf(p, folders()) }))
+      .sort((a, b) => rank[a.place] - rank[b.place] || a.p.localeCompare(b.p))
+      .map(({ p, place }) => ({ label: p.split('/').pop() || p, description: p, path: p, iconPath: PLACE_ICONS[place], tooltip: PLACE_TEXT[place] }));
     items.push({ label: '$(folder-opened) Choose Folder…' });
     const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Folder for the new session' });
     if (!pick) return undefined;

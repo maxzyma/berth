@@ -321,11 +321,15 @@ Berth runs with no config file.
   version managers such as nvm load only there), so the hooks keep pointing at
   a stable path across extension updates.
 - **Projects.** A project in the sessions view is a folder that has sessions;
-  starting a session in a folder creates its group. With a single group its
-  sessions sit at the top level and the view's title shows the folder: a side
-  bar is narrow, and every tree level costs indentation the extension cannot
-  reduce (it follows `workbench.tree.indent`, and leaf rows keep the twistie
-  column). *New Session* uses the folder of the session shown in the session
+  starting a session in a folder creates its group. A window works in a
+  workspace, so each group shows where its folder sits: the workspace folder
+  itself, inside it, or outside it — by icon and colour (the row is too narrow
+  for words; the tooltip says it), in that order. When the only group is the
+  workspace folder its sessions sit at the top level and the view's title
+  shows the folder: a side bar is narrow, and every tree level costs
+  indentation the extension cannot reduce (it follows `workbench.tree.indent`,
+  and leaf rows keep the twistie column). The folder picker marks folders the
+  same way. *New Session* uses the folder of the session shown in the session
   terminal, else the only workspace folder, and asks only when neither
   exists; *New Agent Session in Folder…* always asks (workspace folders,
   existing groups, or any folder); a group's *New Session Here* uses that
@@ -343,7 +347,13 @@ Berth runs with no config file.
   nothing, and a session the launcher did not stamp is adopted with the agent
   found running in its pane (by program name, or script name for `node <cli>`);
   if none is found it stays unmanaged. With `{agent}` Berth asks, and its list
-  says which agents the launcher starts.
+  says which agents the launcher starts. A launcher is usually specific to
+  one workspace (it may expect that workspace's layout), so it belongs in that
+  workspace's settings.
+- **New Session order.** `berth.newSession.order` lists agent ids shown first
+  by *New Session*, in that order (for example `["shell"]` for someone who
+  starts their own launcher by hand in a plain session); like the launcher it
+  can differ per workspace.
 - **Actions.** New session, show (also re-stamps origin), open to the side,
   detach, rename, kill (with confirmation), adopt.
 - **Startup.** On startup, missing `vscode`-origin sessions are rebuilt and

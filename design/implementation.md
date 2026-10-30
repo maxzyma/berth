@@ -282,6 +282,9 @@ manual cases are recorded as checked, and the de-identification check passes.
   without `{agent}` is started without asking, and its session is adopted with
   the agent running in its pane. *New Session* takes the shown session's
   folder, else the only workspace folder, and asks only otherwise.
+- **V13** Groups carry their place relative to the workspace (workspace,
+  inside, outside) and are ordered by it; only the workspace folder's group is
+  flattened; *New Session* lists agents in `berth.newSession.order` first.
 - **V11** An agent whose hooks are missing is offered hooks once per window;
   agents Berth has no hooks for are not; its rows say why they are unbound and
   offer *Install Agent Hooks*.

@@ -14,10 +14,36 @@ export interface RowView {
   unread: boolean;
 }
 
+/** Where a folder sits relative to this window's workspace (spec §6). */
+export type Place = 'workspace' | 'inside' | 'outside';
+
 export interface GroupView {
   cwd: string;
   label: string;
+  place: Place;
   rows: RowView[];
+}
+
+const norm = (p: string) => p.replace(/\/+$/, '');
+
+export function placeOf(cwd: string, workspaceFolders: readonly string[]): Place {
+  const target = norm(cwd);
+  if (workspaceFolders.some((f) => norm(f) === target)) return 'workspace';
+  return workspaceFolders.some((f) => target.startsWith(`${norm(f)}/`)) ? 'inside' : 'outside';
+}
+
+const PLACE_RANK: Record<Place, number> = { workspace: 0, inside: 1, outside: 2 };
+
+/**
+ * Agents for a new session: those named in `order` first, in that order,
+ * then the rest in their usual order. Unknown ids are ignored.
+ */
+export function orderAgents<T extends { id: string }>(agents: readonly T[], order: readonly string[]): T[] {
+  const rank = (id: string) => {
+    const i = order.indexOf(id);
+    return i < 0 ? order.length : i;
+  };
+  return agents.map((a, i) => ({ a, i })).sort((x, y) => rank(x.a.id) - rank(y.a.id) || x.i - y.i).map(({ a }) => a);
 }
 
 export interface TreeView {
@@ -43,6 +69,7 @@ export interface ViewInput {
   here: ReadonlySet<string>;
   unread: ReadonlySet<string>;
   branch: (cwd: string) => string;
+  workspaceFolders?: readonly string[];
 }
 
 function truncate(text: string, max: number): string {
@@ -96,9 +123,10 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
     list.push(rowView(row, input));
     groups.set(row.cwd, list);
   }
+  const folders = input.workspaceFolders ?? [];
   const ordered = [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([cwd, list]) => ({ cwd, label: basename(cwd) || cwd, rows: list.sort((x, y) => x.name.localeCompare(y.name)) }));
+    .map(([cwd, list]) => ({ cwd, label: basename(cwd) || cwd, place: placeOf(cwd, folders), rows: list.sort((x, y) => x.name.localeCompare(y.name)) }))
+    .sort((a, b) => PLACE_RANK[a.place] - PLACE_RANK[b.place] || a.cwd.localeCompare(b.cwd));
   return {
     groups: ordered,
     unmanaged: unmanaged.sort((x, y) => x.name.localeCompare(y.name)),

@@ -3,7 +3,7 @@
   "displayName": "Berth",
   "description": "Every terminal coding agent in one list: kept running in tmux, resumed after restarts, state on your terminal tabs.",
   "icon": "media/icon.png",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "publisher": "berthdev",
   "license": "MIT",
   "type": "module",
@@ -233,7 +233,15 @@
         "berth.customLauncher": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Command that starts an agent session instead of `berth new`, run in the session terminal in the chosen folder. It only has to create a tmux session, run the agent and attach; Berth then finds that session, detects its directory and adopts it (metadata the launcher stamps itself is kept). Placeholders: `{agent}`, `{cwd}` (absolute folder), `{relative}` (folder relative to its workspace folder), `{name}` (folder name). Example: `my-launcher --agent {agent} {relative}`."
+          "markdownDescription": "Command that starts an agent session instead of `berth new`, run in the session terminal in the chosen folder. It only has to create a tmux session, run the agent and attach; Berth then finds that session, detects its directory and adopts it (metadata the launcher stamps itself is kept). Placeholders: `{agent}`, `{cwd}` (absolute folder), `{relative}` (folder relative to its workspace folder), `{name}` (folder name). Without `{agent}` the launcher chooses the agent itself. A plain shell is always started by Berth. A launcher usually belongs to one workspace: set it in that workspace's settings. Example: `my-launcher --agent {agent} {relative}`."
+        },
+        "berth.newSession.order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Agents listed first by *New Session*, in this order (agent ids such as `shell`, `claude`, `codex`); the others follow. Like the launcher, it can differ per workspace."
         },
         "berth.osNotifications": {
           "type": "boolean",

@@ -70,6 +70,9 @@ export function sandbox(t: TestContext, overrides: Record<string, { launch?: str
     XDG_STATE_HOME: join(root, 'state'),
     BERTH_TMUX_SOCKET: socket,
     TMUX_TMPDIR: TMUX_DIR,
+    // Not the developer's zsh: macOS's /etc/zshrc saves history into HOME on
+    // exit, racing the sandbox's removal.
+    SHELL: '/bin/sh',
   };
   delete env.TMUX;
   delete env.TMUX_PANE;
@@ -114,7 +117,6 @@ export function sandbox(t: TestContext, overrides: Record<string, { launch?: str
   t.after(() => {
     spawnSync('tmux', ['-L', socket, 'kill-server'], { env });
     if (process.env.BERTH_KEEP_SANDBOX) process.stderr.write(`kept sandbox: ${root}\n`);
-    // A shell in a killed session may still be writing its history into HOME.
     else rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
   return sb;

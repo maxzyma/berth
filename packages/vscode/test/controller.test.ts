@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { buildTree, defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, nextAttention, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
+import { buildTree, defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -352,4 +352,17 @@ test('V7 applying the layout twice keeps the settings saved by the first apply',
   const first = layoutBackup(undefined, { 'workbench.sideBar.location': null });
   const second = layoutBackup(first, { 'workbench.sideBar.location': 'right', 'terminal.integrated.tabs.enabled': true });
   assert.deepEqual(second, { 'workbench.sideBar.location': null, 'terminal.integrated.tabs.enabled': true });
+});
+
+test('V13 folders are placed relative to the workspace; New Session lists agents in the configured order', () => {
+  assert.equal(placeOf('/ws', ['/ws/']), 'workspace');
+  assert.equal(placeOf('/ws/projects/x', ['/ws']), 'inside');
+  assert.equal(placeOf('/wsx', ['/ws']), 'outside', 'a shared prefix is not containment');
+  const row = (name: string, cwd: string) => ({ name, managed: true, agent: 'claude', cwd, conversation: 'c', origin: 'vscode', state: '', note: '', attachedClients: 0, live: true, hooks: 'installed' as const });
+  const tree = buildTree([row('o', '/elsewhere'), row('i', '/ws/sub'), row('w', '/ws')], { here: new Set(), unread: new Set(), branch: () => '', workspaceFolders: ['/ws'] });
+  assert.deepEqual(tree.groups.map((g) => [g.cwd, g.place]), [['/ws', 'workspace'], ['/ws/sub', 'inside'], ['/elsewhere', 'outside']]);
+
+  const agents = ['claude', 'codex', 'gemini', 'shell'].map((id) => ({ id }));
+  assert.deepEqual(orderAgents(agents, ['shell', 'codex', 'nope']).map((a) => a.id), ['shell', 'codex', 'claude', 'gemini']);
+  assert.deepEqual(orderAgents(agents, []).map((a) => a.id), ['claude', 'codex', 'gemini', 'shell']);
 });

@@ -34,6 +34,8 @@ export interface Host {
   notify(transition: Transition): void;
   /** Called after a session is brought forward, e.g. to follow it in the explorer. */
   sessionShown?(row: SessionRow): void;
+  /** This window's workspace folders. */
+  workspaceFolders?(): string[];
   /** An agent in use has no Berth hooks: offer to install them (spec §6). */
   suggestHooks?(agent: string): void;
 }
@@ -89,7 +91,12 @@ export class Controller {
   }
 
   tree(): TreeView {
-    return buildTree(this.rows, { here: this.host.sessionsHere(), unread: this.unread, branch: (cwd) => this.branch(cwd) });
+    return buildTree(this.rows, {
+      here: this.host.sessionsHere(),
+      unread: this.unread,
+      branch: (cwd) => this.branch(cwd),
+      workspaceFolders: this.host.workspaceFolders?.() ?? [],
+    });
   }
 
   row(name: string): SessionRow | undefined {
