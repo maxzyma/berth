@@ -79,6 +79,26 @@ berth/
 `docs/` (user documentation) is added when there is some to write; the spec
 explains what each part owns.
 
+## Development
+
+```sh
+npm install
+npm test              # builds, then runs every test on isolated berth-test-* tmux servers
+npm run test:live     # opt-in: one real Claude Code resume (BERTH_LIVE=1)
+npm run test:vscode   # opt-in: integration tests in a real VS Code window
+```
+
+Tests start their own tmux servers, so they need an environment that allows
+creating Unix sockets.
+
+## Releasing
+
+Set the same version in `packages/core` and `packages/vscode`, commit, then
+push a tag `vX.Y.Z` (or `vX.Y.Z-rc.N` for a prerelease under npm's `next`).
+The release workflow tests, publishes to npm through trusted publishing with
+provenance, and creates the GitHub release with the `.vsix`
+([implementation R5](design/implementation.md)).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
