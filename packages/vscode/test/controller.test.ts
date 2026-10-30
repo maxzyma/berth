@@ -83,7 +83,8 @@ test('V1 the session view groups by cwd, shows state and counts waiting sessions
   const a1 = tree.groups[0].rows[0];
   assert.deepEqual([a1.label, a1.agent, a1.icon, a1.badge, a1.description], ['a1', 'claude', 'waiting', '!', 'needs approval']);
   assert.equal(tree.groups[0].rows[1].description, '', 'nothing to read while idle');
-  assert.match(a1.tooltip, /^\*\*a1\*\* · Claude Code\n\n\$\(bell-dot\) Waiting for you\n\n> needs approval\n\n---/);
+  assert.match(a1.tooltip, /^\*\*a1\*\* · Claude Code\n\n\$\(bell-dot\) Waiting for you\n\n> \$\(comment\) needs approval\n\n---\n\n\$\(debug-disconnect\) Not open in any terminal/);
+  for (const line of a1.tooltip.split('\n\n').slice(1)) assert.match(line, /^(> )?\$\(|^---$/, `every line has its icon: ${line}`);
   assert.equal(escapeMarkdown('a_b $(x)'), 'a\\_b \\$\\(x\\)', 'session text cannot inject Markdown or icons');
   assert.match(tree.groups[0].rows[1].tooltip, /starts a new conversation/, "why it will not resume");
   assert.equal(tree.groups[0].rows[1].badge, '', 'idle and read: no badge');

@@ -86,6 +86,14 @@ const STATE_TEXT: Record<RowView['icon'], string> = {
 
 const BADGE: Partial<Record<RowView['icon'], string>> = { working: '⋯', waiting: '!', done: '✓' };
 
+/** One icon per tooltip line (spec §6). */
+const CONNECTION_CODICON: Record<Connection, string> = {
+  'attached-here': 'eye',
+  'attached-elsewhere': 'link-external',
+  detached: 'debug-disconnect',
+  stopped: 'history',
+};
+
 const STATE_CODICON: Record<RowView['icon'], string> = {
   working: 'sync~spin',
   waiting: 'bell-dot',
@@ -118,7 +126,7 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
       label: row.name,
       agent: '',
       description: '',
-      tooltip: `**${escapeMarkdown(row.name)}**\n\n$(terminal) Not an agent session — adopt it to manage it\n\n${CONNECTION_TEXT[conn]}`,
+      tooltip: `**${escapeMarkdown(row.name)}**\n\n$(terminal) Not an agent session — adopt it to manage it\n\n$(${CONNECTION_CODICON[conn]}) ${CONNECTION_TEXT[conn]}`,
       contextValue: `session unmanaged live ${conn}`,
       icon: 'unmanaged',
       badge: '',
@@ -132,14 +140,15 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
   const icon = !row.live ? 'stopped' : state === 'working' || state === 'waiting' || state === 'done' ? state : 'idle';
   const agentName = getAdapter(row.agent)?.displayName ?? row.agent;
   const note = (icon === 'waiting' || icon === 'done') && row.note ? row.note : '';
-  const where = [branch ? `$(git-branch) ${escapeMarkdown(branch)}` : '', CONNECTION_TEXT[conn]].filter(Boolean).join(' · ');
+
   const warning = hooksMissing ? `$(warning) ${HOOKS_MISSING}` : !row.conversation ? '$(info) Conversation not bound yet: a restore would start a new one.' : '';
   const tooltip = [
     `**${escapeMarkdown(row.name)}** · ${escapeMarkdown(agentName)}`,
     `$(${STATE_CODICON[icon]}) ${STATE_TEXT[icon]}`,
-    note ? `> ${escapeMarkdown(note)}` : '',
+    note ? `> $(comment) ${escapeMarkdown(note)}` : '',
     '---',
-    where,
+    `$(${CONNECTION_CODICON[conn]}) ${CONNECTION_TEXT[conn]}`,
+    branch ? `$(git-branch) ${escapeMarkdown(branch)}` : '',
     `$(folder) \`${row.cwd.replace(/`/g, "'")}\``,
     warning,
   ];

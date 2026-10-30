@@ -228,7 +228,7 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
       const item = new vscode.TreeItem(node.group.label, vscode.TreeItemCollapsibleState.Expanded);
       // The folder's name is enough on the row; where it is goes in the tooltip.
       item.iconPath = PLACE_ICONS[node.group.place];
-      item.tooltip = markdown(`**${escapeMarkdown(node.group.label)}**\n\n$(folder) \`${node.group.cwd.replace(/`/g, "'")}\`\n\n${PLACE_TEXT[node.group.place]}`);
+      item.tooltip = markdown(`**${escapeMarkdown(node.group.label)}**\n\n$(folder) \`${node.group.cwd.replace(/`/g, "'")}\`\n\n$(${PLACE_CODICON[node.group.place]}) ${PLACE_TEXT[node.group.place]}`);
       item.contextValue = 'group';
       return item;
     }
@@ -236,7 +236,11 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
     const item = new vscode.TreeItem(node.row.label, vscode.TreeItemCollapsibleState.None);
     item.resourceUri = rowUri(node.row.name);
     item.description = node.row.description;
-    item.tooltip = markdown(node.row.tooltip);
+    // The card opens with the agent's own icon, as on the row.
+    const image = AGENT_ICONS.has(node.row.agent)
+      ? `![](${vscode.Uri.joinPath(this.extensionUri, 'media', 'agents', `${node.row.agent}.svg`).toString()}|width=14,height=14) `
+      : '';
+    item.tooltip = markdown(`${image}${node.row.tooltip}`);
     item.contextValue = node.row.contextValue;
     item.iconPath = AGENT_ICONS.has(node.row.agent)
       ? vscode.Uri.joinPath(this.extensionUri, 'media', 'agents', `${node.row.agent}.svg`)
@@ -278,6 +282,7 @@ const PLACE_ICONS: Record<Place, vscode.ThemeIcon> = {
   inside: new vscode.ThemeIcon('folder'),
   outside: new vscode.ThemeIcon('folder', new vscode.ThemeColor('disabledForeground')),
 };
+const PLACE_CODICON: Record<Place, string> = { workspace: 'root-folder', inside: 'folder', outside: 'folder-library' };
 const PLACE_TEXT: Record<Place, string> = {
   workspace: "This window's workspace folder",
   inside: "Inside this window's workspace",
