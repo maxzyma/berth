@@ -193,14 +193,20 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
 const HOOKS_DECLINED = 'berth.hooksDeclined';
 
 /**
- * Install hooks with the `berth` on the login PATH: hook commands record the
- * CLI's path, and the extension's own copy moves with every extension update.
+ * Install hooks with the user's `berth` CLI: hook commands record the CLI's
+ * path, and the extension's own copy moves with every extension update.
+ * VS Code's environment comes from the user's shell; a version manager that
+ * only an interactive shell loads (nvm) needs `-i`.
  */
 function installHooksWithCli(agent: string): { ok: boolean; detail: string } {
-  const shell = process.env.SHELL || '/bin/sh';
-  const r = spawnSync(shell, ['-lc', `berth hooks install ${agent}`], { encoding: 'utf8', timeout: 30_000 });
-  if (r.status === 0) return { ok: true, detail: r.stdout.trim() };
-  const missing = r.status === 127 || /not found/.test(r.stderr);
+  const args = ['hooks', 'install', agent];
+  let r = spawnSync('berth', args, { encoding: 'utf8', timeout: 30_000 });
+  if (r.error) {
+    const shell = process.env.SHELL || '/bin/sh';
+    r = spawnSync(shell, ['-ilc', `berth ${args.join(' ')}`], { encoding: 'utf8', timeout: 30_000 });
+  }
+  if (r.status === 0) return { ok: true, detail: r.stdout.trim().split('\n').pop() ?? '' };
+  const missing = r.status === 127 || /not found/.test(r.stderr ?? '');
   return {
     ok: false,
     detail: missing

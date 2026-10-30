@@ -20,11 +20,14 @@ function hookArgs(cliPath: string): string[][] {
   // fires them: pass that server's socket so state stays per server. #{q:}
   // quotes values for the shell (session names may contain quotes).
   const berth = `${shellQuote(process.execPath)} ${shellQuote(cliPath)} --socket-path #{q:socket_path}`;
-  const snapshot = `${berth} snapshot >/dev/null 2>&1`;
+  // `|| true`: tmux prints a failed run-shell into the pane; a hook must never disturb it.
+  const quiet = '>/dev/null 2>&1 || true';
+  const snapshot = `${berth} snapshot ${quiet}`;
   // A bell asks for attention: agents without hooks become `waiting`.
-  const bell = `${berth} bell --session #{q:session_name} >/dev/null 2>&1`;
+  const bell = `${berth} bell --session #{q:session_name} ${quiet}`;
   // Marks iTerm2 panes with their session and shows state on the new client (spec §7.3).
-  const attached = `${berth} attached --session #{q:session_name} --tty #{q:client_tty} --termtype #{q:client_termtype} >/dev/null 2>&1`;
+  // `--termtype=`: some terminals (VS Code) report none, and an empty word would drop the value.
+  const attached = `${berth} attached --session #{q:session_name} --tty #{q:client_tty} --termtype=#{q:client_termtype} ${quiet}`;
   return [
     ...EVENTS.map((event) => ['set-hook', '-g', `${event}[${INDEX}]`, `run-shell -b ${JSON.stringify(snapshot)}`]),
     ['set-hook', '-g', `alert-bell[${INDEX}]`, `run-shell -b ${JSON.stringify(bell)}`],

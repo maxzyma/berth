@@ -101,3 +101,15 @@ test('R-name-key Qoder sessions are bound through the same transcript title', as
   const data = JSON.parse(readFileSync(join(out, 'sessions.json'), 'utf8'));
   assert.equal(data.sessions[0].conversation, 'q-id');
 });
+
+test('R-termtype a client reporting no terminal type does not make the attach hook fail', async (t) => {
+  const sb = sandbox(t);
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('tt'));
+  const r = sb.cli('attached', '--session', 'tt', '--tty', '/dev/null', '--termtype=');
+  assert.equal(r.status, 0, r.stderr);
+  sb.tmux('new-session', '-d', '-s', 'boot', 'sleep 3600');
+  sb.cli('tmux', 'install');
+  const hook = sb.tmux('show-hooks', '-g', 'client-attached');
+  assert.match(hook, /--termtype=#\{q:client_termtype\}/);
+  assert.match(hook, /\|\| true/);
+});
