@@ -156,6 +156,15 @@ export function layoutChanges(current: (key: string) => unknown, hideTerminalTab
 }
 
 /**
+ * Values to restore on revert. Settings saved by an earlier apply keep their
+ * saved value: applying again must not record Berth's own values as the
+ * user's. Settings new in this apply are saved as they are now.
+ */
+export function layoutBackup(saved: Record<string, unknown> | undefined, now: Record<string, unknown>): Record<string, unknown> {
+  return { ...now, ...(saved ?? {}) };
+}
+
+/**
  * The folder the explorer should follow for a session: its cwd, when that is
  * inside one of the workspace folders. Outside them the explorer cannot show
  * it without changing the workspace, which would reload the window.

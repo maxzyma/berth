@@ -264,8 +264,12 @@ Berth runs with no config file.
   stays at the bottom and is closed; it opens on demand. It spans the whole
   editor area, so it cannot sit under the files group alone. Berth does not move views it does not own, such as
   Chat.
-  *Revert Agent Layout* restores the settings and returns the panel to the
-  bottom. On first activation the
+  Applying again re-establishes the layout after the user has changed it,
+  and keeps the values saved by the first apply. *Revert Agent Layout*
+  restores the user's settings from before the first apply, and says so when
+  there is nothing to restore. Views the user drags elsewhere, including
+  Berth's, go back with VS Code's own *View: Reset View Locations*. On first
+  activation the
   extension opens its sessions view and offers this command once; nothing
   changes unless the user confirms.
 - **Session view.** The rich session list, contributed as an ordinary view so

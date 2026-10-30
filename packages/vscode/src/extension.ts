@@ -4,7 +4,7 @@ import { platform } from 'node:os';
 import * as vscode from 'vscode';
 import { ADAPTERS, createContext, type SessionRow } from '@berthdev/berth';
 import { Controller, type Host, type TerminalRole } from './controller.js';
-import { explorerTarget, layoutChanges, type GroupView, type RowView, type Transition } from './model.js';
+import { explorerTarget, layoutBackup, layoutChanges, type GroupView, type RowView, type Transition } from './model.js';
 
 const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
@@ -372,8 +372,8 @@ export function activate(context: vscode.ExtensionContext): void {
       : 'Apply';
     if (ok !== 'Apply') return;
     await context.globalState.update(APPLIED_LAYOUT, LAYOUT_VERSION);
-    const backup = Object.fromEntries(changes.map((c) => [c.key, config.inspect(c.key)?.globalValue ?? null]));
-    await context.globalState.update(LAYOUT_BACKUP, backup);
+    const now = Object.fromEntries(changes.map((c) => [c.key, config.inspect(c.key)?.globalValue ?? null]));
+    await context.globalState.update(LAYOUT_BACKUP, layoutBackup(context.globalState.get(LAYOUT_BACKUP), now));
     for (const c of changes) await config.update(c.key, c.value, vscode.ConfigurationTarget.Global);
     // Left to right: Berth sessions (secondary side bar), session terminals
     // (first editor group, locked), files (next group), explorer (primary side
@@ -387,7 +387,10 @@ export function activate(context: vscode.ExtensionContext): void {
   });
   command('berth.revertLayout', async () => {
     const backup = context.globalState.get<Record<string, unknown>>(LAYOUT_BACKUP);
-    if (!backup) return;
+    if (!backup) {
+      void vscode.window.showInformationMessage('Berth: nothing to revert; the agent layout has not changed your settings.');
+      return;
+    }
     const config = vscode.workspace.getConfiguration();
     for (const [key, value] of Object.entries(backup)) await config.update(key, value ?? undefined, vscode.ConfigurationTarget.Global);
     await context.globalState.update(LAYOUT_BACKUP, undefined);

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import type { Context } from '@berthdev/berth';
 import { spawn } from 'node:child_process';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { buildTree, explorerTarget, layoutChanges, nextAttention, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
+import { buildTree, explorerTarget, layoutBackup, layoutChanges, nextAttention, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -317,4 +317,10 @@ test('V10 go to the next session needing you: waiting first, then unread, wrappi
   assert.equal(await controller.showNextAttention(), 'x');
   assert.deepEqual(host.terminals.map((x) => x.session), ['x']);
   assert.equal(sb.tmux('display-message', '-p', '-t', '=x:', '#{@berth_state}').trim(), '', 'showing it answers the bell');
+});
+
+test('V7 applying the layout twice keeps the settings saved by the first apply', () => {
+  const first = layoutBackup(undefined, { 'workbench.sideBar.location': null });
+  const second = layoutBackup(first, { 'workbench.sideBar.location': 'right', 'terminal.integrated.tabs.enabled': true });
+  assert.deepEqual(second, { 'workbench.sideBar.location': null, 'terminal.integrated.tabs.enabled': true });
 });
