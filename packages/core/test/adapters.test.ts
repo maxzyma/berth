@@ -67,29 +67,29 @@ test('C13 config overrides replace templates', () => {
 test('C13 hook events map to state and conversation id', () => {
   const opencode = getAdapter('opencode')!;
   assert.deepEqual(metaForEvent(opencode, 'session.created', { sessionID: 'oc1' }), { conversation: 'oc1' });
-  assert.deepEqual(metaForEvent(opencode, 'session.idle', {}), { state: 'done' });
+  assert.deepEqual(metaForEvent(opencode, 'session.idle', {}), { state: 'done', note: '' });
   const codex = getAdapter('codex')!;
   assert.deepEqual(metaForEvent(codex, 'SessionStart', { session_id: 'cx' }), { conversation: 'cx' });
-  assert.deepEqual(metaForEvent(codex, 'Stop', {}), { state: 'done' });
+  assert.deepEqual(metaForEvent(codex, 'Stop', {}), { state: 'done', note: '' });
   assert.deepEqual(metaForEvent(getAdapter('gemini')!, 'Anything', {}), {});
 });
 
 test('C13 each agent reports its conversation id and asks for attention only on permission', () => {
   const meta = (id: string, event: string, payload: Record<string, unknown>) => metaForEvent(getAdapter(id)!, event, payload);
   assert.deepEqual(meta('gemini', 'SessionStart', { session_id: 'g1' }), { conversation: 'g1' });
-  assert.deepEqual(meta('gemini', 'BeforeAgent', {}), { state: 'working' });
+  assert.deepEqual(meta('gemini', 'BeforeAgent', {}), { state: 'working', note: '' });
   assert.deepEqual(meta('gemini', 'Notification', { notification_type: 'ToolPermission', message: 'Allow?' }), { state: 'waiting', note: 'Allow?' });
   assert.deepEqual(meta('gemini', 'Notification', { notification_type: 'Other' }), {});
-  assert.deepEqual(meta('gemini', 'AfterAgent', {}), { state: 'done' });
+  assert.deepEqual(meta('gemini', 'AfterAgent', {}), { state: 'done', note: '' });
   assert.deepEqual(meta('copilot', 'sessionStart', { sessionId: 'cp1' }), { conversation: 'cp1' }, 'camelCase payload');
-  assert.deepEqual(meta('copilot', 'notification', { notificationType: 'permission_prompt' }), { state: 'waiting' });
+  assert.deepEqual(meta('copilot', 'notification', { notificationType: 'permission_prompt' }), { state: 'waiting', note: '' });
   assert.deepEqual(meta('copilot', 'notification', { notification_type: 'agent_idle' }), {});
   assert.deepEqual(meta('cursor', 'sessionStart', { conversation_id: 'cu1' }), { conversation: 'cu1' });
-  assert.deepEqual(meta('cursor', 'beforeSubmitPrompt', {}), { state: 'working' });
+  assert.deepEqual(meta('cursor', 'beforeSubmitPrompt', {}), { state: 'working', note: '' });
   for (const id of ['kimi', 'qoder']) {
     assert.deepEqual(meta(id, 'SessionStart', { session_id: `${id}1` }), { conversation: `${id}1` });
-    assert.deepEqual(meta(id, 'PermissionRequest', {}), { state: 'waiting' });
-    assert.deepEqual(meta(id, 'Stop', {}), { state: 'done' });
+    assert.deepEqual(meta(id, 'PermissionRequest', {}), { state: 'waiting', note: '' });
+    assert.deepEqual(meta(id, 'Stop', {}), { state: 'done', note: '' });
   }
   for (const id of BASELINE) assert.ok(getAdapter(id)!.hookTarget, `${id} has a conversation id source (spec G8)`);
 });

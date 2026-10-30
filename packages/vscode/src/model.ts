@@ -86,6 +86,20 @@ const STATE_TEXT: Record<RowView['icon'], string> = {
 
 const BADGE: Partial<Record<RowView['icon'], string>> = { working: '⋯', waiting: '!', done: '✓' };
 
+const STATE_CODICON: Record<RowView['icon'], string> = {
+  working: 'sync~spin',
+  waiting: 'bell-dot',
+  done: 'check',
+  idle: 'circle-outline',
+  stopped: 'debug-stop',
+  unmanaged: 'terminal',
+};
+
+/** Text from tmux or an agent, made inert for Markdown (including `$(icon)` syntax). */
+export function escapeMarkdown(text: string): string {
+  return text.replace(/[\\`*_{}[\]()#+\-.!|<>$~]/g, '\\$&');
+}
+
 export interface ViewInput {
   here: ReadonlySet<string>;
   unread: ReadonlySet<string>;
@@ -104,7 +118,7 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
       label: row.name,
       agent: '',
       description: '',
-      tooltip: `${row.name} — not an agent session (adopt to manage it)\n${CONNECTION_TEXT[conn]}`,
+      tooltip: `**${escapeMarkdown(row.name)}**\n\n$(terminal) Not an agent session — adopt it to manage it\n\n${CONNECTION_TEXT[conn]}`,
       contextValue: `session unmanaged live ${conn}`,
       icon: 'unmanaged',
       badge: '',
@@ -113,23 +127,28 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
   }
   const branch = input.branch(row.cwd);
   const hooksMissing = row.hooks === 'missing';
-  const icon = !row.live ? 'stopped' : row.state === 'working' || row.state === 'waiting' || row.state === 'done' ? row.state : 'idle';
+  // A finished turn matters until the user has seen it; after that it is idle (spec §6).
+  const state = row.state === 'done' && !unread ? '' : row.state;
+  const icon = !row.live ? 'stopped' : state === 'working' || state === 'waiting' || state === 'done' ? state : 'idle';
   const agentName = getAdapter(row.agent)?.displayName ?? row.agent;
-  const note = (row.state === 'waiting' || row.state === 'done') && row.note ? `: ${row.note}` : '';
+  const note = (icon === 'waiting' || icon === 'done') && row.note ? row.note : '';
+  const where = [branch ? `$(git-branch) ${escapeMarkdown(branch)}` : '', CONNECTION_TEXT[conn]].filter(Boolean).join(' · ');
+  const warning = hooksMissing ? `$(warning) ${HOOKS_MISSING}` : !row.conversation ? '$(info) Conversation not bound yet: a restore would start a new one.' : '';
   const tooltip = [
-    `${row.name} — ${agentName}`,
-    `${STATE_TEXT[icon]}${note}`,
-    CONNECTION_TEXT[conn],
-    branch ? `Branch ${branch}` : '',
-    row.cwd,
-    hooksMissing ? HOOKS_MISSING : !row.conversation ? 'Conversation not bound yet: a restore would start a new one.' : '',
+    `**${escapeMarkdown(row.name)}** · ${escapeMarkdown(agentName)}`,
+    `$(${STATE_CODICON[icon]}) ${STATE_TEXT[icon]}`,
+    note ? `> ${escapeMarkdown(note)}` : '',
+    '---',
+    where,
+    `$(folder) \`${row.cwd.replace(/`/g, "'")}\``,
+    warning,
   ];
   return {
     name: row.name,
     label: row.name,
     agent: row.agent,
-    description: note ? row.note : '',
-    tooltip: tooltip.filter(Boolean).join('\n'),
+    description: note,
+    tooltip: tooltip.filter(Boolean).join('\n\n'),
     contextValue: `session managed ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing ? ' hooks-missing' : ''}`,
     icon,
     badge: BADGE[icon] ?? (unread ? '•' : ''),

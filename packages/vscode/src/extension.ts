@@ -4,7 +4,7 @@ import { platform } from 'node:os';
 import * as vscode from 'vscode';
 import { ADAPTERS, createContext, type SessionRow } from '@berthdev/berth';
 import { Controller, type Host, type TerminalRole } from './controller.js';
-import { defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, orderAgents, placeOf, type Place, type GroupView, type RowView, type Transition } from './model.js';
+import { defaultFolder, escapeMarkdown, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, orderAgents, placeOf, type Place, type GroupView, type RowView, type Transition } from './model.js';
 
 const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
@@ -226,9 +226,9 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
   getTreeItem(node: Node): vscode.TreeItem {
     if (node.kind === 'group') {
       const item = new vscode.TreeItem(node.group.label, vscode.TreeItemCollapsibleState.Expanded);
-      item.description = node.group.cwd;
+      // The folder's name is enough on the row; where it is goes in the tooltip.
       item.iconPath = PLACE_ICONS[node.group.place];
-      item.tooltip = `${node.group.cwd}\n${PLACE_TEXT[node.group.place]}`;
+      item.tooltip = markdown(`**${escapeMarkdown(node.group.label)}**\n\n$(folder) \`${node.group.cwd.replace(/`/g, "'")}\`\n\n${PLACE_TEXT[node.group.place]}`);
       item.contextValue = 'group';
       return item;
     }
@@ -236,7 +236,7 @@ class SessionTree implements vscode.TreeDataProvider<Node> {
     const item = new vscode.TreeItem(node.row.label, vscode.TreeItemCollapsibleState.None);
     item.resourceUri = rowUri(node.row.name);
     item.description = node.row.description;
-    item.tooltip = node.row.tooltip;
+    item.tooltip = markdown(node.row.tooltip);
     item.contextValue = node.row.contextValue;
     item.iconPath = AGENT_ICONS.has(node.row.agent)
       ? vscode.Uri.joinPath(this.extensionUri, 'media', 'agents', `${node.row.agent}.svg`)
@@ -283,6 +283,13 @@ const PLACE_TEXT: Record<Place, string> = {
   inside: "Inside this window's workspace",
   outside: "Outside this window's workspace",
 };
+
+/** Tooltips are Markdown with codicons; their user text is escaped by the model. */
+function markdown(text: string): vscode.MarkdownString {
+  const md = new vscode.MarkdownString(text, true);
+  md.isTrusted = false;
+  return md;
+}
 
 function sessionArg(arg: unknown): string | undefined {
   if (typeof arg === 'string') return arg;

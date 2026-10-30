@@ -72,8 +72,9 @@ export function metaForEvent(adapter: Adapter, event: string, payload: Record<st
   // Some agents also notify for idle reminders; only a permission request means waiting.
   if (state === 'waiting' && adapter.waitingWhen && !adapter.waitingWhen(payload)) state = undefined;
   if (state) meta.state = state;
-  // Latest notification text, shown in session lists (spec §6).
-  if (state && typeof payload.message === 'string' && payload.message.trim()) meta.note = payload.message.trim().slice(0, 200);
+  // Latest notification text, shown in session lists (spec §6). A new state
+  // replaces it, so a finished session never shows an old permission request.
+  if (state) meta.note = typeof payload.message === 'string' ? payload.message.trim().slice(0, 200) : '';
   return meta;
 }
 

@@ -318,7 +318,14 @@ Berth runs with no config file.
   a shell), and the state
   as the name's colour and a one-character badge (working `⋯` blue, waiting
   `!` yellow, done `✓` green, stopped grey, otherwise `•` when unread); the
-  tooltip spells out everything, including the notification text. The view
+  tooltip spells out everything as a small card (Markdown with icons: name
+  and agent, state, the notification as a quote, then branch, connection,
+  folder and any warning; session text is escaped). How soon a tooltip opens
+  is VS Code's `workbench.hover.delay`, not Berth's. A finished turn is shown
+  as done only until the user has seen it; after that the row looks idle,
+  since a finished turn is the normal resting state. A new state replaces the
+  notification, so a finished row never shows an old permission request.
+  Group rows show the folder's name; where it is is in their tooltip. The view
   refreshes every few seconds but redraws, and announces decoration changes,
   only for rows that changed: a blanket announcement makes every view in the
   window (explorer, source control) redraw. A view

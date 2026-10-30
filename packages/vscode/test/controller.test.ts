@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { buildTree, defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
+import { buildTree, defaultFolder, escapeMarkdown, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -83,7 +83,8 @@ test('V1 the session view groups by cwd, shows state and counts waiting sessions
   const a1 = tree.groups[0].rows[0];
   assert.deepEqual([a1.label, a1.agent, a1.icon, a1.badge, a1.description], ['a1', 'claude', 'waiting', '!', 'needs approval']);
   assert.equal(tree.groups[0].rows[1].description, '', 'nothing to read while idle');
-  assert.match(a1.tooltip, /^a1 — Claude Code\nWaiting for you: needs approval\nNot open in any terminal/);
+  assert.match(a1.tooltip, /^\*\*a1\*\* · Claude Code\n\n\$\(bell-dot\) Waiting for you\n\n> needs approval\n\n---/);
+  assert.equal(escapeMarkdown('a_b $(x)'), 'a\\_b \\$\\(x\\)', 'session text cannot inject Markdown or icons');
   assert.match(tree.groups[0].rows[1].tooltip, /starts a new conversation/, "why it will not resume");
   assert.equal(tree.groups[0].rows[1].badge, '', 'idle and read: no badge');
   assert.deepEqual(tree.unmanaged.map((r) => r.name), ['plain']);
@@ -330,6 +331,13 @@ test('V11 an agent without hooks is offered hooks once; its rows say why they ar
   sb.cli('hooks', 'install', 'kimi');
   const after = controller.refresh().tree.groups.flatMap((g) => g.rows).find((r) => r.name === 'k1')!;
   assert.doesNotMatch(after.contextValue, /hooks-missing/);
+});
+
+test('V1 a finished turn shows until the user has seen it; a new state replaces the old notification', (t) => {
+  const row = { name: 'f', managed: true, agent: 'claude', cwd: '/w', conversation: 'c', origin: 'vscode', state: 'done', note: 'All set', attachedClients: 0, live: true, hooks: 'installed' as const };
+  const view = (unread: boolean) => buildTree([row], { here: new Set(), unread: new Set(unread ? ['f'] : []), branch: () => '' }).groups[0].rows[0];
+  assert.deepEqual([view(true).icon, view(true).badge, view(true).description], ['done', '✓', 'All set']);
+  assert.deepEqual([view(false).icon, view(false).badge, view(false).description], ['idle', '', '']);
 });
 
 test('V10 go to the next session needing you: waiting first, then unread, wrapping', async (t) => {
