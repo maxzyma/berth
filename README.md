@@ -16,7 +16,7 @@ Requires tmux ≥ 3.0 and Node ≥ 20.
 
 ```sh
 npm install -g @berthdev/berth
-code --install-extension berth-vscode-<version>.vsix   # downloaded from GitHub Releases
+code --install-extension berthdev.berth   # VS Code Marketplace; the .vsix is also on GitHub Releases
 ```
 
 Then, once per machine:
