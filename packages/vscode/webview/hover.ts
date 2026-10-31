@@ -7,6 +7,8 @@ import type { HoverLine } from '../src/model.js';
 import type { ViewSettings } from '../src/view/protocol.js';
 
 const GAP = 4;
+/** Room between the card and the hover for the pointer. */
+const POINTER = 9;
 
 export class HoverCard {
   delay = 500;
@@ -52,8 +54,11 @@ export class HoverCard {
     this.el.style.left = `${left}px`;
     this.el.style.maxWidth = `${window.innerWidth - left - GAP}px`;
     const height = this.el.offsetHeight;
-    const below = a.bottom + GAP + height <= window.innerHeight;
-    this.el.style.top = `${below ? a.bottom + GAP : Math.max(GAP, a.top - GAP - height)}px`;
+    const below = a.bottom + POINTER + height <= window.innerHeight;
+    this.el.dataset.side = below ? 'below' : 'above';
+    this.el.style.top = `${below ? a.bottom + POINTER : Math.max(GAP, a.top - POINTER - height)}px`;
+    // The pointer sits under the card's icon.
+    this.el.style.setProperty('--berth-pointer', `${Math.max(6, column + 1 - left)}px`);
   }
 
   /** Header, then the body lines, then a details section after the rule. */

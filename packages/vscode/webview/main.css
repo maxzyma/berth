@@ -227,9 +227,40 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   background: var(--vscode-editorHoverWidget-background);
   border: 1px solid var(--vscode-editorHoverWidget-border);
   border-radius: 5px;
-  box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+  /* Lifted off the list it covers: VS Code's large hover shadow is not passed
+     to webviews, so it is rebuilt from widget.shadow. */
+  box-shadow: 0 0 0 1px var(--vscode-widget-shadow), 0 4px 10px var(--vscode-widget-shadow), 0 12px 28px var(--vscode-widget-shadow);
   user-select: text;
   animation: berth-fade 100ms linear;
+}
+
+/* A pointer to the card it describes, as VS Code's hovers have. */
+.hover::before,
+.hover::after {
+  content: '';
+  position: absolute;
+  left: var(--berth-pointer, 16px);
+  border: 7px solid transparent;
+}
+
+.hover[data-side='below']::before {
+  top: -15px;
+  border-bottom-color: var(--vscode-editorHoverWidget-border);
+}
+
+.hover[data-side='below']::after {
+  top: -13px;
+  border-bottom-color: var(--vscode-editorHoverWidget-background);
+}
+
+.hover[data-side='above']::before {
+  bottom: -15px;
+  border-top-color: var(--vscode-editorHoverWidget-border);
+}
+
+.hover[data-side='above']::after {
+  bottom: -13px;
+  border-top-color: var(--vscode-editorHoverWidget-background);
 }
 
 .hover[hidden] {
