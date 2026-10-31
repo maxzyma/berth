@@ -94,7 +94,7 @@ export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposab
       indent: config.get<number>('workbench.tree.indent', 8),
       indentGuides: guides === 'none' || guides === 'always' ? guides : 'onHover',
       hoverDelay: config.get<number>('berth.hover.delay', 500),
-      details: config.get<boolean>('berth.view.details', false),
+      details: config.get<boolean>('berth.view.details', true),
       agentIcons: this.view?.webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'agents')).toString() ?? '',
     };
   }

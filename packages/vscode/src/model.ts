@@ -11,6 +11,10 @@ export interface HoverLine {
   kind?: 'title' | 'quote' | 'rule' | 'path' | 'warning';
   /** Secondary text on a title line (the agent's name). */
   sub?: string;
+  /** A state chip on a title line; tone colours it like the card. */
+  chip?: { icon: string; text: string; tone: Attention | 'muted' };
+  /** Full text when `text` is shortened (paths). */
+  full?: string;
 }
 
 /**
@@ -145,6 +149,19 @@ export interface ViewInput {
   unread: ReadonlySet<string>;
   branch: (cwd: string) => string;
   workspaceFolders?: readonly string[];
+  /** The user's home, to shorten paths as `~/…`. */
+  home?: string;
+}
+
+/** A folder as the user reads it: `<workspace>/rel` inside the workspace, `~/…` under home. */
+export function shortPath(cwd: string, workspaceFolders: readonly string[], home = ''): string {
+  const target = norm(cwd);
+  for (const folder of [...workspaceFolders].sort((a, b) => b.length - a.length)) {
+    const base = norm(folder);
+    if (target === base || target.startsWith(`${base}/`)) return `${basename(base)}${target.slice(base.length)}`;
+  }
+  const h = norm(home);
+  return h && (target === h || target.startsWith(`${h}/`)) ? `~${target.slice(h.length)}` : target;
 }
 
 const HOOKS_MISSING = "This agent's Berth hooks are not installed, so after a restart the session starts a new conversation. Right-click → Install Agent Hooks.";
@@ -180,15 +197,16 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
   const icon = !row.live ? 'stopped' : state === 'working' || state === 'waiting' || state === 'done' ? state : 'idle';
   const agentName = getAdapter(row.agent)?.displayName ?? row.agent;
   const note = (icon === 'waiting' || icon === 'done') && row.note ? row.note : '';
+  // Idle says nothing; any other state is a chip on the title line.
+  const chip = icon === 'idle' ? undefined : { icon: STATE_CODICON[icon], text: STATE_TEXT[icon], tone: icon === 'waiting' ? ('waiting' as const) : unread ? ('unread' as const) : ('muted' as const) };
   const hover: HoverLine[] = [
-    { icon: '', text: row.name, kind: 'title', sub: agentName },
+    { icon: '', text: row.name, kind: 'title', sub: agentName, chip },
     ...(note ? [{ icon: 'comment', text: note, kind: 'quote' as const }] : []),
-    { icon: STATE_CODICON[icon], text: STATE_TEXT[icon] },
-    ...(row.topic ? [{ icon: 'comment-discussion', text: row.topic }] : []),
+    ...(row.topic && row.topic !== note ? [{ icon: 'comment-discussion', text: row.topic }] : []),
     { icon: '', text: '', kind: 'rule' },
     { icon: CONNECTION_CODICON[conn], text: CONNECTION_TEXT[conn] },
     ...(branch ? [{ icon: 'git-branch', text: branch }] : []),
-    { icon: 'folder', text: row.cwd, kind: 'path' },
+    { icon: 'folder', text: shortPath(row.cwd, input.workspaceFolders ?? [], input.home), full: row.cwd, kind: 'path' },
     ...(hooksMissing
       ? [{ icon: 'warning', text: HOOKS_MISSING, kind: 'warning' as const }]
       : !row.conversation
@@ -231,7 +249,7 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
       place: placeOf(cwd, folders),
       hover: [
         { icon: '', text: basename(cwd) || cwd, kind: 'title' as const },
-        { icon: 'folder', text: cwd, kind: 'path' as const },
+        { icon: 'folder', text: shortPath(cwd, folders, input.home), full: cwd, kind: 'path' as const },
         { icon: PLACE_CODICON[placeOf(cwd, folders)], text: PLACE_TEXT[placeOf(cwd, folders)] },
       ],
       attention: (list.some((r) => r.attention === 'waiting') ? 'waiting' : list.some((r) => r.attention === 'unread') ? 'unread' : '') as Attention,

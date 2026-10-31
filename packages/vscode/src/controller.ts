@@ -99,6 +99,7 @@ export class Controller {
       unread: this.unread,
       branch: (cwd) => this.branch(cwd),
       workspaceFolders: this.host.workspaceFolders?.() ?? [],
+      home: process.env.HOME ?? '',
     });
   }
 

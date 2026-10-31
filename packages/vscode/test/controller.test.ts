@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { buildTree, defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
+import { buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, layoutBackup, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -83,12 +83,15 @@ test('V1 the session view groups by cwd, shows state and counts waiting sessions
   const a1 = tree.groups[0].rows[0];
   assert.deepEqual([a1.label, a1.agent, a1.icon, a1.badge, a1.subtitle, a1.subtitleKind], ['a1', 'claude', 'waiting', '!', 'needs approval', 'note']);
   assert.equal(tree.groups[0].rows[1].subtitle, '', 'nothing to read while idle without a topic');
-  assert.deepEqual(a1.hover.map((l) => [l.kind ?? '', l.icon, l.text]).slice(0, 4), [
+  assert.deepEqual(a1.hover.map((l) => [l.kind ?? '', l.icon, l.text]).slice(0, 3), [
     ['title', '', 'a1'],
     ['quote', 'comment', 'needs approval'],
-    ['', 'bell-dot', 'Waiting for you'],
     ['rule', '', ''],
   ]);
+  assert.deepEqual(a1.hover[0].chip, { icon: 'bell-dot', text: 'Waiting for you', tone: 'waiting' }, 'state is a chip on the title');
+  assert.equal(tree.groups[0].rows[1].hover[0].chip, undefined, 'idle shows no chip');
+  assert.equal(shortPath('/h/ws/projects/x', ['/h/ws'], '/h'), 'ws/projects/x');
+  assert.equal(shortPath('/h/other', ['/h/ws'], '/h'), '~/other');
   assert.ok(a1.hover.filter((l) => l.kind !== 'title' && l.kind !== 'rule').every((l) => l.icon), 'every detail line has its icon');
   assert.equal(a1.attention, 'waiting');
   assert.equal(tree.groups[0].attention, 'waiting', 'a group carries its most urgent session');

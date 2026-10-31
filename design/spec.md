@@ -322,7 +322,7 @@ Berth runs with no config file.
     latest notification while waiting or done (what the agent needs from the
     user), otherwise the topic — the first line of the user's latest prompt
     (§4.2 hooks); empty when there is neither. An optional third line
-    (`berth.view.details`) shows branch and connection. Long text ends in an
+    (`berth.view.details`, on by default) shows branch and connection. Long text ends in an
     ellipsis; the hover card has it in full.
   - **Colour.** As in cmux, colour goes only to what needs the user: waiting
     is amber, unread blue; stopped cards are dimmed; the rest keep the

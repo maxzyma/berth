@@ -55,6 +55,10 @@ test('C5 (C12.6) hook events from inside a pane stamp conversation and state', a
   hook('UserPromptSubmit', { prompt: '\n  Fix the login bug\nand add a test' });
   assert.equal(meta(), 'abc working');
   assert.equal(sb.tmux('display-message', '-p', '-t', '=h:', '#{@berth_topic}').trim(), 'Fix the login bug', 'first line of the prompt');
+  hook('UserPromptSubmit', { prompt: '<task-notification>\n<task-id>x</task-id>' });
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=h:', '#{@berth_topic}').trim(), 'Fix the login bug', 'injected messages are not the topic');
+  hook('UserPromptSubmit', { prompt: '[Image #23] fix the hover card' });
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=h:', '#{@berth_topic}').trim(), 'fix the hover card', 'attachment placeholders dropped');
   hook('Notification', { message: 'Claude is waiting for your input' });
   assert.equal(meta(), 'abc working', 'idle reminder is not a waiting state');
   hook('Notification', { message: 'Claude needs your permission to use Bash' });

@@ -76,8 +76,13 @@ export function metaForEvent(adapter: Adapter, event: string, payload: Record<st
   // replaces it, so a finished session never shows an old permission request.
   if (state) meta.note = typeof payload.message === 'string' ? payload.message.trim().slice(0, 200) : '';
   // The session's subtitle: the first line of the prompt the user just sent (spec §4.2).
-  if (state === 'working' && typeof payload.prompt === 'string') {
-    const first = payload.prompt.split('\n').map((l) => l.trim()).find(Boolean);
+  // Text the agent injects itself (`<task-notification>`, `<command-name>`…) is not the user's.
+  if (state === 'working' && typeof payload.prompt === 'string' && !/^\s*<[a-z][\w-]*[\s>]/i.test(payload.prompt)) {
+    // Attachment placeholders such as `[Image #3]` say nothing about the topic.
+    const first = payload.prompt
+      .split('\n')
+      .map((l) => l.replace(/\[(Image|Pasted text) #\d+[^\]]*\]/g, '').replace(/\s+/g, ' ').trim())
+      .find(Boolean);
     if (first) meta.topic = first.slice(0, 120);
   }
   return meta;

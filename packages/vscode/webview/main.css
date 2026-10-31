@@ -120,24 +120,40 @@ img.icon {
   text-overflow: ellipsis;
 }
 
+/* Lines two and three are secondary: smaller and in the description colour. */
 .subtitle,
 .details {
   min-height: 0;
-  margin-top: -3px;
-  padding: 0 0 3px 22px;
+  margin-top: -4px;
+  padding: 0 0 2px 22px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   display: block;
   color: var(--vscode-descriptionForeground);
-  font-size: 12px;
+  font-size: 11.5px;
   line-height: 16px;
 }
 
-.row.selected .subtitle,
-.row.selected .details {
-  color: inherit;
-  opacity: 0.85;
+.details {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.card:has(.details) .subtitle,
+.card:has(.subtitle) .details {
+  padding-bottom: 0;
+}
+
+.card .line:last-child {
+  padding-bottom: 4px;
+}
+
+/* Selected: text takes the selection colour, the secondary lines stay dimmer. */
+.list:focus-within .row.selected .subtitle,
+.list:focus-within .row.selected .details {
+  color: var(--vscode-list-activeSelectionForeground, inherit);
+  opacity: 0.7;
 }
 
 /* Indent guides, as workbench.tree.renderIndentGuides */
@@ -196,15 +212,17 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   color: var(--vscode-descriptionForeground);
 }
 
-/* Hover card: VS Code's hover widget. */
+/* Hover card: VS Code's hover widget, with a header, a body and muted details. */
 .hover {
   position: fixed;
   z-index: 10;
-  max-width: min(400px, calc(100vw - 8px));
   box-sizing: border-box;
-  padding: 4px 8px;
+  width: max-content;
+  min-width: 200px;
+  max-width: 360px;
+  padding: 8px 10px;
   font-size: 13px;
-  line-height: 19px;
+  line-height: 18px;
   color: var(--vscode-editorHoverWidget-foreground);
   background: var(--vscode-editorHoverWidget-background);
   border: 1px solid var(--vscode-editorHoverWidget-border);
@@ -227,50 +245,121 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   to { opacity: 1; }
 }
 
+.hover .codicon {
+  flex: none;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.hover-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hover-head .title {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hover-head .sub {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+.chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--vscode-descriptionForeground);
+  border: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.chip .codicon {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.chip.tone-waiting {
+  color: var(--vscode-list-warningForeground);
+  border-color: var(--vscode-list-warningForeground);
+}
+
+.chip.tone-unread {
+  color: var(--vscode-charts-blue);
+  border-color: var(--vscode-charts-blue);
+}
+
+.hover-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
 .hover-line {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  padding: 2px 0;
-}
-
-.hover-line .codicon,
-.hover-line .icon {
-  flex: none;
-  margin-top: 2px;
+  min-width: 0;
 }
 
 .hover-line .text {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.hover-line.title .text {
-  font-weight: 600;
+.hover-line.quote {
+  padding: 4px 8px;
+  border-left: 2px solid var(--vscode-textBlockQuote-border);
+  background: var(--vscode-textBlockQuote-background);
+  border-radius: 0 3px 3px 0;
 }
 
-.hover-line .sub {
+.hover-line.quote .codicon {
+  display: none;
+}
+
+.hover-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--vscode-editorHoverWidget-border);
+  font-size: 12px;
   color: var(--vscode-descriptionForeground);
 }
 
-.hover-line.quote {
-  border-left: 3px solid var(--vscode-textBlockQuote-border);
-  padding-left: 6px;
-  background: var(--vscode-textBlockQuote-background);
+.hover-meta .codicon {
+  font-size: 13px;
 }
 
+/* A path keeps its end visible: ellipsis at the start, one line. */
 .hover-line.path .text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
   font-family: var(--vscode-editor-font-family);
-  font-size: 12px;
+  font-size: 11px;
 }
 
-.hover-line.warning .codicon {
+.hover-line.warning {
   color: var(--vscode-list-warningForeground);
-}
-
-.hover hr {
-  border: none;
-  border-top: 1px solid var(--vscode-editorHoverWidget-border);
-  margin: 4px 0;
 }
 
 .vscode-reduce-motion .codicon-modifier-spin {

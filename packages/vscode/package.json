@@ -292,7 +292,7 @@
         },
         "berth.view.details": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "markdownDescription": "Show a third line on each session card with its git branch and where it is open."
         }
       }

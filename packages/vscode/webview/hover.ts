@@ -43,42 +43,81 @@ export class HoverCard {
   }
 
   private show(anchor: HTMLElement, lines: HoverLine[], settings: ViewSettings | undefined, agent: string): void {
-    this.el.replaceChildren(...lines.map((line) => this.line(line, settings, agent)));
+    this.el.replaceChildren(...this.sections(lines, settings, agent));
     this.el.hidden = false;
+    // Aligned with the card's icon column, just below the card; above when there is no room.
     const a = anchor.getBoundingClientRect();
-    const card = this.el.getBoundingClientRect();
-    const below = a.bottom + GAP + card.height <= window.innerHeight;
-    const top = below ? a.bottom + GAP : Math.max(GAP, a.top - GAP - card.height);
-    const left = Math.max(GAP, Math.min(a.left + 16, window.innerWidth - card.width - GAP));
-    this.el.style.top = `${top}px`;
+    const column = anchor.querySelector('.icon')?.getBoundingClientRect().left ?? a.left;
+    const left = Math.max(GAP, Math.min(column - 8, window.innerWidth - this.el.offsetWidth - GAP));
     this.el.style.left = `${left}px`;
+    this.el.style.maxWidth = `${window.innerWidth - left - GAP}px`;
+    const height = this.el.offsetHeight;
+    const below = a.bottom + GAP + height <= window.innerHeight;
+    this.el.style.top = `${below ? a.bottom + GAP : Math.max(GAP, a.top - GAP - height)}px`;
   }
 
-  private line(line: HoverLine, settings: ViewSettings | undefined, agent: string): HTMLElement {
-    if (line.kind === 'rule') return document.createElement('hr');
-    const row = document.createElement('div');
-    row.className = `hover-line ${line.kind ?? ''}`;
-    if (line.kind === 'title' && agent && agent !== 'shell' && settings?.agentIcons) {
+  /** Header, then the body lines, then a details section after the rule. */
+  private sections(lines: HoverLine[], settings: ViewSettings | undefined, agent: string): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    let section = this.div('hover-body');
+    for (const line of lines) {
+      if (line.kind === 'title') {
+        out.push(this.header(line, settings, agent));
+      } else if (line.kind === 'rule') {
+        if (section.childElementCount) out.push(section);
+        section = this.div('hover-meta');
+      } else {
+        section.append(this.line(line));
+      }
+    }
+    if (section.childElementCount) out.push(section);
+    return out;
+  }
+
+  private header(line: HoverLine, settings: ViewSettings | undefined, agent: string): HTMLElement {
+    const head = this.div('hover-head');
+    if (agent && agent !== 'shell' && settings?.agentIcons) {
       const img = document.createElement('img');
       img.className = 'icon agent';
       img.alt = '';
       img.src = `${settings.agentIcons}/${agent}.svg`;
-      row.append(img);
+      head.append(img);
     } else if (line.icon) {
-      const icon = document.createElement('span');
-      icon.className = `codicon codicon-${line.icon}`;
-      row.append(icon);
+      head.append(this.icon(line.icon));
     }
-    const text = document.createElement('span');
-    text.className = 'text';
-    text.textContent = line.text;
+    head.append(this.span('title', line.text));
+    if (line.sub) head.append(this.span('sub', line.sub));
+    if (line.chip) {
+      const chip = this.span(`chip tone-${line.chip.tone || 'muted'}`, '');
+      chip.append(this.icon(line.chip.icon), this.span('', line.chip.text));
+      head.append(chip);
+    }
+    return head;
+  }
+
+  private line(line: HoverLine): HTMLElement {
+    const row = this.div(`hover-line ${line.kind ?? ''}`);
+    if (line.icon) row.append(this.icon(line.icon));
+    const text = this.span('text', line.text);
+    if (line.full) text.title = line.full;
     row.append(text);
-    if (line.sub) {
-      const sub = document.createElement('span');
-      sub.className = 'sub';
-      sub.textContent = line.sub;
-      row.append(sub);
-    }
     return row;
+  }
+
+  private icon(name: string): HTMLElement {
+    return this.span(`codicon codicon-${name}`, '');
+  }
+
+  private span(className: string, text: string): HTMLElement {
+    const el = document.createElement('span');
+    el.className = className;
+    el.textContent = text;
+    return el;
+  }
+
+  private div(className: string): HTMLDivElement {
+    const el = document.createElement('div');
+    el.className = className;
+    return el;
   }
 }
