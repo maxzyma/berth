@@ -296,10 +296,13 @@ function installHooksWithCli(agent: string): { ok: boolean; detail: string } {
 }
 
 /** A folder's place is shown by icon and colour; the words are in the tooltip (spec §6). */
+// Not 'folder': with a resourceUri that one is replaced by the file icon
+// theme's folder icon, which many themes leave blank. 'file-directory' is the
+// same glyph without that rule.
 const PLACE_ICONS: Record<Place, vscode.ThemeIcon> = {
   workspace: new vscode.ThemeIcon('root-folder', new vscode.ThemeColor('charts.blue')),
-  inside: new vscode.ThemeIcon('folder'),
-  outside: new vscode.ThemeIcon('folder', new vscode.ThemeColor('disabledForeground')),
+  inside: new vscode.ThemeIcon('file-directory'),
+  outside: new vscode.ThemeIcon('file-directory', new vscode.ThemeColor('disabledForeground')),
 };
 const PLACE_CODICON: Record<Place, string> = { workspace: 'root-folder', inside: 'folder', outside: 'folder-library' };
 const PLACE_TEXT: Record<Place, string> = {
