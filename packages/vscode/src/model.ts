@@ -4,19 +4,32 @@ import { getAdapter, type SessionRow } from '@berthdev/berth';
 
 export type Connection = 'attached-here' | 'attached-elsewhere' | 'detached' | 'stopped';
 
+/** One line of a hover card, led by a codicon (spec §6). */
+export interface HoverLine {
+  icon: string;
+  text: string;
+  kind?: 'title' | 'quote' | 'rule' | 'path' | 'warning';
+  /** Secondary text on a title line (the agent's name). */
+  sub?: string;
+}
+
 /**
- * A session row says as much as it can without words (spec §6): its icon is
- * the agent, its name's colour and badge the state; the rest is in the
- * tooltip. Words on a narrow row get cut off and crowd one another.
+ * A session card (spec §6): the agent's icon, the name and a state badge on
+ * line one; the subtitle on line two; optional details on line three; the
+ * rest in the hover card.
  */
 export interface RowView {
   name: string;
   label: string;
-  /** Agent id, for the row's icon; '' for an unmanaged session. */
+  /** Agent id, for the card's icon; '' for an unmanaged session. */
   agent: string;
-  /** The one thing worth reading at a glance: what a waiting or finished agent said. */
-  description: string;
-  tooltip: string;
+  /** Line two: what a waiting or finished agent said, else the topic. */
+  subtitle: string;
+  subtitleKind: 'note' | 'topic' | '';
+  /** Optional line three: branch and connection. */
+  details: string;
+  hover: HoverLine[];
+  /** Matched by the context menu's when clauses (`berthItem`). */
   contextValue: string;
   icon: 'working' | 'waiting' | 'done' | 'stopped' | 'idle' | 'unmanaged';
   /** One character beside the name: the state, else unread. */
@@ -38,8 +51,17 @@ export interface GroupView {
   place: Place;
   /** The most urgent of its sessions, shown on the group row when collapsed. */
   attention: Attention;
+  hover: HoverLine[];
   rows: RowView[];
 }
+
+export const PLACE_CODICON: Record<Place, string> = { workspace: 'root-folder', inside: 'file-directory', outside: 'folder-library' };
+
+export const PLACE_TEXT: Record<Place, string> = {
+  workspace: "This window's workspace folder",
+  inside: "Inside this window's workspace",
+  outside: "Outside this window's workspace",
+};
 
 const norm = (p: string) => p.replace(/\/+$/, '');
 
@@ -111,18 +133,18 @@ const STATE_CODICON: Record<RowView['icon'], string> = {
   unmanaged: 'terminal',
 };
 
-/** Text from tmux or an agent, made inert for Markdown (including `$(icon)` syntax). */
-export function escapeMarkdown(text: string): string {
-  return text.replace(/[\\`*_{}[\]()#+\-.!|<>$~]/g, '\\$&');
-}
+const CONNECTION_SHORT: Record<Connection, string> = {
+  'attached-here': 'here',
+  'attached-elsewhere': 'elsewhere',
+  detached: 'detached',
+  stopped: 'stopped',
+};
 
 export interface ViewInput {
   here: ReadonlySet<string>;
   unread: ReadonlySet<string>;
   branch: (cwd: string) => string;
   workspaceFolders?: readonly string[];
-  /** Markdown image of an agent's icon for the tooltip card, or ''. */
-  agentImage?: (agent: string) => string;
 }
 
 const HOOKS_MISSING = "This agent's Berth hooks are not installed, so after a restart the session starts a new conversation. Right-click → Install Agent Hooks.";
@@ -135,8 +157,15 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
       name: row.name,
       label: row.name,
       agent: '',
-      description: '',
-      tooltip: `**${escapeMarkdown(row.name)}**\n\n$(terminal) Not an agent session — adopt it to manage it\n\n$(${CONNECTION_CODICON[conn]}) ${CONNECTION_TEXT[conn]}`,
+      subtitle: '',
+      subtitleKind: '',
+      details: CONNECTION_SHORT[conn],
+      hover: [
+        { icon: 'terminal', text: row.name, kind: 'title', sub: 'not an agent session' },
+        { icon: 'info', text: 'Adopt it to manage it' },
+        { icon: '', text: '', kind: 'rule' },
+        { icon: CONNECTION_CODICON[conn], text: CONNECTION_TEXT[conn] },
+      ],
       contextValue: `session unmanaged live ${conn}`,
       icon: 'unmanaged',
       badge: '',
@@ -151,25 +180,29 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
   const icon = !row.live ? 'stopped' : state === 'working' || state === 'waiting' || state === 'done' ? state : 'idle';
   const agentName = getAdapter(row.agent)?.displayName ?? row.agent;
   const note = (icon === 'waiting' || icon === 'done') && row.note ? row.note : '';
-
-  const warning = hooksMissing ? `$(warning) ${HOOKS_MISSING}` : !row.conversation ? '$(info) Conversation not bound yet: a restore would start a new one.' : '';
-  // The notification comes first: it is what the user hovers to read.
-  const tooltip = [
-    note ? `> $(comment) ${escapeMarkdown(note)}` : '',
-    `${input.agentImage?.(row.agent) ?? ''}**${escapeMarkdown(row.name)}** · ${escapeMarkdown(agentName)}`,
-    `$(${STATE_CODICON[icon]}) ${STATE_TEXT[icon]}`,
-    '---',
-    `$(${CONNECTION_CODICON[conn]}) ${CONNECTION_TEXT[conn]}`,
-    branch ? `$(git-branch) ${escapeMarkdown(branch)}` : '',
-    `$(folder) \`${row.cwd.replace(/`/g, "'")}\``,
-    warning,
+  const hover: HoverLine[] = [
+    { icon: '', text: row.name, kind: 'title', sub: agentName },
+    ...(note ? [{ icon: 'comment', text: note, kind: 'quote' as const }] : []),
+    { icon: STATE_CODICON[icon], text: STATE_TEXT[icon] },
+    ...(row.topic ? [{ icon: 'comment-discussion', text: row.topic }] : []),
+    { icon: '', text: '', kind: 'rule' },
+    { icon: CONNECTION_CODICON[conn], text: CONNECTION_TEXT[conn] },
+    ...(branch ? [{ icon: 'git-branch', text: branch }] : []),
+    { icon: 'folder', text: row.cwd, kind: 'path' },
+    ...(hooksMissing
+      ? [{ icon: 'warning', text: HOOKS_MISSING, kind: 'warning' as const }]
+      : !row.conversation
+        ? [{ icon: 'info', text: 'Conversation not bound yet: a restore would start a new one.' }]
+        : []),
   ];
   return {
     name: row.name,
     label: row.name,
     agent: row.agent,
-    description: note,
-    tooltip: tooltip.filter(Boolean).join('\n\n'),
+    subtitle: note || row.topic,
+    subtitleKind: note ? 'note' : row.topic ? 'topic' : '',
+    details: [branch, CONNECTION_SHORT[conn]].filter(Boolean).join(' · '),
+    hover,
     contextValue: `session managed ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing ? ' hooks-missing' : ''}${unread ? ' unread' : ''}`,
     icon,
     badge: BADGE[icon] ?? (unread ? '•' : ''),
@@ -196,6 +229,11 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
       cwd,
       label: basename(cwd) || cwd,
       place: placeOf(cwd, folders),
+      hover: [
+        { icon: '', text: basename(cwd) || cwd, kind: 'title' as const },
+        { icon: 'folder', text: cwd, kind: 'path' as const },
+        { icon: PLACE_CODICON[placeOf(cwd, folders)], text: PLACE_TEXT[placeOf(cwd, folders)] },
+      ],
       attention: (list.some((r) => r.attention === 'waiting') ? 'waiting' : list.some((r) => r.attention === 'unread') ? 'unread' : '') as Attention,
       rows: list.sort((x, y) => x.name.localeCompare(y.name)),
     }))

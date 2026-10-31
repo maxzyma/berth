@@ -18,6 +18,8 @@ export interface SessionRow {
   origin: string;
   state: string;
   note: string;
+  /** First line of the user's latest prompt (spec §4.2). */
+  topic: string;
   attachedClients: number;
   live: boolean;
   /** Whether the agent's Berth hooks are installed (spec §4.2). */
@@ -43,6 +45,7 @@ export function list(ctx: Context): SessionRow[] {
     origin: s.meta.origin ?? (s.meta.agent ? 'none' : ''),
     state: s.meta.state ?? '',
     note: s.meta.note ?? '',
+    topic: s.meta.topic ?? '',
     attachedClients: s.attachedClients,
     live: true,
     hooks: hooks(s.meta.agent ?? ''),
@@ -50,7 +53,7 @@ export function list(ctx: Context): SessionRow[] {
   const liveNames = new Set(live.map((s) => s.name));
   for (const s of ctx.store.newest()?.sessions ?? []) {
     if (liveNames.has(s.name)) continue;
-    rows.push({ ...s, managed: true, state: '', note: '', attachedClients: 0, live: false, hooks: hooks(s.agent) });
+    rows.push({ ...s, managed: true, state: '', note: '', topic: '', attachedClients: 0, live: false, hooks: hooks(s.agent) });
   }
   return rows;
 }
@@ -130,7 +133,7 @@ export function forget(ctx: Context, name: string): void {
   takeSnapshot(ctx, new Date(), [name]);
 }
 
-const STAMPABLE = new Set(['agent', 'cwd', 'argv', 'conversation', 'origin', 'state', 'note']);
+const STAMPABLE = new Set(['agent', 'cwd', 'argv', 'conversation', 'origin', 'state', 'note', 'topic']);
 
 export function stamp(ctx: Context, name: string, values: Record<string, string>): void {
   requireLive(ctx, name);

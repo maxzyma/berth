@@ -13,6 +13,7 @@ is fixed.
 | Language | TypeScript, `strict`, ES modules |
 | Repo | npm workspaces: `packages/core`, `packages/vscode` |
 | Build | `tsc -b` to `dist/`; the VS Code extension is bundled with esbuild |
+| Sessions view | A webview view: Lit rendering into light DOM (VS Code's context menu reads `data-vscode-context` by walking the document, which does not enter shadow roots), `@vscode/codicons`; both bundled into `dist/webview` by `scripts/build-webview.mjs`, notices in `THIRD_PARTY_NOTICES.md` |
 | Tests | `node:test` on the built output; the VS Code integration tests run under `@vscode/test-cli` (mocha) |
 | CLI parsing | `node:util` `parseArgs` |
 | Config parsing | `smol-toml` (the only runtime dependency of core) |
@@ -270,9 +271,11 @@ manual cases are recorded as checked, and the de-identification check passes.
 
 ### Milestone 2 — Berth for VS Code
 
-- **V1** The session view shows the rows of spec §6, grouped by cwd: the name
-  with the agent's icon and the state's colour and badge, the rest (latest
-  notification included) in the tooltip, and the waiting-count badge.
+- **V1** The session view shows the cards of spec §6, grouped by cwd: line
+  one the agent's icon, name and state badge; line two the notification while
+  waiting or done, else the topic; line three branch and connection when
+  `berth.view.details` is on; the hover card's lines each with an icon; the
+  waiting-count badge.
 - **V2** Selecting a row switches the one session terminal to that session
   (rebuilding a stopped one first), or opens it when there is none; open to
   the side adds a second terminal; the explorer follows only folders inside
@@ -303,6 +306,16 @@ manual cases are recorded as checked, and the de-identification check passes.
   offer *Install Agent Hooks*.
 - **V8** (manual) The same flows work in Remote-SSH, a Dev Container and WSL.
 - **V9** (manual) OS notifications appear and focus the session when clicked.
+- **V14** (visual) The sessions view, rendered from a model built by the
+  model code, looks right in dark, light and high-contrast themes: colours
+  only on waiting and unread, dimmed stopped cards, indent guides, the
+  selected card, and the hover card above the list. Checked headless with
+  theme variables standing in for VS Code's, then in VS Code itself.
+- **V15** (manual, in VS Code) The view follows `workbench.tree.indent`,
+  `workbench.tree.renderIndentGuides`, `berth.hover.delay`,
+  `berth.view.details` and theme changes without reloading; right-click shows
+  VS Code's menu with the card's actions; up/down, Home/End, Enter,
+  left/right and Shift+F10 work; a screen reader reads each card's state.
 
 ### Milestone 3 — Berth for iTerm2
 

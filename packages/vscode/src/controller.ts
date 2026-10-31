@@ -38,8 +38,6 @@ export interface Host {
   sessionShown?(row: SessionRow): void;
   /** This window's workspace folders. */
   workspaceFolders?(): string[];
-  /** Markdown image of an agent's icon for tooltip cards, or ''. */
-  agentImage?(agent: string): string;
   /** An agent in use has no Berth hooks: offer to install them (spec §6). */
   suggestHooks?(agent: string): void;
 }
@@ -101,7 +99,6 @@ export class Controller {
       unread: this.unread,
       branch: (cwd) => this.branch(cwd),
       workspaceFolders: this.host.workspaceFolders?.() ?? [],
-      agentImage: (agent) => this.host.agentImage?.(agent) ?? '',
     });
   }
 

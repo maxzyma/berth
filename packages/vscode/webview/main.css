@@ -1,0 +1,278 @@
+/*
+ * Sessions view (spec §6, "Looking native"): every colour and font comes from
+ * VS Code's theme variables; metrics follow its lists (22 px rows, 16 px
+ * twistie, indent from workbench.tree.indent via --berth-indent).
+ */
+:root {
+  --berth-indent: 8px;
+  --berth-row: 22px;
+  --berth-twistie: 16px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  font-weight: var(--vscode-font-weight);
+  user-select: none;
+}
+
+.list {
+  outline: none;
+  padding: 0 0 8px;
+}
+
+.row {
+  position: relative;
+  box-sizing: border-box;
+  cursor: pointer;
+  outline: none;
+  padding-right: 8px;
+}
+
+.row:hover {
+  background: var(--vscode-list-hoverBackground);
+  color: var(--vscode-list-hoverForeground, inherit);
+}
+
+.row.selected {
+  background: var(--vscode-list-inactiveSelectionBackground);
+  color: var(--vscode-list-inactiveSelectionForeground, inherit);
+}
+
+.list:focus-within .row.selected {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground, inherit);
+}
+
+.row:focus {
+  outline: 1px solid var(--vscode-list-focusOutline);
+  outline-offset: -1px;
+}
+
+.vscode-high-contrast .row:hover,
+.vscode-high-contrast .row.selected {
+  outline: 1px dashed var(--vscode-contrastActiveBorder);
+  outline-offset: -1px;
+}
+
+/* Lines */
+.line,
+.group {
+  display: flex;
+  align-items: center;
+  min-height: var(--berth-row);
+  gap: 6px;
+}
+
+.group {
+  padding-left: 4px;
+}
+
+/* Row actions, as a tree's inline actions: shown on hover or focus. */
+.action {
+  flex: none;
+  visibility: hidden;
+  border-radius: 5px;
+  padding: 2px;
+}
+
+.row:hover .action,
+.row:focus .action {
+  visibility: visible;
+}
+
+.action:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.twistie {
+  width: var(--berth-twistie);
+  flex: none;
+  text-align: center;
+}
+
+.card.level-1 {
+  padding-left: calc(4px + var(--berth-twistie) + 2px);
+}
+
+.card.level-2 {
+  padding-left: calc(4px + var(--berth-twistie) + var(--berth-indent) + 2px);
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+img.icon {
+  display: block;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.subtitle,
+.details {
+  min-height: 0;
+  margin-top: -3px;
+  padding: 0 0 3px 22px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.row.selected .subtitle,
+.row.selected .details {
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* Indent guides, as workbench.tree.renderIndentGuides */
+.card.level-2::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(4px + var(--berth-twistie) / 2);
+  border-left: 1px solid transparent;
+}
+
+body[data-guides='always'] .card.level-2::before,
+body[data-guides='onHover'] .list:hover .card.level-2::before {
+  border-left-color: var(--vscode-tree-indentGuidesStroke);
+}
+
+/* Place of a folder: by icon and colour; the words are in its hover. */
+.group.workspace .icon {
+  color: var(--vscode-charts-blue);
+}
+
+.group.outside {
+  color: var(--vscode-disabledForeground);
+}
+
+/* State: colour only for what needs the user (spec §6). */
+.badge {
+  flex: none;
+  min-width: 12px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.attention-waiting .name,
+.attention-waiting .badge,
+.attention-waiting .subtitle.note {
+  color: var(--vscode-list-warningForeground);
+}
+
+.attention-unread .name,
+.attention-unread .badge {
+  color: var(--vscode-charts-blue);
+}
+
+.state-working .badge {
+  color: var(--vscode-descriptionForeground);
+}
+
+.state-stopped {
+  opacity: 0.6;
+}
+
+.empty {
+  margin: 8px 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* Hover card: VS Code's hover widget. */
+.hover {
+  position: fixed;
+  z-index: 10;
+  max-width: min(400px, calc(100vw - 8px));
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--vscode-editorHoverWidget-foreground);
+  background: var(--vscode-editorHoverWidget-background);
+  border: 1px solid var(--vscode-editorHoverWidget-border);
+  border-radius: 5px;
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+  user-select: text;
+  animation: berth-fade 100ms linear;
+}
+
+.hover[hidden] {
+  display: none;
+}
+
+.vscode-reduce-motion .hover {
+  animation: none;
+}
+
+@keyframes berth-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.hover-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.hover-line .codicon,
+.hover-line .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.hover-line .text {
+  overflow-wrap: anywhere;
+}
+
+.hover-line.title .text {
+  font-weight: 600;
+}
+
+.hover-line .sub {
+  color: var(--vscode-descriptionForeground);
+}
+
+.hover-line.quote {
+  border-left: 3px solid var(--vscode-textBlockQuote-border);
+  padding-left: 6px;
+  background: var(--vscode-textBlockQuote-background);
+}
+
+.hover-line.path .text {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+}
+
+.hover-line.warning .codicon {
+  color: var(--vscode-list-warningForeground);
+}
+
+.hover hr {
+  border: none;
+  border-top: 1px solid var(--vscode-editorHoverWidget-border);
+  margin: 4px 0;
+}
+
+.vscode-reduce-motion .codicon-modifier-spin {
+  animation: none;
+}

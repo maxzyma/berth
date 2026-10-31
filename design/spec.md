@@ -92,6 +92,7 @@ session and any tool can read it:
 | `@berth_origin` | `vscode` / `iterm2` / `none` |
 | `@berth_state` | `working` / `waiting` (needs the user) / `done` / empty when unknown; written by agent hooks |
 | `@berth_note` | latest notification text from the agent, shown in session lists |
+| `@berth_topic` | first line of the user's latest prompt, from the prompt-submitted hook; the session's subtitle |
 
 ### 4.1 Origin rules
 
@@ -116,7 +117,9 @@ Order of preference, first hit wins:
 
 The same hooks keep `@berth_state` current from the agent's lifecycle events
 (prompt submitted → `working`, needs approval → `waiting`, turn finished →
-`done`).
+`done`). The prompt-submitted hook also records the first line of the prompt
+as `@berth_topic` (at most 120 characters), when the agent's payload carries
+it (`prompt`); it is metadata for display only and never enters snapshots.
 
 Agents without Berth hooks can still ask for attention: a terminal bell in
 their session (tmux `alert-bell`, hooked by `berth tmux install`) sets
@@ -303,38 +306,61 @@ Berth runs with no config file.
   activation the
   extension opens its sessions view and offers this command once; nothing
   changes unless the user confirms.
-- **Session view.** The rich session list, contributed as an ordinary view so
-  the user can place it in any side bar. A tree of every session from
-  `berth ls`, grouped by cwd. What a row carries follows the vertical tabs of
-  agent terminal apps (cmux, Warp), which set the bar users compare against:
-  agent; agent state (`@berth_state`) with the latest notification while
-  waiting or done; unread when an agent finished or started waiting while the
-  user looked elsewhere; git branch; connection (attached here / elsewhere /
-  detached / stopped — in snapshot, not live); conversation bound or not. A
-  side bar row is narrow, and words there get cut off and crowd one another,
-  so the row itself shows the session name, the latest notification while
-  waiting or done (what the agent needs from the user), the agent as its icon
-  (one coloured letter per agent on a transparent background, a terminal icon
-  for a shell), and the state as a one-character badge: working `⋯`, waiting
-  `!`, unread `•` (an unseen finished turn is unread). As in cmux, colour goes
-  only to what needs the user: waiting colours the name amber, unread blue;
-  stopped rows are grey and the rest keep the default colour. A finished turn
-  the user has seen looks idle, since it is the normal resting state, and a
-  new state replaces the notification, so a finished row never shows an old
-  permission request. *Mark as Read* clears unread without opening the
-  session. The tooltip is a small card (Markdown): the notification first, as
-  a quote, then the agent's icon with name and agent, state, connection,
-  branch, folder and any warning, each line led by its icon; session text is
-  escaped. How soon a tooltip opens is VS Code's `workbench.hover.delay`, not
-  Berth's.
-  Group rows show the folder's name; where it is is in their tooltip; a
-  collapsed group shows its most urgent session (waiting, else unread) with
-  the same badge and colour. The view
-  refreshes every few seconds but redraws, and announces decoration changes,
-  only for rows that changed: a blanket announcement makes every view in the
-  window (explorer, source control) redraw. A view
-  badge counts sessions waiting for the user. Unmanaged sessions are listed
-  separately.
+- **Session view.** The rich session list, contributed as a webview view so
+  the user can place it in any side bar. VS Code's native tree has one line
+  per row, a fixed hover delay and no way to wrap; a session needs a second
+  line, so the view draws cards itself. Everything it can take from VS Code
+  it takes (see *Looking native* below).
+  - **Content.** Every session from `berth ls`, grouped by cwd. What a card
+    carries follows the vertical tabs of agent terminal apps (cmux, Warp):
+    agent; state (`@berth_state`) with the latest notification; unread;
+    topic; git branch; connection (attached here / elsewhere / detached /
+    stopped — in snapshot, not live); conversation bound or not; hooks.
+  - **Card.** Line one: the agent's icon (one coloured letter per agent, a
+    terminal icon for a shell), the session name, and a state badge on the
+    right (working `⋯`, waiting `!`, unread `•`). Line two, the subtitle: the
+    latest notification while waiting or done (what the agent needs from the
+    user), otherwise the topic — the first line of the user's latest prompt
+    (§4.2 hooks); empty when there is neither. An optional third line
+    (`berth.view.details`) shows branch and connection. Long text ends in an
+    ellipsis; the hover card has it in full.
+  - **Colour.** As in cmux, colour goes only to what needs the user: waiting
+    is amber, unread blue; stopped cards are dimmed; the rest keep the
+    default colours. A finished turn is unread until the user has seen it and
+    then looks idle, since it is the normal resting state; a new state
+    replaces the notification, so a finished card never shows an old
+    permission request. *Mark as Read* clears unread without opening the
+    session.
+  - **Groups.** A group header shows the folder's name with an icon for its
+    place: this window's workspace folder, inside it, or outside it (the
+    words are in its hover), ordered in that order. When the only group is
+    the workspace folder its cards sit at the top level and the view's title
+    shows the folder. A collapsed group shows its most urgent session
+    (waiting, else unread) with the same badge and colour.
+  - **Hover card.** After `berth.hover.delay` (default 500 ms, independent of
+    `workbench.hover.delay`, which VS Code does not let an extension change
+    for its own views), a card in VS Code's hover style: the session name
+    with the agent's icon, the notification as a quote, then state,
+    connection, branch, folder and any warning, each line led by its icon.
+  - **Interaction.** Click shows the session (below); right-click opens VS
+    Code's own context menu with the same actions as before, plus *Mark as
+    Read* and *Forget Session*; title bar actions and the view badge (count of
+    sessions waiting) are VS Code's. Keyboard: up/down, Home/End, Enter to
+    show, Shift+F10 or the menu key for the context menu, left/right to fold
+    groups. It is announced to screen readers as a list of groups and
+    sessions, each with its full state in words, never by colour alone.
+  - **Updates.** The extension sends the view a new model only when something
+    shown changed; the view keeps fold state and scroll position across hide
+    and show without staying alive while hidden.
+  - **Looking native.** Colours and fonts come only from VS Code's theme
+    variables (`--vscode-*`), so light, dark and both high-contrast themes and
+    colour customisations follow automatically: list hover, selection and
+    focus colours, tree indent guides, hover-widget colours, badge colours.
+    Settings a webview cannot see are read by the extension and pushed on
+    change: `workbench.tree.indent`, `workbench.tree.renderIndentGuides`;
+    reduced motion follows VS Code's own flag. Rows are at least 22 px, VS
+    Code's list row height. Icons are VS Code's codicons. Context menu,
+    title actions and badge are native, not imitations.
 - **One session terminal.** Selecting a row shows that session in the one
   session terminal: the terminal's tmux client switches to it
   (`switch-client`), or the terminal opens attached when there is none. A

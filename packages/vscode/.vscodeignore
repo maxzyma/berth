@@ -5,3 +5,5 @@ tsconfig*.json
 .vscode-test.mjs
 node_modules/**
 media/icon.svg
+webview/**
+scripts/**

@@ -40,6 +40,7 @@
     "views": {
       "berth": [
         {
+          "type": "webview",
           "id": "berth.sessions",
           "name": "Sessions"
         }
@@ -156,63 +157,6 @@
           "group": "navigation@2"
         }
       ],
-      "view/item/context": [
-        {
-          "command": "berth.focus",
-          "when": "view == berth.sessions && viewItem =~ /^session/",
-          "group": "1@1"
-        },
-        {
-          "command": "berth.markRead",
-          "when": "view == berth.sessions && viewItem =~ /unread/",
-          "group": "1@1"
-        },
-        {
-          "command": "berth.newInFolder",
-          "when": "view == berth.sessions && viewItem == group",
-          "group": "inline"
-        },
-        {
-          "command": "berth.newInFolder",
-          "when": "view == berth.sessions && viewItem == group",
-          "group": "1@0"
-        },
-        {
-          "command": "berth.openToSide",
-          "when": "view == berth.sessions && viewItem =~ /^session/",
-          "group": "1@2"
-        },
-        {
-          "command": "berth.detach",
-          "when": "view == berth.sessions && viewItem =~ /attached-here/",
-          "group": "1@3"
-        },
-        {
-          "command": "berth.rename",
-          "when": "view == berth.sessions && viewItem =~ /live/",
-          "group": "2@1"
-        },
-        {
-          "command": "berth.adopt",
-          "when": "view == berth.sessions && viewItem =~ /unmanaged/",
-          "group": "2@2"
-        },
-        {
-          "command": "berth.installHooks",
-          "when": "view == berth.sessions && viewItem =~ /hooks-missing/",
-          "group": "2@3"
-        },
-        {
-          "command": "berth.kill",
-          "when": "view == berth.sessions && viewItem =~ /live/",
-          "group": "3@1"
-        },
-        {
-          "command": "berth.forget",
-          "when": "view == berth.sessions && viewItem =~ /stopped/",
-          "group": "3@2"
-        }
-      ],
       "commandPalette": [
         {
           "command": "berth.focus",
@@ -249,6 +193,58 @@
         {
           "command": "berth.markRead",
           "when": "false"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "berth.focus",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /^session/",
+          "group": "1@1"
+        },
+        {
+          "command": "berth.markRead",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /unread/",
+          "group": "1@1"
+        },
+        {
+          "command": "berth.newInFolder",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'group'",
+          "group": "1@0"
+        },
+        {
+          "command": "berth.openToSide",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /^session/",
+          "group": "1@2"
+        },
+        {
+          "command": "berth.detach",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /attached-here/",
+          "group": "1@3"
+        },
+        {
+          "command": "berth.rename",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /live/",
+          "group": "2@1"
+        },
+        {
+          "command": "berth.adopt",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /unmanaged/",
+          "group": "2@2"
+        },
+        {
+          "command": "berth.installHooks",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /hooks-missing/",
+          "group": "2@3"
+        },
+        {
+          "command": "berth.kill",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /live/",
+          "group": "3@1"
+        },
+        {
+          "command": "berth.forget",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /stopped/",
+          "group": "3@2"
         }
       ]
     },
@@ -287,6 +283,17 @@
           "type": "boolean",
           "default": true,
           "description": "When a session is shown, reveal its folder in the explorer (only for folders inside the workspace)."
+        },
+        "berth.hover.delay": {
+          "type": "number",
+          "default": 500,
+          "minimum": 0,
+          "markdownDescription": "Milliseconds before a session card shows its hover card. Independent of `#workbench.hover.delay#`, which VS Code does not let an extension change for its own views."
+        },
+        "berth.view.details": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Show a third line on each session card with its git branch and where it is open."
         }
       }
     },
@@ -299,18 +306,20 @@
     ]
   },
   "scripts": {
-    "build": "tsc -p tsconfig.extension.json && tsc -p tsconfig.json && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs",
+    "build": "tsc -p tsconfig.extension.json && tsc -p tsconfig.webview.json && tsc -p tsconfig.json && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs && node scripts/build-webview.mjs",
     "test:integration": "vscode-test --config .vscode-test.mjs"
   },
   "dependencies": {
     "@berthdev/berth": "*"
   },
   "devDependencies": {
-    "@types/vscode": "~1.90.0",
     "@types/node": "^20.11.0",
+    "@types/vscode": "~1.90.0",
+    "@vscode/codicons": "^0.0.46-24",
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.1.0",
     "esbuild": "^0.24.0",
+    "lit": "^3.3.3",
     "typescript": "^5.6.0"
   },
   "repository": {

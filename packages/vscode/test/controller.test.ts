@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { buildTree, defaultFolder, escapeMarkdown, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
+import { buildTree, defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -79,18 +79,21 @@ test('V1 the session view groups by cwd, shows state and counts waiting sessions
     ['alpha', ['a1', 'a2']],
     ['beta', ['b1']],
   ]);
-  // The row itself carries no words: agent icon, state badge; details in the tooltip.
+  // Line one: name, agent, badge; line two: what the agent said; the hover card has the rest.
   const a1 = tree.groups[0].rows[0];
-  assert.deepEqual([a1.label, a1.agent, a1.icon, a1.badge, a1.description], ['a1', 'claude', 'waiting', '!', 'needs approval']);
-  assert.equal(tree.groups[0].rows[1].description, '', 'nothing to read while idle');
-  // The card leads with what the agent said, then who it is; every detail line has its icon.
-  assert.match(a1.tooltip, /^> \$\(comment\) needs approval\n\n\*\*a1\*\* · Claude Code\n\n\$\(bell-dot\) Waiting for you\n\n---\n\n\$\(debug-disconnect\) Not open in any terminal/);
-  for (const line of a1.tooltip.split('\n\n').filter((l) => !l.startsWith('**'))) assert.match(line, /^(> )?\$\(|^---$/, `every line has its icon: ${line}`);
+  assert.deepEqual([a1.label, a1.agent, a1.icon, a1.badge, a1.subtitle, a1.subtitleKind], ['a1', 'claude', 'waiting', '!', 'needs approval', 'note']);
+  assert.equal(tree.groups[0].rows[1].subtitle, '', 'nothing to read while idle without a topic');
+  assert.deepEqual(a1.hover.map((l) => [l.kind ?? '', l.icon, l.text]).slice(0, 4), [
+    ['title', '', 'a1'],
+    ['quote', 'comment', 'needs approval'],
+    ['', 'bell-dot', 'Waiting for you'],
+    ['rule', '', ''],
+  ]);
+  assert.ok(a1.hover.filter((l) => l.kind !== 'title' && l.kind !== 'rule').every((l) => l.icon), 'every detail line has its icon');
   assert.equal(a1.attention, 'waiting');
   assert.equal(tree.groups[0].attention, 'waiting', 'a group carries its most urgent session');
   assert.equal(tree.groups[1].attention, '');
-  assert.equal(escapeMarkdown('a_b $(x)'), 'a\\_b \\$\\(x\\)', 'session text cannot inject Markdown or icons');
-  assert.match(tree.groups[0].rows[1].tooltip, /starts a new conversation/, "why it will not resume");
+  assert.ok(tree.groups[0].rows[1].hover.some((l) => /starts a new conversation/.test(l.text)), 'why it will not resume');
   assert.equal(tree.groups[0].rows[1].badge, '', 'idle and read: no badge');
   assert.deepEqual(tree.unmanaged.map((r) => r.name), ['plain']);
   assert.equal(tree.waiting, 1);
@@ -332,22 +335,30 @@ test('V11 an agent without hooks is offered hooks once; its rows say why they ar
   assert.deepEqual(host.suggested, ['kimi'], 'once per agent; agents without hook support are not offered');
   const k1 = tree.groups.flatMap((g) => g.rows).find((r) => r.name === 'k1')!;
   assert.match(k1.contextValue, /hooks-missing/);
-  assert.match(k1.tooltip, /hooks are not installed/);
+  assert.ok(k1.hover.some((l) => l.kind === 'warning' && /hooks are not installed/.test(l.text)));
   sb.cli('hooks', 'install', 'kimi');
   const after = controller.refresh().tree.groups.flatMap((g) => g.rows).find((r) => r.name === 'k1')!;
   assert.doesNotMatch(after.contextValue, /hooks-missing/);
 });
 
+test('V1 the subtitle is the notification while it matters, else the topic', () => {
+  const base = { name: 't', managed: true, agent: 'claude', cwd: '/w', conversation: 'c', origin: 'vscode', note: '', topic: 'Fix the login bug', attachedClients: 0, live: true, hooks: 'installed' as const };
+  const row = (state: string, note = '') => buildTree([{ ...base, state, note }], { here: new Set(), unread: new Set(), branch: () => 'main' }).groups[0].rows[0];
+  assert.deepEqual([row('working').subtitle, row('working').subtitleKind], ['Fix the login bug', 'topic']);
+  assert.deepEqual([row('waiting', 'Allow Bash?').subtitle, row('waiting', 'Allow Bash?').subtitleKind], ['Allow Bash?', 'note']);
+  assert.equal(row('working').details, 'main · detached', 'optional third line');
+});
+
 test('V1 a finished turn shows until the user has seen it; a new state replaces the old notification', (t) => {
-  const row = { name: 'f', managed: true, agent: 'claude', cwd: '/w', conversation: 'c', origin: 'vscode', state: 'done', note: 'All set', attachedClients: 0, live: true, hooks: 'installed' as const };
+  const row = { name: 'f', managed: true, agent: 'claude', cwd: '/w', conversation: 'c', origin: 'vscode', state: 'done', note: 'All set', topic: '', attachedClients: 0, live: true, hooks: 'installed' as const };
   const view = (unread: boolean) => buildTree([row], { here: new Set(), unread: new Set(unread ? ['f'] : []), branch: () => '' }).groups[0].rows[0];
-  assert.deepEqual([view(true).icon, view(true).badge, view(true).attention, view(true).description], ['done', '•', 'unread', 'All set']);
-  assert.deepEqual([view(false).icon, view(false).badge, view(false).attention, view(false).description], ['idle', '', '', '']);
+  assert.deepEqual([view(true).icon, view(true).badge, view(true).attention, view(true).subtitle], ['done', '•', 'unread', 'All set']);
+  assert.deepEqual([view(false).icon, view(false).badge, view(false).attention, view(false).subtitle], ['idle', '', '', '']);
   assert.match(view(true).contextValue, / unread$/, 'offers Mark as Read');
 });
 
 test('V10 go to the next session needing you: waiting first, then unread, wrapping', async (t) => {
-  const row = (name: string, state = '') => ({ name, managed: true, agent: 'claude', cwd: '/w', conversation: '', origin: 'vscode', state, note: '', attachedClients: 0, live: true, hooks: 'none' as const });
+  const row = (name: string, state = '') => ({ name, managed: true, agent: 'claude', cwd: '/w', conversation: '', origin: 'vscode', state, note: '', topic: '', attachedClients: 0, live: true, hooks: 'none' as const });
   const rows = [row('a'), row('b', 'waiting'), row('c'), row('d', 'waiting')];
   assert.equal(nextAttention(rows, new Set(['c']), undefined), 'b');
   assert.equal(nextAttention(rows, new Set(['c']), 'b'), 'd');
@@ -373,7 +384,7 @@ test('V13 folders are placed relative to the workspace; New Session lists agents
   assert.equal(placeOf('/ws', ['/ws/']), 'workspace');
   assert.equal(placeOf('/ws/projects/x', ['/ws']), 'inside');
   assert.equal(placeOf('/wsx', ['/ws']), 'outside', 'a shared prefix is not containment');
-  const row = (name: string, cwd: string) => ({ name, managed: true, agent: 'claude', cwd, conversation: 'c', origin: 'vscode', state: '', note: '', attachedClients: 0, live: true, hooks: 'installed' as const });
+  const row = (name: string, cwd: string) => ({ name, managed: true, agent: 'claude', cwd, conversation: 'c', origin: 'vscode', state: '', note: '', topic: '', attachedClients: 0, live: true, hooks: 'installed' as const });
   const tree = buildTree([row('o', '/elsewhere'), row('i', '/ws/sub'), row('w', '/ws')], { here: new Set(), unread: new Set(), branch: () => '', workspaceFolders: ['/ws'] });
   assert.deepEqual(tree.groups.map((g) => [g.cwd, g.place]), [['/ws', 'workspace'], ['/ws/sub', 'inside'], ['/elsewhere', 'outside']]);
 

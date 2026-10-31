@@ -4,7 +4,9 @@ import { platform } from 'node:os';
 import * as vscode from 'vscode';
 import { ADAPTERS, createContext, type SessionRow } from '@berthdev/berth';
 import { Controller, type Host, type TerminalRole } from './controller.js';
-import { defaultFolder, escapeMarkdown, explorerTarget, type Attention, type TreeView, launcherPicksAgent, layoutBackup, layoutChanges, orderAgents, placeOf, type Place, type GroupView, type RowView, type Transition } from './model.js';
+import { defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, orderAgents, placeOf, type Place, type Transition } from './model.js';
+import type { MenuContext } from './view/protocol.js';
+import { SessionsView, VIEW_ID } from './view/sessionsView.js';
 
 const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
@@ -13,66 +15,6 @@ const BERTH_CONTAINER = 'workbench.view.extension.berth';
 /** Bump when Apply Agent Layout changes what it does, so users who applied an older one are offered the new one. */
 const LAYOUT_VERSION = 7;
 const APPLIED_LAYOUT = 'berth.appliedLayoutVersion';
-
-type Node = { kind: 'group'; group: GroupView } | { kind: 'unmanaged'; rows: RowView[] } | { kind: 'row'; row: RowView };
-
-/** Agents with their own icon in media/agents; a shell uses the terminal icon. */
-const AGENT_ICONS = new Set(['claude', 'codex', 'gemini', 'opencode', 'copilot', 'cursor', 'kimi', 'qoder']);
-
-/**
- * Colour goes only to what needs the user, as in cmux: waiting is amber,
- * unread blue; stopped rows are grey and everything else keeps the default.
- */
-const ATTENTION_COLORS: Record<Exclude<Attention, ''>, string> = {
-  waiting: 'list.warningForeground',
-  unread: 'charts.blue',
-};
-const ATTENTION_BADGE: Record<Exclude<Attention, ''>, string> = { waiting: '!', unread: '•' };
-
-const ROW_SCHEME = 'berth-session';
-const GROUP_SCHEME = 'berth-group';
-const rowUri = (name: string) => vscode.Uri.from({ scheme: ROW_SCHEME, path: `/${encodeURIComponent(name)}` });
-const groupUri = (cwd: string) => vscode.Uri.from({ scheme: GROUP_SCHEME, path: `/${encodeURIComponent(cwd)}` });
-
-interface Mark { badge: string; color: string }
-
-function rowMark(row: RowView): Mark {
-  const color = row.attention ? ATTENTION_COLORS[row.attention] : row.icon === 'stopped' ? 'disabledForeground' : '';
-  return { badge: row.badge, color };
-}
-
-/** A collapsed group shows its most urgent session; an expanded one shows nothing. */
-function groupMark(group: GroupView, collapsed: boolean): Mark {
-  if (!collapsed || !group.attention) return { badge: '', color: '' };
-  return { badge: ATTENTION_BADGE[group.attention], color: ATTENTION_COLORS[group.attention] };
-}
-
-/** Colour and badge for rows, which carry berth-session: and berth-group: URIs. */
-class RowDecorations implements vscode.FileDecorationProvider {
-  private readonly changed = new vscode.EventEmitter<vscode.Uri[]>();
-  readonly onDidChangeFileDecorations = this.changed.event;
-  private marks = new Map<string, Mark>();
-
-  /**
-   * Announce only the URIs whose decoration changed: an announcement with no
-   * URIs makes every view re-ask every provider for every file, which
-   * redraws the explorer and source control on each refresh.
-   */
-  update(entries: [vscode.Uri, Mark][]): void {
-    const next = new Map(entries.map(([uri, mark]) => [uri.toString(), mark]));
-    const key = (m?: Mark) => (m ? `${m.badge}|${m.color}` : '');
-    const changed = [...new Set([...this.marks.keys(), ...next.keys()])].filter((k) => key(this.marks.get(k)) !== key(next.get(k)));
-    this.marks = next;
-    if (changed.length) this.changed.fire(changed.map((k) => vscode.Uri.parse(k)));
-  }
-
-  provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
-    if (uri.scheme !== ROW_SCHEME && uri.scheme !== GROUP_SCHEME) return undefined;
-    const mark = this.marks.get(uri.toString());
-    if (!mark || (!mark.badge && !mark.color)) return undefined;
-    return new vscode.FileDecoration(mark.badge || undefined, undefined, mark.color ? new vscode.ThemeColor(mark.color) : undefined);
-  }
-}
 
 const MAC_BUNDLES: Record<string, string> = {
   'Visual Studio Code': 'com.microsoft.VSCode',
@@ -109,13 +51,6 @@ class TerminalHost implements Host {
   focusSession?: (name: string) => void;
   onShown?: (row: SessionRow) => void;
   suggestHooks?: (agent: string) => void;
-
-  extensionUri?: vscode.Uri;
-
-  agentImage(agent: string): string {
-    if (!this.extensionUri || !AGENT_ICONS.has(agent)) return '';
-    return `![](${vscode.Uri.joinPath(this.extensionUri, 'media', 'agents', `${agent}.svg`).toString()}|width=14,height=14) `;
-  }
 
   workspaceFolders(): string[] {
     return (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
@@ -210,65 +145,6 @@ class TerminalHost implements Host {
   }
 }
 
-class SessionTree implements vscode.TreeDataProvider<Node> {
-  private readonly changed = new vscode.EventEmitter<Node | undefined>();
-  readonly onDidChangeTreeData = this.changed.event;
-  roots: Node[] = [];
-  private shown = '';
-
-  constructor(private readonly extensionUri: vscode.Uri) {}
-
-  /**
-   * With one folder its sessions sit at the top level and the folder names the
-   * view; a tree level costs width in a narrow side bar (spec §6).
-   */
-  update(groups: GroupView[], unmanaged: RowView[]): string | undefined {
-    // Only the workspace folder may lose its row: its place is then implied.
-    const single = groups.length === 1 && groups[0].place === 'workspace' ? groups[0] : undefined;
-    this.roots = [
-      ...(single ? single.rows.map((row): Node => ({ kind: 'row', row })) : groups.map((group): Node => ({ kind: 'group', group }))),
-      ...(unmanaged.length ? [{ kind: 'unmanaged', rows: unmanaged } as Node] : []),
-    ];
-    // Redraw only when something shown changed; the view refreshes every few seconds.
-    const shown = JSON.stringify(this.roots);
-    if (shown !== this.shown) {
-      this.shown = shown;
-      this.changed.fire(undefined);
-    }
-    return single?.label;
-  }
-
-  getChildren(node?: Node): Node[] {
-    if (!node) return this.roots;
-    if (node.kind === 'group') return node.group.rows.map((row): Node => ({ kind: 'row', row }));
-    if (node.kind === 'unmanaged') return node.rows.map((row): Node => ({ kind: 'row', row }));
-    return [];
-  }
-
-  getTreeItem(node: Node): vscode.TreeItem {
-    if (node.kind === 'group') {
-      const item = new vscode.TreeItem(node.group.label, vscode.TreeItemCollapsibleState.Expanded);
-      // The folder's name is enough on the row; where it is goes in the tooltip.
-      item.resourceUri = groupUri(node.group.cwd);
-      item.iconPath = PLACE_ICONS[node.group.place];
-      item.tooltip = markdown(`**${escapeMarkdown(node.group.label)}**\n\n$(folder) \`${node.group.cwd.replace(/`/g, "'")}\`\n\n$(${PLACE_CODICON[node.group.place]}) ${PLACE_TEXT[node.group.place]}`);
-      item.contextValue = 'group';
-      return item;
-    }
-    if (node.kind === 'unmanaged') return new vscode.TreeItem('Other tmux sessions', vscode.TreeItemCollapsibleState.Collapsed);
-    const item = new vscode.TreeItem(node.row.label, vscode.TreeItemCollapsibleState.None);
-    item.resourceUri = rowUri(node.row.name);
-    item.description = node.row.description;
-    item.tooltip = markdown(node.row.tooltip);
-    item.contextValue = node.row.contextValue;
-    item.iconPath = AGENT_ICONS.has(node.row.agent)
-      ? vscode.Uri.joinPath(this.extensionUri, 'media', 'agents', `${node.row.agent}.svg`)
-      : new vscode.ThemeIcon(node.row.agent === 'shell' ? 'terminal' : 'circle-outline');
-    item.command = { command: 'berth.focus', title: 'Open Session', arguments: [node.row.name] };
-    return item;
-  }
-}
-
 /** Agents the user asked never to be offered hooks for. */
 const HOOKS_DECLINED = 'berth.hooksDeclined';
 
@@ -295,63 +171,31 @@ function installHooksWithCli(agent: string): { ok: boolean; detail: string } {
   };
 }
 
-/** A folder's place is shown by icon and colour; the words are in the tooltip (spec §6). */
-// Not 'folder': with a resourceUri that one is replaced by the file icon
-// theme's folder icon, which many themes leave blank. 'file-directory' is the
-// same glyph without that rule.
+/** A folder's place in the folder picker, by icon and colour (spec §6). */
 const PLACE_ICONS: Record<Place, vscode.ThemeIcon> = {
   workspace: new vscode.ThemeIcon('root-folder', new vscode.ThemeColor('charts.blue')),
   inside: new vscode.ThemeIcon('file-directory'),
   outside: new vscode.ThemeIcon('file-directory', new vscode.ThemeColor('disabledForeground')),
 };
-const PLACE_CODICON: Record<Place, string> = { workspace: 'root-folder', inside: 'folder', outside: 'folder-library' };
-const PLACE_TEXT: Record<Place, string> = {
-  workspace: "This window's workspace folder",
-  inside: "Inside this window's workspace",
-  outside: "Outside this window's workspace",
-};
 
-/** Tooltips are Markdown with codicons; their user text is escaped by the model. */
-function markdown(text: string): vscode.MarkdownString {
-  const md = new vscode.MarkdownString(text, true);
-  md.isTrusted = false;
-  return md;
-}
-
+/** A session named by a command argument: a name, or the context of a right-clicked card. */
 function sessionArg(arg: unknown): string | undefined {
   if (typeof arg === 'string') return arg;
-  const node = arg as Node | undefined;
-  return node?.kind === 'row' ? node.row.name : undefined;
+  return (arg as MenuContext | undefined)?.session;
 }
 
 export function activate(context: vscode.ExtensionContext): void {
   const socket = vscode.workspace.getConfiguration('berth').get<string>('tmuxSocket', '');
   const ctx = createContext({ ...process.env, ...(socket ? { BERTH_TMUX_SOCKET: socket } : {}) });
   const host = new TerminalHost();
-  host.extensionUri = context.extensionUri;
   const controller = new Controller(ctx, host);
-  const tree = new SessionTree(context.extensionUri);
-  const decorations = new RowDecorations();
-  context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorations));
-  const view = vscode.window.createTreeView('berth.sessions', { treeDataProvider: tree });
+  const view = new SessionsView(context.extensionUri, (message) => {
+    if (message.type === 'show') void controller.show(message.session).then(refresh);
+    if (message.type === 'ready') refresh();
+    if (message.type === 'newIn') void startSession(message.cwd);
+  });
+  context.subscriptions.push(view, vscode.window.registerWebviewViewProvider(VIEW_ID, view));
   host.focusSession = (name) => void controller.show(name);
-  // Folders the user collapsed: their rows then show the most urgent session.
-  const collapsed = new Set<string>();
-  let lastModel: TreeView | undefined;
-  const decorate = () => {
-    if (!lastModel) return;
-    decorations.update([
-      ...[...lastModel.groups.flatMap((g) => g.rows), ...lastModel.unmanaged].map((r): [vscode.Uri, Mark] => [rowUri(r.name), rowMark(r)]),
-      ...lastModel.groups.map((g): [vscode.Uri, Mark] => [groupUri(g.cwd), groupMark(g, collapsed.has(g.cwd))]),
-    ]);
-  };
-  const onFold = (fold: boolean) => (e: vscode.TreeViewExpansionEvent<Node>) => {
-    if (e.element.kind !== 'group') return;
-    if (fold) collapsed.add(e.element.group.cwd);
-    else collapsed.delete(e.element.group.cwd);
-    decorate();
-  };
-  context.subscriptions.push(view.onDidCollapseElement(onFold(true)), view.onDidExpandElement(onFold(false)));
   // Follow the shown session in the explorer when its folder is in the workspace.
   const follow = (row: SessionRow) => {
     if (!vscode.workspace.getConfiguration('berth').get<boolean>('explorer.followSession', true)) return;
@@ -407,10 +251,9 @@ export function activate(context: vscode.ExtensionContext): void {
       .catch(() => undefined); // tmux gone or a snapshot unreadable: the next refresh tries again
     try {
       const { tree: model } = controller.refresh();
-      view.description = tree.update(model.groups, model.unmanaged);
-      lastModel = model;
-      decorate();
-      view.badge = model.waiting ? { value: model.waiting, tooltip: `${model.waiting} waiting for you` } : undefined;
+      view.update(model);
+      view.title = model.groups.length === 1 && model.groups[0].place === 'workspace' ? model.groups[0].label : undefined;
+      view.badge = model.waiting;
     } catch (error) {
       view.message = `Berth: ${(error as Error).message}`;
     }
@@ -506,8 +349,7 @@ export function activate(context: vscode.ExtensionContext): void {
   command('berth.new', async () => startSession(defaultFolder(shownCwd(), folders()) ?? (await pickFolder())));
   command('berth.newChooseFolder', async () => startSession(await pickFolder()));
   command('berth.newInFolder', async (arg: unknown) => {
-    const node = arg as { kind?: string; group?: { cwd: string } } | undefined;
-    await startSession(node?.kind === 'group' ? node.group?.cwd : await pickFolder());
+    await startSession((arg as MenuContext | undefined)?.groupCwd ?? (await pickFolder()));
   });
   // `{ confirm: false }` skips the dialog; used by integration tests.
   command('berth.applyLayout', async (options?: unknown) => {

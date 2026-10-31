@@ -75,6 +75,11 @@ export function metaForEvent(adapter: Adapter, event: string, payload: Record<st
   // Latest notification text, shown in session lists (spec §6). A new state
   // replaces it, so a finished session never shows an old permission request.
   if (state) meta.note = typeof payload.message === 'string' ? payload.message.trim().slice(0, 200) : '';
+  // The session's subtitle: the first line of the prompt the user just sent (spec §4.2).
+  if (state === 'working' && typeof payload.prompt === 'string') {
+    const first = payload.prompt.split('\n').map((l) => l.trim()).find(Boolean);
+    if (first) meta.topic = first.slice(0, 120);
+  }
   return meta;
 }
 
