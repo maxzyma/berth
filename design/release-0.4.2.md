@@ -1,4 +1,4 @@
-# Release: 0.4.1
+# Release: 0.4.2
 
 Status: approved for publication with the limitations below. Native acceptance is still unverified.
 
@@ -22,7 +22,7 @@ an attachment fixture's session name. The 0.4.1 fixture uses spaces, tilde and
 equals; control-character codec coverage remains in the existing field/path
 tests. Runtime source is unchanged. The failed tag is retained without a
 GitHub Release or registry publication. Local focused attachment verification
-passed on tmux 3.6a; the 0.4.1 CI run must verify tmux 3.8.
+passed on tmux 3.6a; the 0.4.1 CI run passed the complete suite on tmux 3.8.
 
 The workflow now packages both archives and extracts release notes before
 publishing npm. It publishes the inspected tarball, then creates the GitHub
@@ -63,3 +63,11 @@ Existing public attribution remains in history; new release commits use the
 maintainer's GitHub noreply address. No historical rewrite or old-version
 withdrawal is required by these findings. See the
 [audit receipt](assets/code-review/open-source-audit.json).
+
+## Publication-path correction
+
+The 0.4.1 workflow passed tests and packaging but failed before npm upload:
+`out/package.tgz` was interpreted as a repository shortcut. Version 0.4.2
+uses `./out/package.tgz`, checks its existence, and passes the same archive
+variable to dry-run and publication. Neither failed tag produced registry
+packages or a GitHub Release; both tags remain unchanged.

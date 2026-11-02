@@ -63,7 +63,10 @@ jobs:
             echo "@berthdev/berth@$version is already on npm; skipping publish"; exit 0
           fi
           case "$GITHUB_REF_NAME" in *-*) tag=next ;; *) tag=latest ;; esac
-          npm publish "out/berthdev-berth-${version}.tgz" --tag "$tag"
+          archive="./out/berthdev-berth-${version}.tgz"
+          test -f "$archive"
+          npm publish "$archive" --tag "$tag" --dry-run
+          npm publish "$archive" --tag "$tag"
 
       - name: GitHub release
         env:

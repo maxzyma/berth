@@ -684,7 +684,8 @@ Cases marked (human) need the maintainer's decision or accounts.
   `vX.Y.Z` (or `vX.Y.Z-pre`, published under `next` as a prerelease) checks the
   tag against both package versions, runs `npm test` on macOS, builds both
   distributable archives and extracts the matching changelog entry before any
-  registry write, then publishes
+  registry write, then runs publish dry-run and publication with the same
+  explicit local archive path (`./out/...`), and publishes
   `@berthdev/berth` through npm trusted publishing (no stored token,
   provenance attached; a version already on npm is skipped), and creates the
   GitHub release with the npm tarball and the `.vsix`; a release that is not

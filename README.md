@@ -134,8 +134,8 @@ session journey, architecture and remaining host acceptance limits.
 
 ## Releasing
 
-See the [0.4.1 release notes](packages/vscode/CHANGELOG.md) and
-[release preparation](design/release-0.4.1.md) for scope and outstanding gates.
+See the [0.4.2 release notes](packages/vscode/CHANGELOG.md) and
+[release preparation](design/release-0.4.2.md) for scope and outstanding gates.
 
 Set the same version in `packages/core` and `packages/vscode`, commit, then
 push a tag `vX.Y.Z` (or `vX.Y.Z-rc.N` for a prerelease under npm's `next`).
