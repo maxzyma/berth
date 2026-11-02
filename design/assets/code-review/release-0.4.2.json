@@ -1,0 +1,41 @@
+{
+  "version": "0.4.2",
+  "date": "2026-11-03",
+  "timezone": "Asia/Shanghai",
+  "source": "a479ab19203d26056e6230dc76be8ffb120cc6e7",
+  "workflow": "https://github.com/maxzyma/berth/actions/runs/41476463979",
+  "tests": {
+    "passed": 279,
+    "failed": 0,
+    "skipped": 7,
+    "total": 286,
+    "tmux": "3.8"
+  },
+  "publication": {
+    "npm_latest": "0.4.2",
+    "github_release": "https://github.com/maxzyma/berth/releases/tag/v0.4.2",
+    "marketplace_public_download": "0.4.2",
+    "marketplace_catalog_latest_observed": "0.4.2"
+  },
+  "verification": {
+    "npm_equals_github": true,
+    "marketplace_equals_github": true,
+    "core_files": 144,
+    "vsix_files": 28,
+    "local_installed_files": {
+      "v24.21.0": 144,
+      "v26.13.0": 144,
+      "extension": 26
+    },
+    "editor_reloaded": false
+  },
+  "sha256": {
+    "npm.tgz": "d5082e76acbdd8431b56619b37656376cc825023c2e2454df5441d9c5a960a5e",
+    "berthdev-berth-0.4.2.tgz": "d5082e76acbdd8431b56619b37656376cc825023c2e2454df5441d9c5a960a5e",
+    "berth-vscode-0.4.2.vsix": "e1fcc5675a1f97624af6c861c2d915464a3e34e4f89d2e573d248fe6c1fea94c",
+    "marketplace.vsix": "e1fcc5675a1f97624af6c861c2d915464a3e34e4f89d2e573d248fe6c1fea94c"
+  },
+  "remaining": [
+    "Previously disclosed native acceptance and passive-binding limits"
+  ]
+}
