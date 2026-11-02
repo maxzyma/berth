@@ -1,0 +1,46 @@
+{
+  "observed_at": "2026-10-31T23:31:30.407680+08:00",
+  "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "root_cause": "Lexicographic comparison of numeric session-name suffixes in buildTree and nextAttention",
+  "fix": "Shared natural comparator with deterministic tie-break; source rows stay unchanged",
+  "verification": {
+    "before": "Both targeted unit regressions failed before the comparator change",
+    "unit": {
+      "passed": 31,
+      "failed": 0,
+      "duration_seconds": 6.932297
+    },
+    "browser": {
+      "passed": 4,
+      "failed": 0,
+      "duration_seconds": 5.8,
+      "scope": [
+        "Natural order across stopped/live transition",
+        "Selection identity across insertion/reordering"
+      ],
+      "viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1280,
+          800
+        ]
+      ]
+    },
+    "visual": "Screenshot inspected; both viewport captures have identical hashes",
+    "installed": "JS, CSS and extension bundle hashes match; editor not reloaded"
+  },
+  "hashes": {
+    "packages/vscode/src/model.ts": "565471fbced15f40996730bd5a2f7c74a5e8363041e8c9ff2011ecd274868d57",
+    "packages/vscode/test/controller.test.ts": "1f5e503f19d1e6f7cba7d0a50bea7baea04c3d8cce15ab5b90880d849d7e0223",
+    "packages/vscode/test/browser/fixture.mjs": "210abc6d9d47047f5a102cb8543851f02f3d3075c21f02c4f0eafad7b75a7af5",
+    "packages/vscode/test/browser/hover.spec.mjs": "25a405f004e7823478f227cc864575f5943ab6cb19731e25c12db3556525199b",
+    "packages/vscode/dist/extension.cjs": "cf16a0b2de4bbb9617a22c40a851c1de69eb4fefeb63aee0fe8a82b3e9231ca8"
+  },
+  "screenshot": {
+    "file": "natural-order.png",
+    "sha256": "5d52697ae8700bf92b3dbc480cc0f55f74b06786f3acfc5e96b3d3cdaac0fc6e"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "version": "0.4.0",
+  "date": "2026-11-02",
+  "baseline": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a + working-tree changes",
+  "source_manifest_sha256": "dc3d117854491ffdc5bafaa83faf05cf8129f8c90b791b6939df52400f193cd7",
+  "tests": {
+    "passed": 279,
+    "skipped": 7,
+    "failed": 0,
+    "duration_ms": 146596.374833,
+    "runtime": "Node 24",
+    "isolation": "fresh source copy and npm ci"
+  },
+  "packages": {
+    "core_files": 144,
+    "vsix_files": 28,
+    "artifacts": {
+      "berth-vscode-0.4.0.vsix": "a4299df0adb6d44374a4438dac1bda75749a4600fe4e3a764f2bd944773b21e5",
+      "release-notes.md": "6e67cf5e3cb2e3e2690e94c6121bcf3693b8e5fddae6b592a56fa36b00eb2f3c",
+      "berthdev-berth-0.4.0.tgz": "4c476f2036765d912c53a74636fbb0fab355e371b10e054e1b871056757324b6"
+    }
+  },
+  "checks": [
+    "package versions and allowlisted contents",
+    "isolated CLI installation and file comparison",
+    "CLI and bundled CLI help",
+    "npm publish dry-run only",
+    "actionlint",
+    "public-information guard",
+    "workflow changelog extraction"
+  ],
+  "open_gates": [
+    "R6 native editor and manual acceptance",
+    "CR51 intermittent diagnosis failure root cause unknown"
+  ],
+  "known_limits": [
+    "Passive first-install adoption incomplete across agents",
+    "Codex shared-daemon TUI mapping unavailable",
+    "Qoder late binding deferred"
+  ],
+  "publication": {
+    "committed": false,
+    "tagged": false,
+    "npm": false,
+    "marketplace": false,
+    "github_release": false
+  },
+  "logs": {
+    "berth-release-tests.log": "b40fd866a96bb60a2f47f4c354ab70b31b1706afd73e2d571619a9047aed4fdf",
+    "berth-release-publish-dry-run.log": "cb891ea81ee31a8948a7470da87e483e458b14fc3c692f9783fe8875e49821f0"
+  }
+}

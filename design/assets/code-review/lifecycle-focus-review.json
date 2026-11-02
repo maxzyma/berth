@@ -1,0 +1,75 @@
+{
+  "observedAt": "2026-11-01T05:47:51.510923+00:00",
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "dirtyWorkingTree": true,
+    "candidateEvidence": "codex-lifecycle-repairs.json"
+  },
+  "findings": {
+    "CR34": {
+      "status": "open",
+      "severity": "P1",
+      "probe": "native Codex 0.166.0, loopback provider, isolated tmux; Escape while model response pending",
+      "observed": {
+        "nativeInterrupted": true,
+        "berthState": "working"
+      },
+      "cause": "No Interrupt hook or interruption transition"
+    },
+    "CR35": {
+      "status": "open",
+      "severity": "P2",
+      "probe": "Headless Chrome; focus Copy session name, deliver same-session working state update",
+      "viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1280,
+          800
+        ]
+      ],
+      "observed": {
+        "activeElement": "BODY",
+        "dialogVisible": true
+      },
+      "cause": "HoverCard.render replaces focused button subtree"
+    },
+    "CR36": {
+      "status": "open",
+      "severity": "P1",
+      "probe": "Native Codex 0.166.0; on-request approval, read-only sandbox; approve synthetic printf fixture command after approval UI renders",
+      "observed": {
+        "toolExitCode": 0,
+        "nextModelRequest": true,
+        "berthState": "waiting",
+        "note": ""
+      },
+      "cause": "No post-tool transition; permission payload explanation is not read"
+    }
+  },
+  "probeHashes": {
+    "berth-cr34-interrupt-probe.mjs": "9b555beb684ffcfa16db07278a4be3899268fac7ccb0a95e8d61cb3ffb3b864f",
+    "berth-cr34-approval-probe.mjs": "1796e95d45bf1a8da58fe6cbc8ef4d1ac02a1caa7694f39134a9f57052f1d5db",
+    "berth-hover-focus-probe.mjs": "c61bbd0a313c8cdf7e8db79aabac5a4afe8c713647ef2b0e8a0ed2deaf08cf8b"
+  },
+  "logHashes": {
+    "berth-cr34-interrupt-probe.log": "5fa8bc7f24617dd38d0e8a9c912d60f7e3c862802ce640f199582850a232967f",
+    "berth-cr34-approval-probe.log": "17f18e2ab7fb293fde53801985b73af0d9180a4c76681e233727992842e490cf",
+    "berth-hover-focus-probe.log": "6fea9f07543f002994766f5f1ba0a9b2cdffb943b28894b6d3dd1e21e0544774"
+  },
+  "browserEvidenceHashes": {
+    "berth-hover-focus-1440.png": "69989735efdd287f30c5caed125162461609df47ad8d0a5654655e75d9609d63",
+    "berth-hover-focus-1280.png": "89a61288ec5fa62999e403ce40728b36759ee6417674193f6ccb048a6131a3a4",
+    "berth-hover-focus-1440.zip": "113fdf05ded6c6736a5e8278ec3f8908e9682ed042fc8272709e9097a9135fc8",
+    "berth-hover-focus-1280.zip": "a7b4ab57a0883f22cec189fcf7e663354389de363a77af127ec6d5726c38d35c"
+  },
+  "limits": [
+    "No daily editor changes",
+    "Native desktop host acceptance remains open",
+    "Review probes are separate from the passing regression suite",
+    "Raw native transcripts stay outside the repository"
+  ],
+  "source": "https://learn.chatgpt.com/docs/hooks"
+}

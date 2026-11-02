@@ -1,0 +1,138 @@
+{
+  "observedAt": "2026-11-01T07:00:59.091008+00:00",
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "dirtyWorkingTree": true
+  },
+  "resolved": [
+    "CR42"
+  ],
+  "previousEvidence": "opencode-recovery-repairs.json",
+  "verification": {
+    "build": "passed",
+    "focusedPassed": 19,
+    "fullRegression": {
+      "tests": 185,
+      "passed": 181,
+      "failed": 0,
+      "skipped": 4
+    },
+    "nativeOpenCode": {
+      "version": "1.19.5",
+      "passed": 1,
+      "scope": [
+        "Prior initial binding and exact-ID recovery journey",
+        "Held response reports working",
+        "Double Escape clears activity without completion",
+        "Injected HTTP 401 clears activity without completion",
+        "Approval returns to working and proof file contains expected output",
+        "Rejection clears activity and proof file is absent",
+        "Successful subsequent turns preserve the conversation ID"
+      ],
+      "inference": "Loopback fixture, including title responses. Bootstrap dependencies preinstalled in isolated profile; built-in plugins may make external requests."
+    },
+    "generatedPlugin": [
+      "Ordered forwarding with delayed identity persistence",
+      "Previously unseen child and unknown-session events ignored",
+      "Error and rejection survive repeated idle events",
+      "New busy/retry permits subsequent completion",
+      "Unknown status/reply values ignored",
+      "Missing runtime does not reject native callback"
+    ],
+    "browser": {
+      "reused": "CR36 final 74-case matrix",
+      "sourceHashesUnchanged": true
+    },
+    "installedFileMatches": {
+      "extension": 25,
+      "core": 120
+    }
+  },
+  "sourceHashes": {
+    "packages/core/src/errors.ts": "6fd21f53fb27cd2853d9c9caa021c0d811b077b8067ab348d85559775a4f6a50",
+    "packages/core/src/process-owner.ts": "ab669d581c8e6e9f65b5ccb3e882f9c445b26187a2d92aa1a46fcbc5babb99f2",
+    "packages/core/src/context.ts": "214f7ad3572fa9f04a410dd569e665ca60977904b0c1ae2f748d2720b5dfd24d",
+    "packages/core/src/process-directory.ts": "560c332e44cb526a81315531c0a975cf7eb4d177c0bc2dd526a4ac18fb2bf068",
+    "packages/core/src/shell.ts": "f4b4064d0b38bfc1b947d970d5c1fce4702b815ef527c22255767bd474987de4",
+    "packages/core/src/tools.ts": "1bd8758a45cd31130290d8ae9639516a276765ca0da03463553093c5d313bbc1",
+    "packages/core/src/index.ts": "e83b76a1ac2a9308c766375db0c1326c68806862ff60aa97de63692e3b34bb39",
+    "packages/core/src/process-arguments.ts": "f4ce9f88c3ac6103e6233b012bdb11c776c148843900bf6de0cc95227ccc12d8",
+    "packages/core/src/present/state.ts": "67da3731fa63f6c30ab0030d898b06f89baa3e87829d782fb6121a45780b6ece",
+    "packages/core/src/present/attach.ts": "2d45c466348c2b74c53b7efc7d203e52ff07a4445f416de0d23e39d2a40e6fe2",
+    "packages/core/src/snapshot/identity.ts": "7a50e2916b3d55a5da3da2cc6328408b2e5f5e416caa027d4bd7296d21bcb0f0",
+    "packages/core/src/snapshot/take.ts": "737c121bb34d53df76ab686bd0b00a321a77b8e9106ca71839351643a6ee1944",
+    "packages/core/src/snapshot/lifecycle.ts": "c0b5fb7145d14bb00a00fc48031079d261608ceb2eeb6eaba980213b2259e2e0",
+    "packages/core/src/snapshot/store.ts": "35af9dd25d0d44ce0c70de498d0734d843994c3fcc05b5bf7ce562a030dc0a17",
+    "packages/core/src/config/index.ts": "ade5925bca0db922466dccf38d445b9f78e506bdfbb4a83881e800ce3199866f",
+    "packages/core/src/agents/roots.ts": "d2fd31b3325513b155827f276b8e1f92b6e437b979119f14304303d5ad704dbe",
+    "packages/core/src/agents/commands.ts": "08ce92e36123ea765348bb9c166bdc97ac11c24312a44582af0dbbfa93839445",
+    "packages/core/src/agents/hook-files.ts": "2538285fa8ce0ce9156a3c6a036a084d7c5b0520c10bbd603c6f5737355a8071",
+    "packages/core/src/agents/titles.ts": "2f856498b24f301eaedf92f5d995197863b74ee3732559c6cd0e844018eaa8bf",
+    "packages/core/src/agents/hook-health.ts": "faaf55adf2a19ebd529b5a8335273dc6c7925ea9e56cab8f5ecea56f2fb5e314",
+    "packages/core/src/agents/profile.ts": "0ab12a74289413cdbb25614bc8b143a74d3409a49c06deafd6ecb2ce62a63de0",
+    "packages/core/src/agents/registry.ts": "6ebf3fe75332a315a8fcf2bf9d0e26299371a9748e3121c9941ba53c4a391e0b",
+    "packages/core/src/agents/hooks.ts": "eb7c95d44748498c047bec1d50cc23845b44f8e1091814c4ce290e3424c4378e",
+    "packages/core/src/cli/main.ts": "a647a59393c12adf3e452016c1c4ccf88f37bbeaca25033a0c838358a249cb45",
+    "packages/core/src/iterm2/install.ts": "123a2ad945300d364d1693769ccd3e755c4bd5d67917d9134d98eb374e62d805",
+    "packages/core/src/tmux/install.ts": "ae51c41f35e39e27783a13e68f8a640cc5497ff6f0ce64c17e89b693f50352b5",
+    "packages/core/src/tmux/connections.ts": "4f64b6028018fc45af5537ca4ab7b8c4af6987525d53512de76781b442e9f703",
+    "packages/core/src/tmux/client.ts": "51e4af7aef85dfa3ba9443a73f2717d456a41fa3795fb585d495ca9e3f51f418",
+    "packages/core/src/tmux/fields.ts": "791e534c367fec26ebc3257732fade39254c768a26bdab91bf8e1120aeb740d4",
+    "packages/core/src/registry/doctor.ts": "ff87f9146e909f73551c075fb59316312697b43a00bbdd517a9336df88240d2a",
+    "packages/core/src/registry/directory.ts": "20334df01c99b68d89dcaad140905c7410587fd67524e6737dae586206ad6f23",
+    "packages/core/src/registry/launch.ts": "bc3b4fb141919de87c122d6dd9c73a5653a9cc149a6167cecf0b6a6e01554b3f",
+    "packages/core/src/registry/hosts.ts": "7815fd9200a44b2c0d9ffb328b1be3c917fefeb818f82a0d04ed4e02e1c36a11",
+    "packages/core/src/registry/discover.ts": "968bba7aa65889a439bbbdc25d4f34d8700148897ab999694f585ea97f4be0b2",
+    "packages/core/src/registry/sessions.ts": "710bc218d1c9d74b58697fea085a7a2d17a1e6c334927722590bd709184a2c06",
+    "packages/core/src/restore/status.ts": "116dc036d37e05bccc5cecf4d428e7c09726904bd54713d2661800c573a02cff",
+    "packages/core/src/restore/lock.ts": "e2f0808bf6fbbe308facd2f474de93734eb6a7062cdbd02ef50823ae85c4523e",
+    "packages/core/src/restore/ensure.ts": "3bea7e803f82976d1a72b18f1dd92ac3891c71ad0972c5267407347d0d61e5c7",
+    "packages/vscode/src/inventory.ts": "6e107cf02047fe7a0f370b398a3a6002deeb5986cfece47c727cdb7f56aab465",
+    "packages/vscode/src/extension.ts": "bc39f4835d343ccdda22be0594eb8578587d2ca8493aeb9b76edfd8f70b4f866",
+    "packages/vscode/src/model.ts": "379176e3b65af723fe3ef3150132b13e663eed7b1151de9387fb4943fb8c2aa5",
+    "packages/vscode/src/hookRuntime.ts": "0a607dfcbe9e533f6713fc07e08bd957e84f883b118f06cdcda3996bcd0ef522",
+    "packages/vscode/src/controller.ts": "feee37a13200e718f2af82223713832163e6cdcb8b7049d0af95b43b745fae86",
+    "packages/vscode/src/view/sessionsView.ts": "d0122ccff17adae65eb0cc0ddf665756c684d9eea781be7022cf1c246c7a934c",
+    "packages/vscode/src/view/protocol.ts": "d4e5b7594bffd0a3a156397df844d90380da52507c72cec3d522938587778622",
+    "packages/vscode/webview/hover.ts": "6f3aab057147b07a626683c2f4da259c741144338d094dc492ee30be938a6000",
+    "packages/vscode/webview/main.ts": "8bce6c71d2862df9a39fedbafd50987d54bad0a4c1eca76c5a0c2e9440770a3d",
+    "packages/vscode/webview/clipboard.ts": "de4813fc4f611592b4729783003c75629210e2bbee0007c2aa1a43254a928d47",
+    "packages/vscode/webview/icons.ts": "c9b7f7a35bb2386650bbe5022091d24582f4919c859801f7bda63ba32f39446d",
+    "packages/vscode/webview/hoverPosition.ts": "6c8c3f12e837c8861335911e757f057fea5c427f2c96123a978a223dbe8410c9",
+    "packages/vscode/webview/main.css": "399c6d9911329144fbe6b5a544edd5bec0d14cf87e5a9f4342d92030ce147557"
+  },
+  "changedTestHashes": {
+    "packages/core/test/opencode-events.test.ts": "190ab3546bba74a79e5c3c5d9e6c16972d7269a0d85407af1b4c55acc6d6c87e",
+    "packages/core/test/live/opencode-local.test.ts": "b32f3f135bed208bba946b118abc29239f7f8e751cfc92aeb756a12c1cbe45fb"
+  },
+  "artifactHashes": {
+    "berth-cr42.vsix": "bc9a9efbe1b1ea4938dde5b3129229b1b6ae573c84162a54865f3ed269da57db",
+    "berthdev-berth-0.3.6.tgz": "c8e4f571ea02891ecf42234c78bcb3cda704ca53f9a9bf79a764923aa0d92a3c"
+  },
+  "logHashes": {
+    "build-final": "5517a6c71b8bf489434e24ef82739de42fdeca0f718e6ee3f8f9b85ed4feecdd",
+    "focused-final": "9de0f80d1e612e672f36833344288265f26a98e87ef092704b045887637aa0ce",
+    "native-final": "779df4585dadccb3445af998fbdceb026c35928ccd54f83d5b3d09d8a9755262",
+    "full": "bedb9c785fb751e8446e4982b307cecd04d7b74d519b680eb47fac78dada1e37",
+    "package": "b3b064ba71f470faade38df38818a9a20f647bc74ec4a05c304971c39e455f27",
+    "core-package": "ed99ecca4c8fe2d0abee95fe30cc75e746eaaff0682d86a853d2536101ce8df2",
+    "install": "2b6d6210806ccc0d6e0945b6e1e4ef140a874cd16157413f4a811d91675b5318",
+    "core-install": "23f22d47bf3d4f8be6b67750f1d618be6505945b9d91521843d4dec0bd67d72a"
+  },
+  "preRepairProbeHashes": {
+    "cancel-keys": "d94da599f310d2657449b53865b0b5750f078059dcc01ab25bd898562130644c",
+    "error-state": "d20c2344e688cb2d271abb212198ae7044a45e2090043ac9f35ff9ccd138f235",
+    "rejection-events": "e62cbb9cc82aca38124e47176be4668a0fc3eeb57d0ae77b36e1eb5fd15deabc"
+  },
+  "pending": [
+    "Idle OpenCode TUI may emit no identity acknowledgement before activity",
+    "Native Qoder and other agent/version delivery",
+    "Native editor and iTerm lifecycle, OS clipboard and accessibility",
+    "Linux execution"
+  ],
+  "delivery": {
+    "isolatedInstall": true,
+    "dailyEditorChanged": false,
+    "published": false
+  }
+}

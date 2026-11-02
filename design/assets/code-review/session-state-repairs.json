@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-02T01:22:34.657469+08:00",
+  "sourceHead": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "workingTreeChanges": true,
+  "vsixSha256": "555a425a41cbdc138693aa9fde9e7f6bedf3122601cb5d96ca5316bfe5abed30",
+  "coreSha256": "5546a6066ea08ee07cc071ad9150b7b5376d88ca5c392ddd00f93b9dd411c48a",
+  "checks": {
+    "affectedCoreAndController": {
+      "pass": 74,
+      "fail": 0
+    },
+    "browserIdentity": {
+      "pass": 54,
+      "fail": 0,
+      "viewports": [
+        "1440x900",
+        "1280x800"
+      ],
+      "scope": "identity and hover; readiness action routing, focus, overflow and resize"
+    },
+    "installedPackageComparison": "passed",
+    "readinessAndController": {
+      "pass": 50,
+      "fail": 0
+    }
+  },
+  "limitations": [
+    "Daily editor not reloaded or controlled",
+    "Native readiness Quick Pick not interactively verified",
+    "Checking preserves unresolved binding; actual resume remains separate",
+    "No remote publication"
+  ]
+}

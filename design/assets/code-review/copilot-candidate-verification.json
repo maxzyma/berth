@@ -1,0 +1,77 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "checkedAt": "2026-11-01T10:33:00.097337+00:00",
+    "includesWorkingTree": true
+  },
+  "previousReceipt": "copilot-approval-repairs.json",
+  "candidate": "CR65",
+  "runtimeSourceHashesMatchPreviousReceipt": true,
+  "reusedVerification": {
+    "completeRegression": {
+      "tests": 238,
+      "passed": 231,
+      "skipped": 7,
+      "failed": 0
+    },
+    "targetedRegression": {
+      "passed": 10
+    },
+    "copilotNative": {
+      "passed": 1,
+      "cases": [
+        "binding/completion",
+        "same-ID/profile/history recovery",
+        "provider failure and next turn",
+        "cancellation and next turn",
+        "approval with file-content proof",
+        "denial with feedback and non-execution proof",
+        "one unresolved approval preserves waiting",
+        "both decisions resume work with both output proofs"
+      ]
+    },
+    "fixtureCorrection": "Concurrent tools can present approvals in either order. The fixture now reads the active approval card rather than assuming transcript order; the opt-in fixture was rerun after this test-only correction. Complete regression skips native tests."
+  },
+  "artifacts": {
+    "vsix": {
+      "name": "berth-cr65.vsix",
+      "sha256": "7c84284ca42c23c398249af2507a40d2a3f4ec11bd20331c8dd3b72292340f50",
+      "bytes": 312640
+    },
+    "core": {
+      "name": "berthdev-berth-0.3.6.tgz",
+      "sha256": "d6999e55920fb9a9b81411692a85101f5f76e21b3a8306db6965785798366d55",
+      "bytes": 98840
+    }
+  },
+  "installedFileComparison": {
+    "matches": {
+      "extension": 25,
+      "core": 141
+    },
+    "normalization": "Only extension package.json __metadata is omitted; all other content compared byte-for-byte."
+  },
+  "installedChecks": {
+    "passed": 4,
+    "producer": "synthetic process in isolated tmux; not a native-agent acceptance test",
+    "cases": [
+      "both installed CLIs preserve selected Gemini home, unrelated settings, symlink and mode",
+      "both installed CLIs reconcile Gemini cancellation",
+      "both installed CLIs install Copilot hooks in selected profile",
+      "both installed CLIs preserve one pending approval then resume working after all decisions",
+      "both installed CLIs clear Copilot terminal failure and retain conversation identity"
+    ]
+  },
+  "logs": {
+    "package": "e4cb0fc786136c33dbab54768c9be1ce735ec2dd2f5ae1efdcf4dc97b9a7536f",
+    "corePackage": "d19dbc65f6e9cabe10a1d95903606d07adf3dc6732f5a10664e0e50784e07a2d",
+    "install": "d1b44511c7edb8cb65562816d57bc2948cb0b79589f2ece2a205c6c7f6c9b718",
+    "installedChecks": "f28e3ab02fa7d15231fa5d33e775df2996766709e1773469fc4ed0e370eb897a",
+    "fileComparison": "311dfdf9f3eca8cbb0ea8071c15b155a5f31946fd1c9fc11664a33769852dc56"
+  },
+  "limits": [
+    "Native host lifecycle and remaining platforms/agent versions require acceptance",
+    "No daily editor replacement or publication",
+    "Linux environment bootstrap is in progress; no Linux pass claimed here"
+  ]
+}

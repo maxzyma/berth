@@ -1,0 +1,72 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T13:38:05.503763+00:00"
+  },
+  "finding": "CR78",
+  "status": "repaired",
+  "cause": "Dismissed anchor survives when the pointer was already outside it at close time, suppressing the next entry.",
+  "repair": "Clear dismissal on a genuine mouseenter, retaining stationary-pointer and keyboard-focus suppression.",
+  "checks": {
+    "browser_baseline_failures": 4,
+    "focused_passes": 4,
+    "copy_hover_passes": 52,
+    "native_editor": "VS Code 1.144.0 Linux arm64, isolated Xvfb",
+    "native_viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "clipboard": true,
+        "keyboardCopy": true,
+        "escapeFocus": true,
+        "pointerReentry": true
+      },
+      {
+        "width": 1280,
+        "height": 800,
+        "clipboard": true,
+        "keyboardCopy": true,
+        "escapeFocus": true,
+        "pointerReentry": true
+      }
+    ],
+    "installed_comparison": {
+      "extension": 25,
+      "core": 141
+    },
+    "core_and_extension_host_bundles_unchanged": true,
+    "core_regression_reused": "scrollback-key-repairs.json"
+  },
+  "candidate": {
+    "name": "berth-cr78.vsix",
+    "sha256": "5b42995c2ffae8d267947bfba7150ce0213e72883c23afaeb1dbfd22e037341c"
+  },
+  "logs": [
+    {
+      "name": "berth-cr78-baseline.log",
+      "sha256": "eade706848674047d75669f07dbb0c918e74385eadb1a1fed84a1b143b14fc5c"
+    },
+    {
+      "name": "berth-cr78-focused.log",
+      "sha256": "6acd35ec9ac72ec3a02005fd94eaf827db73f78a03d6e311d8c79bba5976c3c5"
+    },
+    {
+      "name": "berth-cr78-webview.log",
+      "sha256": "b63b2c105f6c6b36ed7bc1f4ebcd536104fdb7d7a42d8567728fc091f9872680"
+    },
+    {
+      "name": "berth-cr78-native.log",
+      "sha256": "ae549670f3657954bd9010b30d56a0411b7268f8fc985d7768969cb9697f7254"
+    },
+    {
+      "name": "berth-cr78-install-check.json",
+      "sha256": "2966687ade3d22ce90be5eb243d4985dae582a1cd7e0b9244fd1c6f6c9a0def5"
+    }
+  ],
+  "limitations": [
+    "CR74 and CR75 remain open.",
+    "No new native visual-quality or full accessibility verdict.",
+    "Daily editor unchanged; no publication."
+  ]
+}

@@ -17,6 +17,7 @@ export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposab
   private view?: vscode.WebviewView;
   private model?: TreeView;
   private sent = '';
+  private error = '';
   private readonly subscriptions: vscode.Disposable[] = [];
 
   constructor(
@@ -37,17 +38,33 @@ export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposab
     view.webview.options = { enableScripts: true, localResourceRoots: [root, vscode.Uri.joinPath(this.extensionUri, 'media', 'agents')] };
     view.webview.html = this.html(view.webview, root);
     view.webview.onDidReceiveMessage((message: FromView) => {
+      if (message.type === 'copy') {
+        if (!Number.isSafeInteger(message.id) || typeof message.value !== 'string') return;
+        void vscode.env.clipboard.writeText(message.value).then(
+          () => this.post({ type: 'copyResult', id: message.id, success: true }),
+          () => this.post({ type: 'copyResult', id: message.id, success: false }),
+        );
+        return;
+      }
       if (message.type === 'ready') {
         this.sent = '';
         this.post({ type: 'settings', settings: this.settings() });
         this.push();
+        this.post({ type: 'error', message: this.error });
       }
       this.onMessage(message);
     });
+    view.onDidChangeVisibility(() => { if (!view.visible) this.dismissDetails(); });
     // A view the user hides is disposed; the next one starts over.
     view.onDidDispose(() => {
+      this.onMessage({ type: 'detailsVisibility', visible: false });
       this.view = undefined;
     });
+  }
+
+  dismissDetails(): void {
+    this.post({ type: 'dismissDetails' });
+    this.onMessage({ type: 'detailsVisibility', visible: false });
   }
 
   /** New model from a refresh; sent only when something shown changed. */
@@ -65,8 +82,8 @@ export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposab
   }
 
   set message(text: string | undefined) {
-    // A WebviewView has no message line; the title carries it.
-    if (this.view && text) this.view.description = text;
+    this.error = text ?? '';
+    this.post({ type: 'error', message: this.error });
   }
 
   dispose(): void {

@@ -68,16 +68,17 @@ export function sandbox(t: TestContext, overrides: Record<string, { launch?: str
     HOME: join(root, 'home'),
     XDG_CONFIG_HOME: join(root, 'config'),
     XDG_STATE_HOME: join(root, 'state'),
+    XDG_DATA_HOME: join(root, 'data'),
     BERTH_TMUX_SOCKET: socket,
     TMUX_TMPDIR: TMUX_DIR,
     // Not the developer's zsh: macOS's /etc/zshrc saves history into HOME on
     // exit, racing the sandbox's removal.
     SHELL: '/bin/sh',
   };
+  for (const key of ['CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'GEMINI_CLI_HOME', 'QODER_CONFIG_DIR', 'COPILOT_HOME', 'KIMI_CODE_HOME',
+    'BERTH_CONFIG', 'BERTH_STATE_DIR', 'BERTH_TMUX_SOCKET_PATH', 'BERTH_TMUX', 'BERTH_AUTO_ADOPT']) delete env[key];
   delete env.TMUX;
   delete env.TMUX_PANE;
-  delete env.BERTH_CONFIG;
-  delete env.BERTH_STATE_DIR;
   mkdirSync(env.HOME, { recursive: true });
   if (!socket.startsWith('berth-test-')) throw new Error('refusing to run outside a test socket');
 
@@ -133,8 +134,18 @@ export async function waitFor<T>(check: () => T | undefined | false, what: strin
   }
 }
 
-/** Kill the sandbox's tmux server, as a reboot would. Only ever a test socket. */
+/** Abrupt server loss, not the orderly kill-server command (which fires close hooks). */
 export function killServer(sb: Sandbox): void {
   if (!sb.socket.startsWith('berth-test-')) throw new Error('not a test socket');
-  spawnSync('tmux', ['-L', sb.socket, 'kill-server'], { env: sb.env });
+  const result = spawnSync('tmux', ['-L', sb.socket, 'display-message', '-p', '#{pid}'], { env: sb.env, encoding: 'utf8' });
+  const pid = Number(result.stdout.trim());
+  if (result.status !== 0 || !Number.isSafeInteger(pid) || pid <= 1) return;
+  process.kill(pid, 'SIGKILL');
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline) {
+    try { process.kill(pid, 0); }
+    catch { return; }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+  }
+  throw new Error('Test tmux server did not exit');
 }

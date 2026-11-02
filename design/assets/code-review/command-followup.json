@@ -1,0 +1,64 @@
+{
+  "observed_at": "2026-11-01T04:10:26.581406+00:00",
+  "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "baseline": "second-followup-repairs.json",
+  "findings": {
+    "CR23": {
+      "priority": "P1",
+      "state": "open",
+      "probe": {
+        "launchArgs": [
+          "--settings",
+          "/tmp/Agent Profiles/settings.json",
+          "--model",
+          "unit"
+        ],
+        "psDisplaySuffix": "--settings /tmp/Agent Profiles/settings.json --model unit",
+        "effect": "Settings argument loses its whitespace boundary before recovery parsing."
+      }
+    },
+    "CR24": {
+      "priority": "P1",
+      "state": "targeted repair",
+      "probeBefore": {
+        "launch": "claude -- \"--dangerously-skip-permissions\"",
+        "kept": [
+          "--dangerously-skip-permissions"
+        ]
+      },
+      "repair": "Stop keep-set scan at standalone option terminator."
+    },
+    "CR25": {
+      "priority": "P2",
+      "state": "targeted repair",
+      "probeBefore": {
+        "process": "vim /tmp/claude",
+        "detected": "claude"
+      },
+      "repair": "Only supported interpreters can identify an agent by their script argument."
+    }
+  },
+  "verification": {
+    "targetedPassed": 18,
+    "targetedFailed": 0,
+    "log_sha256": "6fbd06814472eed5e3fdea0f0c014b5b0182995aeb38c5e99b5810d74e1856e9",
+    "scope": [
+      "core command rendering",
+      "binding",
+      "discovery"
+    ],
+    "fullRegression": "deferred until CR23 implementation",
+    "publicBoundaryCheck": "passed"
+  },
+  "source_hashes": {
+    "packages/core/src/agents/commands.ts": "2e611b706b7649a4cda9dfc9567c77ab511968eb0f0e627bff9c1488fd9eea85",
+    "packages/core/src/registry/discover.ts": "3c2bbd01de56fbaa2cfb352adcb505d706ac7fad626bc71d5c6fa409059d5841",
+    "packages/core/test/discover.test.ts": "0fabf8ae152696dcca129aeaa63b93c180e306c582cf50cc872b8b5560fc39c0",
+    "design/spec.md": "905b24d7caa6fb28e908e0ccf4230585c357beebe28efb50a43fc5ea59d62dfe"
+  },
+  "pending": [
+    "CR23 implementation and OS argument extraction tests",
+    "Affected-caller regressions and regenerated bundles/packages",
+    "Native host and remaining agent/version acceptance"
+  ]
+}

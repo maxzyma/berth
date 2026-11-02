@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { profileRoot } from '../agents/profile.js';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -6,11 +7,11 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { createContext, type Context } from '../context.js';
 import { BerthError, ExitCode } from '../errors.js';
-import { handleHook, hookHint, hookStatus, installHooks, uninstallHooks } from '../agents/hooks.js';
-import { adopt, bellRang, checkOrigin, create, forget, list, requireLive, stamp, type SessionRow } from '../registry/sessions.js';
+import { handleHook, hookHint, hookStatus, hookSetupGuidance, installHooks, uninstallHooks } from '../agents/hooks.js';
+import { adopt, bellRang, checkOrigin, create, forget, inventory, list, requireLive, stamp, type SessionRow } from '../registry/sessions.js';
 import { doctor } from '../registry/doctor.js';
 import { adoptDiscovered, takeSnapshot } from '../snapshot/take.js';
-import { ensure, restoreFrom, type RestoreResult } from '../restore/ensure.js';
+import { ensure, restoreFrom, retryRecovery, setRecoveryProfile, setRecoveryOptions, type RestoreResult } from '../restore/ensure.js';
 import { presentState } from '../present/state.js';
 import { installTmux, uninstallTmux } from '../tmux/install.js';
 import { installIterm2, reattach, uninstallIterm2 } from '../iterm2/install.js';
@@ -24,9 +25,12 @@ const USAGE = `usage: berth <command> [options]
   adopt <session> --agent <id> [--origin O]
   attach <session> [--origin O]
   stamp [--session S] key=value...
+  recovery-options <session> -- [options]       review saved recovery options
+  recovery-profile <session> --root <dir>       choose a stopped conversation profile
   snapshot
   forget <session>                             stop restoring a stopped session
   ensure [--origin O] [<session>]
+  retry <session>
   restore [--origin O] [--session S] [<snapshot dir>]
   show <session> [<snapshot dir>]
   doctor [--json]
@@ -70,7 +74,10 @@ function formatResults(results: RestoreResult[]): string {
 
 /** Tell the user, on stderr, when the agent just started has no hooks. */
 function hintHooks(agent: string | undefined): void {
-  if (agent && hookStatus(agent) === 'missing') process.stderr.write(`${hookHint(agent)}\n`);
+  if (!agent) return;
+  const status = hookStatus(agent);
+  if (status === 'missing' || status === 'broken') process.stderr.write(`${hookHint(agent)}\n`);
+  else if (status === 'installed' && hookSetupGuidance(agent)) process.stderr.write(`${hookSetupGuidance(agent)}\n`);
 }
 
 function cliPath(): string {
@@ -89,8 +96,7 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
   switch (command) {
     case 'ls': {
       const { values } = parse(rest, { json: { type: 'boolean' } });
-      adoptDiscovered(ctx);
-      const rows = list(ctx);
+      const rows = inventory(ctx);
       out(values.json ? JSON.stringify(rows, null, 2) : formatRows(rows));
       return ExitCode.ok;
     }
@@ -108,6 +114,12 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
       });
       out(name);
       hintHooks(positionals[0]);
+      return ExitCode.ok;
+    }
+    case 'recovery-options': {
+      if (rest[1] !== '--') throw new BerthError('Use recovery-options <session> -- [options]; no options selects defaults.');
+      setRecoveryOptions(ctx, need(rest[0], 'session'), rest.slice(2));
+      out('Recovery options saved.');
       return ExitCode.ok;
     }
     case 'adopt': {
@@ -141,6 +153,14 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
     case 'forget':
       forget(ctx, need(rest[0], 'session'));
       return ExitCode.ok;
+    case 'recovery-profile': {
+      const { values, positionals } = parse(rest, { root: { type: 'string' }, current: { type: 'boolean' } });
+      if ((!values.root && !values.current) || (values.root && values.current)) throw new BerthError('Choose --root <profile directory> or --current explicitly.', ExitCode.usage);
+      const name = need(positionals[0], 'session');
+      const agent = ctx.store.newest()?.sessions.find((row) => row.name === name)?.agent ?? '';
+      out(profileRoot(agent, setRecoveryProfile(ctx, name, values.root ? resolve(values.root) : undefined)));
+      return ExitCode.ok;
+    }
     case 'snapshot':
       out(takeSnapshot(ctx));
       return ExitCode.ok;
@@ -174,6 +194,11 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
       out(formatResults(ensure(ctx, { origin: values.origin, session: positionals[0] })));
       return ExitCode.ok;
     }
+    case 'retry': {
+      const { positionals } = parse(rest, {});
+      out(formatResults([retryRecovery(ctx, need(positionals[0], 'session'))]));
+      return ExitCode.ok;
+    }
     case 'restore': {
       const { values, positionals } = parse(rest, { origin: { type: 'string' }, session: { type: 'string' } });
       const snapshot = positionals[0] ? ctx.store.read(resolve(positionals[0])) : ctx.store.newest();
@@ -196,7 +221,11 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
     }
     case 'hooks': {
       const [action, agent] = rest;
-      if (action === 'install') out(installHooks(need(agent, 'agent'), cliPath()));
+      if (action === 'install') {
+        out(installHooks(need(agent, 'agent'), cliPath()));
+        const guidance = hookSetupGuidance(agent);
+        if (guidance) process.stderr.write(`${guidance}\n`);
+      }
       else if (action === 'uninstall') out(uninstallHooks(need(agent, 'agent')));
       else throw new BerthError(`hooks: expected install or uninstall\n${USAGE}`, ExitCode.usage);
       return ExitCode.ok;

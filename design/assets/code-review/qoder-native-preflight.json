@@ -1,0 +1,26 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T14:19:40.412278+00:00"
+  },
+  "runtime": "Qoder CLI 1.0.48",
+  "probe": {
+    "isolated_home": true,
+    "isolated_config_dir": true,
+    "inherited_credentials": false,
+    "proxy": "closed loopback endpoint",
+    "mode": "print",
+    "exit_code": 1,
+    "output": "Not logged in \u00b7 Please run /login",
+    "SessionStart_hook_observed": false,
+    "log_sha256": "ca901b5be3db10d7195703bfaf9ad3b674be07855555b3cb8f6ed0555be38a59"
+  },
+  "conclusion": "Authentication prevented this probe from reaching a session. Hook profile propagation and native binding/recovery remain unverified. Do not repeat the same unauthenticated probe as acceptance.",
+  "source": {
+    "url": "https://docs.qoder.com/cli/custom-models",
+    "checked": "2026-11-01",
+    "scope": "Current documentation requires the account-dependent /model Custom wizard; it does not establish an offline-provider fixture for installed 1.0.48."
+  },
+  "next": "A dedicated authorized test login or a documented version-compatible offline provider fixture is required."
+}

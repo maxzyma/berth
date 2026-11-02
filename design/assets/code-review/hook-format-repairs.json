@@ -1,0 +1,89 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "checkedAt": "2026-11-01T11:02:26.904294+00:00",
+    "includesWorkingTree": true
+  },
+  "resolved": [
+    "CR68"
+  ],
+  "previousReceipt": "linux-compatibility-repairs.json",
+  "verification": {
+    "macFull": {
+      "tests": 240,
+      "pass": 233,
+      "fail": 0,
+      "skipped": 7
+    },
+    "linuxFull": {
+      "tests": 240,
+      "pass": 232,
+      "fail": 0,
+      "skipped": 8
+    },
+    "targeted": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0
+    },
+    "tmux30": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0
+    },
+    "installed": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0
+    }
+  },
+  "nativeCoverage": [
+    "Last-session normal closure records exact lifetime/session identity under a format-looking state directory and is absent from recovery inventory.",
+    "All six installed tmux hooks invoke the literal CLI path with the expected socket and session, immediately and after source-file reload.",
+    "Native tmux 3.0 and Linux tmux 3.4 covered."
+  ],
+  "installedFileComparison": {
+    "extension": 25,
+    "core": 141
+  },
+  "artifacts": {
+    "vsix": {
+      "name": "berth-cr68.vsix",
+      "sha256": "0384ef71fb33652b2c1a34f928dc12596c3cbd9be301d4fe846c030d548c7139",
+      "bytes": 312729
+    },
+    "core": {
+      "name": "berthdev-berth-0.3.6.tgz",
+      "sha256": "6fdbbf1bea892a1e889f65f7f1e69025dca0295d31a37912bf21bcc67896ba8a",
+      "bytes": 98964
+    }
+  },
+  "sourceHashes": {
+    "packages/core/src/tmux/fields.ts": "eb1c2d5a9b3ee194f78d0e2de96f9d36a6dc3f302b78189f83770ddda5ae9793",
+    "packages/core/src/tmux/install.ts": "0f17598cbcfb626fd7e35c2bb0ec4fdee78f53ef1154db910d9ab4c1734f0d2c",
+    "packages/core/src/snapshot/lifecycle.ts": "842339403df31fd6a92a0440af40c425b9843bf108d03e6a03bb4f38b19c554c",
+    "packages/core/test/tmux-formats.test.ts": "1deaa7bf5e284473cddfb3664932fd2f8b64674f6c60d8e2f97bc661758696a9"
+  },
+  "logHashes": {
+    "macFull": "e5655a1f923f83c84d94f60cea4c04c770cb40e81617c2abc4468edf11dd00b7",
+    "linuxFull": "8723d65c426e768b5d6121461d5d90dc42fc58f529771348eea3f1f46eea863f",
+    "targeted": "2f4619314ad79d418fc8d05dc017d80e07a928ff91726ca386bffdaf78198043",
+    "tmux30": "ddc64dfb544f482c59b650effa490df74efdca6537d22e6d2e7cd0b65af91b28",
+    "installed": "4d3681b6b97bbb8aac188ed46ceb4364b20879ce9e9fa5556a73ae5f84de2b54"
+  },
+  "limits": [
+    "Seven native-agent tests remain opt-in; Linux also skips the macOS-specific empty argv0 case.",
+    "Installed CLI tests use stand-in producers and do not replace native-agent acceptance.",
+    "Native editor/iTerm lifecycle and remaining agent/version acceptance remain open.",
+    "Daily editor unchanged; no publication."
+  ],
+  "environment": {
+    "linux": "Ubuntu 24.04 aarch64, Node 20.20.2, tmux 3.4; isolated VM without host mounts or SSH agent forwarding",
+    "development": "Node 22 is required for dependency installation; this Node 20 regression checks the core runtime.",
+    "reused": "Existing Linux VM, verified Node archive and npm dependency cache; temporary test directories were restored after reboot cleanup.",
+    "cleanup": "VM stopped after regression; user Docker configuration unchanged."
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "observed_at": "2026-11-01T02:22:28.767655+00:00",
+  "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "candidate": "CR1\u2013CR8 repaired working tree; isolated VSIX installation verified; daily editor unchanged; not released",
+  "diagnostic_baseline": "evidence.json",
+  "resolved": [
+    "CR1",
+    "CR2",
+    "CR3",
+    "CR4",
+    "CR5",
+    "CR6",
+    "CR7",
+    "CR8"
+  ],
+  "verification": {
+    "full_unit": {
+      "total": 131,
+      "passed": 130,
+      "failed": 0,
+      "skipped": 1,
+      "skip": "Opt-in real-agent resume",
+      "duration_seconds": 58.363293667,
+      "command": "node --test --test-concurrency=1 'packages/core/dist/test/**/*.test.js' 'packages/vscode/dist-test/test/**/*.test.js'",
+      "log_sha256": "96e8b72ad6945103bc8870f1191f1827ea792acc1413812d4f282ba44643917f"
+    },
+    "build": "Passed; final indentation-only rebuild preserved all runtime JavaScript hashes",
+    "browser": "Reuse 66 prior passing checks: webview rendering unchanged in this repair",
+    "native": "Not rerun for changed lifecycle/main-selection behavior; previous six native checks are baseline evidence only",
+    "packaging": {
+      "vsix_installed_files": 25,
+      "core_dist_files": 96,
+      "package_hashes": {
+        "berth-review-fixes.vsix": "dba865409eacf0fc5eac9472cb65d827dd57dbeefaa8b8c02ef715c2b21b5059",
+        "berth-review-fixes-core.tgz": "ec47cd68c6b3f3361058215e1b75f89b76da687c993109c585e5e43f1d82f6c8"
+      },
+      "manifest_comparison": "Only installation-added __metadata excluded",
+      "daily_editor_modified": false
+    },
+    "core_install_smoke": "Offline isolated npm install and CLI --help passed; final repack changes only source-map columns after formatting"
+  },
+  "source_hashes": {
+    "packages/core/src/agents/commands.ts": "42481fea37f97f5b30a33d3e5bb0e81b6267be57073b85a117ae1d58e2fad74f",
+    "packages/core/src/agents/hook-files.ts": "2e19784c19c4bda09e14ef4576fd32b2b9729097bcd609311c371ffc6ba99294",
+    "packages/core/src/agents/hooks.ts": "1977a76d0787666ac8b3997614e0ec4edf031f7d970192bc7433fea4b13d7fb7",
+    "packages/core/src/agents/name-key.ts": "9a0aad9c074b9a06099ca023d3c8668df9f1d94aa7ab5ea7576cec9c8129bf14",
+    "packages/core/src/agents/registry.ts": "5cbfe39655a40b0edbb5035edcd3a148cbbef5e826ffb8f969b6fbf03b3cf0ac",
+    "packages/core/src/agents/titles.ts": "faba878decc1c860d50cd915fca8c5d2d15ecc8ebc67718be667bcf6e95fcabc",
+    "packages/core/src/cli/main.ts": "3e2bab364c906c368bfa8828416f735d931ef33257059970c5010f17d6cf612a",
+    "packages/core/src/config/index.ts": "324e8cd2b965a1bad84f9713120bb7aa779766d5b6b893728d0c03eddf790e3e",
+    "packages/core/src/context.ts": "214f7ad3572fa9f04a410dd569e665ca60977904b0c1ae2f748d2720b5dfd24d",
+    "packages/core/src/errors.ts": "6fd21f53fb27cd2853d9c9caa021c0d811b077b8067ab348d85559775a4f6a50",
+    "packages/core/src/index.ts": "6c599eda8fc99d572961918fede21c3e5741de6615ea75420b5fe0ccdf4765a7",
+    "packages/core/src/iterm2/install.ts": "b1775b470a8094b4e886a66900d0fa6e5abc28602bddaba0c30e976a125527a2",
+    "packages/core/src/present/attach.ts": "66ead0ee2a06830ea6d98145ea3a7eaeb1b2437210bb14bafd08ecb3e5df7e68",
+    "packages/core/src/present/state.ts": "f8ed7ae1cda793379ec9a6096d697e26f2be6b42d827b33124097b223e22763e",
+    "packages/core/src/registry/directory.ts": "20334df01c99b68d89dcaad140905c7410587fd67524e6737dae586206ad6f23",
+    "packages/core/src/registry/discover.ts": "c3c0e0215716bcfeb37a3af6831724547b0299125665eed501e231368fa7b934",
+    "packages/core/src/registry/doctor.ts": "32ba24f4f551b236d759fbe5ae33c5a134e6afaa1056fdd5580121b582654fba",
+    "packages/core/src/registry/hosts.ts": "00012978fcdcd05b79ab7ab4a9101a44e01a7559d2c554867500d62819f7634f",
+    "packages/core/src/registry/launch.ts": "bc3b4fb141919de87c122d6dd9c73a5653a9cc149a6167cecf0b6a6e01554b3f",
+    "packages/core/src/registry/sessions.ts": "27ba4a8a753dbc14a51ded2373d70d91d5bf99ce737fc6e3cded4a1ee46b913c",
+    "packages/core/src/restore/ensure.ts": "f8294aaa4741f7ee8c9824d959bcefb3e96e013168949a67bc5d946f771396db",
+    "packages/core/src/restore/lock.ts": "d6afc080cf742b543dbbbad1a54f37396fb149d24236f35cc4da1e1410f4e593",
+    "packages/core/src/restore/status.ts": "116dc036d37e05bccc5cecf4d428e7c09726904bd54713d2661800c573a02cff",
+    "packages/core/src/shell.ts": "f4b4064d0b38bfc1b947d970d5c1fce4702b815ef527c22255767bd474987de4",
+    "packages/core/src/snapshot/lifecycle.ts": "443141e9f32e0487f440d146eef1bfd0b54da9d701f2fbbedc79400ea5e79018",
+    "packages/core/src/snapshot/store.ts": "c8183611d73e2eccf0acaf57606ea4df6dfff3f2a3da79b9c25a6dd0bf641a05",
+    "packages/core/src/snapshot/take.ts": "52d3b1fb2aca2d9de9d287f353a74c915c10c4580602e666d240bc951927e76e",
+    "packages/core/src/tmux/client.ts": "138cd6213d2e8f13851ae657548fdb4cdce43bd251f37775ccb765d72dc02ab2",
+    "packages/core/src/tmux/connections.ts": "cca5a8a67bcd30182d9cfd0784122a0e3adb7c4ad58faf094e2865d64ae5aa6f",
+    "packages/core/src/tmux/install.ts": "ae51c41f35e39e27783a13e68f8a640cc5497ff6f0ce64c17e89b693f50352b5",
+    "packages/core/src/tools.ts": "20b2bca191e85ae301d2f1667ce1e0766a6fe6931d3ffe81580042d8be9c3e71",
+    "packages/core/test/helpers.ts": "5e5ef8d72f36266165061d250c52625a02e57d9c41678a350b6fcd91f6304b06",
+    "packages/core/test/review-regressions.test.ts": "5eb45030720793b45f5ed0e21777f75932ac902f9298dfdcd083119acd46bf9e",
+    "packages/vscode/src/controller.ts": "124881dec79314348ab2f75133f7158196600dd9930cc31ca3adadaf66ef02a2",
+    "packages/vscode/src/extension.ts": "bd36efc8d5a0e5f799da48efe9bf7e86e67b51e058c965c73ef3a1ae8450c267",
+    "packages/vscode/src/hookRuntime.ts": "0a607dfcbe9e533f6713fc07e08bd957e84f883b118f06cdcda3996bcd0ef522",
+    "packages/vscode/src/inventory.ts": "6e107cf02047fe7a0f370b398a3a6002deeb5986cfece47c727cdb7f56aab465",
+    "packages/vscode/src/model.ts": "e8ce56daad2072cd7edfb3c550bf033ca0e008e82db7ba8f42f7533d8acba923",
+    "packages/vscode/src/view/protocol.ts": "d4e5b7594bffd0a3a156397df844d90380da52507c72cec3d522938587778622",
+    "packages/vscode/src/view/sessionsView.ts": "d0122ccff17adae65eb0cc0ddf665756c684d9eea781be7022cf1c246c7a934c",
+    "packages/vscode/test/controller.test.ts": "a99b50687131d2606801d1210c2d7c45947f6442ee4780387ef93385ee2d9e72"
+  },
+  "build_hashes": {
+    "packages/vscode/dist/extension.cjs": "89d6091e4e983998c266eb691628ec890ce93144f0c7f4eb5364abd4a98ab316",
+    "packages/vscode/dist/cli.mjs": "96671c3f0388e0fa50e925a8657ae0ae79ecccf22fca0d0d5401f14ef6f6ea4d",
+    "packages/vscode/dist/webview/main.js": "b156a6bb6280a88edb5c7dda8f280a1dbbe34deee772937586446a12ab57bc8d",
+    "packages/vscode/dist/webview/main.css": "399c6d9911329144fbe6b5a544edd5bec0d14cf87e5a9f4342d92030ce147557"
+  },
+  "pending": [
+    "Foreground window for isolated native acceptance rerun",
+    "Named real-agent resume/version checks",
+    "OS clipboard, native picker/menu, multi-window, iTerm2/reboot and optional remote acceptance",
+    "Daily-editor installation and activation",
+    "Commit/release publication"
+  ]
+}

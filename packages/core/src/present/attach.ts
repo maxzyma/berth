@@ -1,7 +1,10 @@
+import { withLock } from '../restore/lock.js';
+import { createHash } from 'node:crypto';
+import { profileEnvironment, readProfile } from '../agents/profile.js';
 import { appendFileSync } from 'node:fs';
 import type { Context } from '../context.js';
 import { stamp } from '../registry/sessions.js';
-import { isIterm2, presentState } from './state.js';
+import { clientsOf, isIterm2, presentState } from './state.js';
 import { hookHint, hookStatus } from '../agents/hooks.js';
 import { adoptDiscovered } from '../snapshot/take.js';
 
@@ -25,6 +28,13 @@ export interface AttachedClient {
  * client is shown the session's current state.
  */
 export function clientAttached(ctx: Context, client: AttachedClient): void {
+  withLock(ctx.config.stateDir, () => attachCurrentClient(ctx, client), 3000);
+}
+
+function attachCurrentClient(ctx: Context, event: AttachedClient): void {
+  const current = clientsOf(ctx.tmux, event.session).find((client) => client.tty === event.tty);
+  if (!current) return;
+  const client = { ...current, session: event.session };
   adoptDiscovered(ctx);
   const live = ctx.tmux.listSessions().find((s) => s.name === client.session);
   if (!live?.meta.agent) return;
@@ -37,7 +47,7 @@ export function clientAttached(ctx: Context, client: AttachedClient): void {
     if (live.meta.origin !== 'iterm2') stamp(ctx, client.session, { origin: 'iterm2' });
   }
   presentState(ctx.tmux, client.session, live.meta.state ?? '', { note: live.meta.note, clients: [{ tty: client.tty, termtype: client.termtype }] });
-  if (live.meta.origin !== 'vscode') hintHooksOnce(ctx, live.meta.agent, client.tty);
+  if (live.meta.origin !== 'vscode') hintHooksOnce(ctx, live.meta.agent, client.tty, live.meta.profile);
 }
 
 const HINT_SECONDS = 10;
@@ -46,9 +56,11 @@ const HINT_SECONDS = 10;
  * Terminals other than VS Code (which asks in its own UI) get the hooks hint
  * in tmux's status line, once per agent per tmux server.
  */
-function hintHooksOnce(ctx: Context, agent: string, tty: string): void {
-  if (hookStatus(agent, ctx.env) !== 'missing') return;
-  const flag = `@berth_hinted_${agent}`;
+function hintHooksOnce(ctx: Context, agent: string, tty: string, rawProfile?: string): void {
+  const profile = readProfile(agent, rawProfile);
+  if (!profile || hookStatus(agent, profileEnvironment(agent, profile, ctx.env)) !== 'missing') return;
+  const key = createHash('sha256').update(JSON.stringify(profile.environment)).digest('hex').slice(0, 12);
+  const flag = `@berth_hinted_${agent}_${key}`;
   if (ctx.tmux.run(['show-option', '-gqv', flag], true).stdout.trim()) return;
   ctx.tmux.run(['set-option', '-g', flag, '1'], true);
   ctx.tmux.run(['display-message', '-c', tty, '-d', String(HINT_SECONDS * 1000), hookHint(agent)], true);

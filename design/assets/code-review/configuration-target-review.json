@@ -1,0 +1,71 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T13:14:09.761775+00:00"
+  },
+  "status": "open",
+  "environment": {
+    "editor": "VS Code 1.144.0",
+    "os": "Ubuntu 24.04 arm64",
+    "display": "isolated Xvfb",
+    "named_profile": true,
+    "two_extension_hosts": true
+  },
+  "fixture": "BERTH_TEST_ALL_PROFILES=1 with .vscode-test.multi-layout.mjs",
+  "observations": {
+    "ordinary_settings_written_to_named_profile": true,
+    "both_hosts_share_default_global_storage": true,
+    "first_pair_restored_title": "${process}",
+    "next_apply_api_before": "${sequence}",
+    "next_apply_disk_before": "${process}",
+    "captured_backup": "${sequence}",
+    "final_disk_title": "${sequence}",
+    "expected_final_title": "${process}"
+  },
+  "result": {
+    "primary_pass": 0,
+    "primary_fail": 1,
+    "companion_wait_is_not_an_independent_test": true
+  },
+  "candidate": {
+    "name": "berth-cr73.vsix",
+    "sha256": "eb426e084a9e5269614ba2efd0fe4cb63bb8f0b951a49bda1071b96987bcfe81",
+    "runtime_changed": false
+  },
+  "log": {
+    "name": "berth-cr74-allprofiles-valid.log",
+    "sha256": "5c529acc2e3fc9c752b445ccf2dc81dec2746cbc2ccf166e6e93885479df3279"
+  },
+  "limitations": [
+    "Remote-user configuration not tested.",
+    "Commands invoked through APIs; no rendered UI verdict.",
+    "Initial probe failed a wrong fixture assumption about storage isolation and is not product-failure evidence.",
+    "Daily editor unchanged."
+  ],
+  "findings": [
+    "CR74",
+    "CR75"
+  ],
+  "distinct_profile_result": {
+    "finding": "CR75",
+    "status": "open",
+    "fixture": "BERTH_TEST_DISTINCT_PROFILES=1 with .vscode-test.multi-layout.mjs",
+    "original_titles": [
+      "first-original",
+      "second-original"
+    ],
+    "final_titles": [
+      "first-original",
+      "${sequence}"
+    ],
+    "distinct_settings_files_verified": true,
+    "shared_journal_storage_verified": true,
+    "primary_pass": 0,
+    "primary_fail": 1,
+    "log": {
+      "name": "berth-cr74-distinct-profiles.log",
+      "sha256": "c157ff88e873822c67cc52aabe20b68dc008650a7b1fd812b1a46fb9dce3a56b"
+    }
+  }
+}

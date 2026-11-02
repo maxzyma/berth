@@ -1,0 +1,125 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "verified_at": "2026-11-01T12:29:55.940360+00:00"
+  },
+  "status": "repaired",
+  "root_cause": "Connection collector discarded the application field of a matched live registration.",
+  "before": {
+    "test": "registered application name",
+    "expected": "Fixture Editor",
+    "actual": ""
+  },
+  "final_results": {
+    "macos": {
+      "total": 256,
+      "pass": 249,
+      "skip": 7,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "linux": {
+      "total": 256,
+      "pass": 248,
+      "skip": 8,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "native_editor": {
+      "pass": 7,
+      "fail": 0,
+      "separate_phase_fixtures_skipped": 2
+    },
+    "native_workspace_phases": {
+      "pass": 4,
+      "fail": 0,
+      "registered_application_assertion": true
+    },
+    "installed_cli": {
+      "pass": 4,
+      "fail": 0
+    },
+    "package_comparison": {
+      "extension_files": 25,
+      "core_files": 141
+    }
+  },
+  "reused_evidence": [
+    "Layout across editor processes: native-editor-review.json; layout runtime unchanged."
+  ],
+  "artifacts": [
+    {
+      "name": "berth-cr72.vsix",
+      "sha256": "f06daa4f687ee90dd2b882f1fa67d6d3f7f3695502d8906d871ebf37ec648af9"
+    },
+    {
+      "name": "berthdev-berth-0.3.6.tgz",
+      "sha256": "8acbf250acab3f8f73a90a5d0eb26252e886c299865a06d94e12cdd4eca3df75"
+    }
+  ],
+  "logs": [
+    {
+      "name": "berth-cr72-before.log",
+      "sha256": "8721e6a35ba18ba5fd1faffe4a191e7e626c2fbfa978bcf1f1014f0f6c38627d"
+    },
+    {
+      "name": "berth-cr72-hosts-final.log",
+      "sha256": "7c2a6f56ada0c05576d02c026c45906bd4866670ae33a60ae5798951c5a38fec"
+    },
+    {
+      "name": "berth-cr72-final-macos.log",
+      "sha256": "82f3da86036700700c0cb170f0906ff6ffe0fe0b3b2fa06488b27f48b2553e4a"
+    },
+    {
+      "name": "berth-cr72-final-linux.log",
+      "sha256": "8b2241da002e7e9f7622e3f27d42d15fe82cce0abdec71524b07829e80ddddf6"
+    },
+    {
+      "name": "berth-cr72-native-full.log",
+      "sha256": "2c7c82a365d4e49421207011b39fe80361dc48dc801535657fd2acc3924f8e6f"
+    },
+    {
+      "name": "berth-cr72-installed-tests.log",
+      "sha256": "4c9df8e064e7d8cd8638e06cece984391eaa34d733c1f75da19cacf5750fb30c"
+    },
+    {
+      "name": "berth-cr72-host-leader.log",
+      "sha256": "e17d3fa4ebcfa3f8183dd049b9b5a07a3658e07ad02126fb5661fdd358cbc7ca"
+    },
+    {
+      "name": "berth-cr72-host-other.log",
+      "sha256": "7739462a756e28811bf329a24c4f58e43dc41c3b4db88f1fded2e414fbc4ea1d"
+    },
+    {
+      "name": "berth-cr72-host-follower.log",
+      "sha256": "fb5abf599515fbdbca6f9d1702682a7cad3cee588314f462f46ec87aed053a40"
+    },
+    {
+      "name": "berth-cr72-host-restart.log",
+      "sha256": "e1695261f60e335fa815c7297591b26ea604ebcdd80056a066def02315b16d0d"
+    }
+  ],
+  "limitations": [
+    "No native clipboard/focus, accessibility, same-profile layout concurrency, iTerm2 or remote-host verdict.",
+    "Daily editor unchanged; no publication."
+  ],
+  "inputs": [
+    {
+      "path": "packages/core/src/tmux/connections.ts",
+      "sha256": "279aa82a70867627d3149ec7e0317bc22085fc08ff440223df943b16f1ee5d25"
+    },
+    {
+      "path": "packages/core/test/hosts.test.ts",
+      "sha256": "f4c1237ae8a3fdb2b54b13c1666c8c3c69d4678608a10dfca7f7c491e7bf3e75"
+    },
+    {
+      "path": "packages/vscode/test/integration/hosts.test.cjs",
+      "sha256": "4ff1a847bbe631c0094b23d59173770cadd94cf23b673a2575bb0da0c321c6c3"
+    },
+    {
+      "path": "packages/vscode/.vscode-test.hosts.mjs",
+      "sha256": "c2c33c0d03988ed2681bfff8d365c24b237b28927e2f7aafa6360e3a8f18dcff"
+    }
+  ]
+}

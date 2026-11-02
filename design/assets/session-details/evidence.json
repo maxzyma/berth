@@ -1,0 +1,173 @@
+{
+  "observed_at": "2026-10-31T22:02:03.903555+08:00",
+  "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "candidate": "Working-tree changes identified by SHA-256 below; no release published.",
+  "baseline": {
+    "head": "dfb47bf",
+    "local_change": "Horizontal offset adjustment",
+    "captured_at": "2026-10-31T21:24:13.970876+08:00",
+    "gap_px": 9,
+    "gap_closed": true,
+    "escape_closed": false,
+    "content_height_px": 1945,
+    "viewport_height_px": 560,
+    "scroll_width_px": 1091
+  },
+  "verification": {
+    "browser": {
+      "passed": 54,
+      "failed": 0,
+      "duration_seconds": 38.3,
+      "command": "npm run test:webview -w berth",
+      "outer_viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1280,
+          800
+        ]
+      ],
+      "sidebar_widths": [
+        240,
+        300,
+        420
+      ],
+      "resize_width": 160,
+      "themes": [
+        "dark",
+        "light",
+        "high-contrast"
+      ],
+      "runtime": "Background Google Chrome; production bundle; isolated synthetic fixtures",
+      "icon_themes": [
+        "dark",
+        "light",
+        "high contrast dark",
+        "high contrast light"
+      ]
+    },
+    "vscode_unit": {
+      "passed": 29,
+      "failed": 0,
+      "duration_seconds": 6.782313708,
+      "command": "node --test --test-concurrency=1 'packages/vscode/dist-test/test/*.test.js'"
+    },
+    "build": "Passed; not separately timed",
+    "visual_review": "Layout review reused where unchanged. Current agent and functional icon rendering reviewed in all four themes; see ../icons/evidence.json. Accepted screenshots refreshed from the same final run.",
+    "local_install": "VSIX installed; installed extension bundle, webview JS and CSS hashes match the reviewed build. Window not reloaded."
+  },
+  "pending_host_checks": [
+    "Escape routing with terminal focus",
+    "Native Copy menu dispatch",
+    "Screen reader",
+    "Editor zoom",
+    "Remote host",
+    "Human acceptance V8/V15"
+  ],
+  "hashes": {
+    "packages/vscode/webview/hover.ts": "5632c133f47c9b2ebfc4ef1d263de070f5946037e2147499e0310380019648b8",
+    "packages/vscode/webview/hoverPosition.ts": "6c8c3f12e837c8861335911e757f057fea5c427f2c96123a978a223dbe8410c9",
+    "packages/vscode/webview/main.ts": "8bd8e59bb5fb5f46f31f2eb3a15d92e2fc6083d38b17c277b3e782e1397d9961",
+    "packages/vscode/webview/main.css": "f52b66e88f83c72a5102727f72f16b1ae845a70449e506f573b45a20fd896e7f",
+    "packages/vscode/src/model.ts": "dda6f05c3a83d25d0b1d2fb6279e404c57f44455130208f18a691dfbd6e30065",
+    "packages/vscode/src/view/protocol.ts": "37ff818ea284aa316cef8c972e13bfb969ef5a0e2e4194033622e29df1e20c57",
+    "packages/vscode/src/view/sessionsView.ts": "e9cae8e3ff9cd142a3df47dfec5965f6418d3946e723ba54116653e05d8ddcc9",
+    "packages/vscode/src/extension.ts": "bb0b203f10ab36c61696523bfc0e059a5c40e655379c5aa8e4540f34616a4626",
+    "packages/vscode/package.json": "f44f27e9356b33017429815e2a740c2013ec9a7a7be0d0cd0e286f9248b2a4bb",
+    "packages/vscode/playwright.config.mjs": "c8da26255e24801f8b2e1c5ca4532c6ae3177c63800c8914c1dfd96723f2a819",
+    "packages/vscode/test/browser/fixture.mjs": "18b5ad33cd14979889de275c2e6af995984e365e014c4aeb04a3eabc0219d5e4",
+    "packages/vscode/test/browser/hover.spec.mjs": "1953283fb250a0aef30c69188fb1eb5cd67d6935fa473ada46cb2cba7de4e826",
+    "packages/vscode/dist/webview/main.js": "0aa33a8e869f2cf874ea919a2b9091aa5287881d8adc06afb87563a9e6e47bc6",
+    "packages/vscode/dist/webview/main.css": "f52b66e88f83c72a5102727f72f16b1ae845a70449e506f573b45a20fd896e7f",
+    "packages/vscode/dist/extension.cjs": "e3dc4abc17ef6eb0cc7d8e396de4fc1ecf8bd222b212956f68e2ab7fa4162d49",
+    "packages/vscode/webview/icons.ts": "4a3a88960e5270a8cdf0d7046eff15eedb663e948539b158981811ce57dad308"
+  },
+  "screenshots": {
+    "01-baseline-open.png": {
+      "sha256": "87f4122c74a709184f2462315706fb564a2f2f796f586f74dbb7505e56bdadd0",
+      "dimensions": [
+        300,
+        560
+      ]
+    },
+    "02-baseline-gap.png": {
+      "sha256": "395a1a9068ec17e8ea2e7c58935fdd90b272a1a8899a76c11f48ca95aa866a28",
+      "dimensions": [
+        300,
+        560
+      ]
+    },
+    "03-baseline-overflow.png": {
+      "sha256": "f3200fd0fb252e18f594f4e10edb06f79d8f1926b93ad60e72675991ad7af332",
+      "dimensions": [
+        300,
+        560
+      ]
+    },
+    "04-selection.png": {
+      "sha256": "9bb1db88660886b21f1a3b20a4ec7145cdd310ae4dc614ce1fcf040d016e839c",
+      "dimensions": [
+        300,
+        560
+      ]
+    },
+    "05-keyboard.png": {
+      "sha256": "f97891622e1a6e4b4f145fbc90c6d7f2fdd4aa6739683ec34744dece62dfc40e",
+      "dimensions": [
+        300,
+        560
+      ]
+    },
+    "06-long-path.png": {
+      "sha256": "9fd067646810d2d7b14587ba154714dae572d0c4bf16479224611cb5248a09af",
+      "dimensions": [
+        240,
+        320
+      ]
+    },
+    "07-above.png": {
+      "sha256": "a80e3bc76fbdadbac979d7e9eb401d0db472a480e230cf693865f16f9c1da21f",
+      "dimensions": [
+        300,
+        560
+      ]
+    },
+    "08-light.png": {
+      "sha256": "ed9bfbc322c32266483f7896c778e19b2510285b3a6a17c64ad191f2e86b4cad",
+      "dimensions": [
+        300,
+        560
+      ]
+    },
+    "09-high-contrast.png": {
+      "sha256": "0f486079e09435477592c1b985ed57cdb93263a3c6b8ffd6c18ad32ed476a036",
+      "dimensions": [
+        300,
+        560
+      ]
+    },
+    "10-waiting.png": {
+      "sha256": "d87d342af80714c821a50f5383515557616d4ae0b2774004ac5e7440290f93d4",
+      "dimensions": [
+        300,
+        560
+      ]
+    },
+    "11-warning.png": {
+      "sha256": "5a50f877e33263da1d40d40c10810d169c32e26f33ec110166e7415dced3858b",
+      "dimensions": [
+        300,
+        560
+      ]
+    },
+    "12-narrow.png": {
+      "sha256": "31362c9e4f3ad4a187e4815eee8a4d0570d4cbdb33e3ee2823ca2eca2d175439",
+      "dimensions": [
+        160,
+        220
+      ]
+    }
+  }
+}

@@ -108,8 +108,21 @@ body {
   flex: none;
 }
 
-img.icon {
+.icon.agent {
   display: block;
+  background-color: var(--vscode-foreground);
+  mask: var(--agent-mark) center / contain no-repeat;
+  -webkit-mask: var(--agent-mark) center / contain no-repeat;
+}
+
+.icon.agent-artwork {
+  background: var(--agent-mark) center / contain no-repeat;
+  mask: none;
+  -webkit-mask: none;
+}
+.vscode-light .icon.agent-artwork,
+.vscode-high-contrast-light .icon.agent-artwork {
+  background-image: var(--agent-mark-light, var(--agent-mark));
 }
 
 .name {
@@ -218,9 +231,7 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   z-index: 10;
   box-sizing: border-box;
   width: max-content;
-  min-width: 200px;
-  max-width: 360px;
-  padding: 8px 10px;
+  max-width: calc(100vw - 16px);
   font-size: 13px;
   line-height: 18px;
   color: var(--vscode-editorHoverWidget-foreground);
@@ -242,6 +253,9 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   left: var(--berth-pointer, 16px);
   border: 7px solid transparent;
 }
+
+.hover[data-side='overlay']::before,
+.hover[data-side='overlay']::after { display: none; }
 
 .hover[data-side='below']::before {
   top: -15px;
@@ -282,24 +296,62 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   line-height: 18px;
 }
 
+/* The inner scroller preserves the outer shadow and pointer. */
+.hover-content {
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 8px 34px 8px 10px;
+  scrollbar-width: thin;
+}
+
+.hover-content:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, var(--vscode-list-focusOutline));
+  outline-offset: -2px;
+}
+
+.hover-close {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  padding: 4px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--vscode-editorHoverWidget-background);
+  color: var(--vscode-editorHoverWidget-foreground);
+  cursor: pointer;
+}
+
+.hover-close:hover { background: var(--vscode-toolbar-hoverBackground); }
+.hover-close:focus-visible { outline: 1px solid var(--vscode-focusBorder, var(--vscode-list-focusOutline)); }
+
 .hover-head {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 6px;
   min-width: 0;
 }
 
 .hover-head .title {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+}
+
+.hover-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  flex-basis: 100%;
 }
 
 .hover-head .sub {
   flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
   color: var(--vscode-descriptionForeground);
   font-size: 12px;
 }
@@ -309,7 +361,9 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   flex: none;
   align-items: center;
   gap: 3px;
-  margin-left: 8px;
+  margin-left: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 0 6px;
   border-radius: 9px;
   font-size: 11px;
@@ -359,7 +413,7 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   border-radius: 0 3px 3px 0;
 }
 
-.hover-line.quote .codicon {
+.hover-line.quote > .codicon {
   display: none;
 }
 
@@ -378,12 +432,9 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   font-size: 13px;
 }
 
-/* A path keeps its end visible: ellipsis at the start, one line. */
+/* Details expose the full path for reading and copying. */
 .hover-line.path .text {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  direction: rtl;
+  overflow-wrap: anywhere;
   text-align: left;
   font-family: var(--vscode-editor-font-family);
   font-size: 11px;
@@ -396,3 +447,47 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
 .vscode-reduce-motion .codicon-modifier-spin {
   animation: none;
 }
+
+.view-error { margin: 8px 12px; overflow-wrap: anywhere; }
+.view-error p { margin: 8px 0; }
+.view-action { font: inherit; padding: 4px 10px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); border: 1px solid var(--vscode-button-border, transparent); cursor: pointer; }
+.view-action:hover { background: var(--vscode-button-hoverBackground); }
+.view-action:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+
+.hover-line .text { flex: 1; }
+.hover-copy {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 2px;
+  border: 0;
+  border-radius: 3px;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.hover-copy:hover, .hover-copy:focus-visible {
+  opacity: 1;
+  color: var(--vscode-editorHoverWidget-foreground);
+  background: var(--vscode-toolbar-hoverBackground);
+}
+.hover-copy:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+.hover-copy .codicon { font-size: 13px; }
+.hover-copy-status:empty { display: none; }
+.hover-copy-status { padding: 0 12px 8px; font-size: 12px; overflow-wrap: anywhere; }
+
+.group-branch {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: 6px;
+}
+
+.row.terminal-active { box-shadow: inset 2px 0 var(--vscode-focusBorder); }
+
+.hover-recovery { color: var(--vscode-textLink-foreground); background: none; border: 1px solid var(--vscode-button-border, transparent); padding: 4px; cursor: pointer; }
+.hover-recovery:focus-visible { outline: 1px solid var(--vscode-focusBorder); }

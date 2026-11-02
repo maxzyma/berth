@@ -7,43 +7,97 @@ Steps for the cases automated tests cannot cover: V8, V9 and I5
 them before each release and record the result at the end of this file's
 copy in the release notes.
 
-Before starting: tmux ≥ 3.0, the `berth` CLI and the Berth extension from the
-release are installed, and VS Code has been reloaded since the extension was
-installed. Test sessions are named `accept-*` so they are easy to clean up.
+Before starting, confirm tmux ≥ 3.0 and identify the exact CLI/VSIX artifacts
+and hashes. Use `accept-*` names only inside the isolated server. Agree on a
+foreground window before launching the editor; never close the daily editor.
 
-To keep your everyday editor untouched, run the VS Code cases in a separate
-instance with its own profile, installing the extension from a local build:
+Run the following in bash or zsh, replacing the two artifact paths. The prefix
+installation leaves the daily CLI unchanged. A clean child environment removes
+inherited tmux endpoints, agent profiles and credentials. Authentication or native
+agent configuration needed for acceptance must be set up in this temporary HOME.
 
 ```sh
-R=~/.berth-accept
-code --user-data-dir $R/user --extensions-dir $R/ext --install-extension berth-vscode-<version>.vsix
-code --user-data-dir $R/user --extensions-dir $R/ext --new-window $R/work
+BERTH_ACCEPT_ROOT="$(mktemp -d /tmp/berth-test-accept.XXXXXX)"
+mkdir -p "$BERTH_ACCEPT_ROOT"/{home,config,state,data,cache,tmp,work}
+berth_accept() {
+  env -i PATH="$BERTH_ACCEPT_ROOT/cli/node_modules/.bin:$PATH" \
+    HOME="$BERTH_ACCEPT_ROOT/home" XDG_CONFIG_HOME="$BERTH_ACCEPT_ROOT/config" \
+    XDG_STATE_HOME="$BERTH_ACCEPT_ROOT/state" XDG_DATA_HOME="$BERTH_ACCEPT_ROOT/data" \
+    XDG_CACHE_HOME="$BERTH_ACCEPT_ROOT/cache" TMPDIR="$BERTH_ACCEPT_ROOT/tmp" \
+    SHELL=/bin/sh TMUX_TMPDIR="$BERTH_ACCEPT_ROOT" BERTH_TMUX_SOCKET=berth-test-accept \
+    BERTH_CONFIG="$BERTH_ACCEPT_ROOT/config/berth/config.toml" \
+    BERTH_STATE_DIR="$BERTH_ACCEPT_ROOT/state/berth" "$@"
+}
+tmux_accept() { berth_accept tmux -L berth-test-accept "$@"; }
+berth_accept npm install --prefix "$BERTH_ACCEPT_ROOT/cli" "/absolute/path/berthdev-berth-<version>.tgz"
+berth_accept code --user-data-dir "$BERTH_ACCEPT_ROOT/user" --extensions-dir "$BERTH_ACCEPT_ROOT/ext" --install-extension "/absolute/path/berth-cr<revision>.vsix"
+berth_accept code --user-data-dir "$BERTH_ACCEPT_ROOT/user" --extensions-dir "$BERTH_ACCEPT_ROOT/ext" --new-window "$BERTH_ACCEPT_ROOT/work"
 ```
 
-`npm install -g <path to berthdev-berth-<version>.tgz>` installs the CLI from a
-local build. Remove `~/.berth-accept` afterwards.
+Use `berth_accept berth ...` for every local CLI acceptance command and
+`tmux_accept ...` for direct tmux inspection or cleanup. Do not substitute bare
+`tmux` or `berth`. These functions must remain available in the setup terminal.
+After closing the isolated editor, run `tmux_accept kill-server` and remove only
+the directory printed by `printf '%s\n' "$BERTH_ACCEPT_ROOT"`.
+
+This setup is for the local macOS editor journey. iTerm2 and remote lifecycle
+checks below have their own isolation requirements.
+
+## Completion candidate: native journey
+
+Use the isolated profile and socket above. Agree on a
+foreground testing window before opening the editor. Keep existing user
+terminals and agent conversations untouched.
+
+1. Run the native integration suite: command registration, actual main/side/manual
+   attachment, local detach and layout revert after a user edit. Verify detached
+   work remains running and another host stays attached.
+2. Open two workspaces with the same folder basename. Open a session in each,
+   then restart the isolated editor. Check verified workspace labels and restore
+   destinations. Open the same workspace twice: only one window auto-restores.
+3. Use Find a Session with duplicate titles, no matches and a removed result;
+   cancel without changing the selected terminal. Check the native error message
+   when attachment fails.
+4. Enter details by pointer and keyboard. Copy a long path, conversation ID and
+   title, then paste into a scratch document. Test Escape, focus return, zoom and
+   screen-reader names. Clipboard API tests alone do not verify this journey.
+5. On a named installed agent version, bind an exact ID, interrupt the isolated
+   server and recover it. Require the matching start acknowledgement. Check a
+   rejected ID, missing hooks, moved folder, explicit retry and intentional End.
+   Unknown producer formats must not replace an existing ID.
+6. Install the packaged candidate into the isolated profile and repeat the
+   critical open/recover/copy steps. Record package hash, host/agent versions,
+   results and unsupported environments. iTerm2 restart/reboot and remote-host
+   cases remain separate acceptance entries.
 
 ## V9 — clicking a system notification brings the editor forward
 
 Needs, on macOS, `terminal-notifier` (`brew install terminal-notifier`).
 
-1. In VS Code, open a folder and run **Berth: New Agent Session**, pick any
-   agent. A terminal opens attached to the new session; note its name.
+1. In VS Code, open a folder and run **Berth: New Agent Session**, pick Shell for this notification-only check. A terminal opens attached to the new session; note its name.
 2. Switch to another application so VS Code is not focused.
 3. In any terminal run, using that name:
-   `berth stamp --session <name> state=waiting note="manual check"`
+   `berth_accept berth stamp --session <name> state=waiting note="manual check"`
 4. Expected within a few seconds: a system notification "Berth — <name> is
    waiting for you: manual check".
 5. Click it. Expected: VS Code comes to the front, and its own notification
    offers **Open**; clicking **Open** focuses the session's terminal. The
    session's row in the Berth view shows the waiting icon and the view badge
    shows 1.
-6. Clean up: `tmux kill-session -t <name>`.
+6. Clean up: `tmux_accept kill-session -t =<name>`.
 
-With two VS Code instances open, macOS brings forward the application, which
-may show the other instance's window; that still counts as a pass.
+Record application activation and exact-session opening separately. macOS may
+activate another window of the application; that proves only application
+activation. Verify **Open** in the issuing window before passing session opening.
 
 ## I5 — iTerm2 restores its layout and every pane's session
+
+Run I5 in a disposable macOS user account with no daily terminals. Install the
+candidate CLI into that account's local prefix and configure iTerm2 there. Its
+AutoLaunch scripts must use that account's HOME, not the temporary editor HOME
+above. Record the isolated iTerm2 process PID and account before crash testing;
+never use a process-name-wide kill command. Reboot only the disposable test machine
+or VM after agreeing the interruption window.
 
 Needs iTerm2 3.7 or later with the Python API enabled, window restoration on
 (iTerm2 Settings → General → Startup, and macOS System Settings → Desktop &
@@ -57,7 +111,7 @@ startup script that reopens one tab per session.
 2. **Quit.** Quit iTerm2 (⌘Q) and start it again. Expected: the same windows,
    tabs and splits; within a few seconds every pane is back in the session it
    showed.
-3. **Crash.** From a terminal outside iTerm2: `kill -9 $(pgrep -x iTerm2)`;
+3. **Crash.** From a terminal outside iTerm2: `kill -9 <verified-isolated-iTerm2-pid>`;
    start iTerm2. Expected: as in step 2.
 4. **State.** `berth stamp --session <name> state=waiting note="manual check"`.
    Expected: that pane's tab shows a status dot and the subtitle "manual
@@ -72,20 +126,24 @@ startup script that reopens one tab per session.
 
 Needs a reachable remote with tmux: Remote-SSH to a Linux or macOS host, a
 Dev Container (Docker running), or WSL on Windows. One of them is enough per
-release; record which.
+release; record which. Use a disposable remote account/container with its own
+agent profiles, Berth state and test socket. A separate local editor profile does
+not isolate the remote host. Do not run these steps in a daily remote account.
+In that isolated remote editor, set `berth.tmuxSocket` to `berth-test-remote`;
+use the same endpoint for CLI commands below.
 
 1. Connect VS Code to the remote and open a folder there.
 2. Install Berth into the remote window (Extensions view → Berth → *Install
    in SSH / Container / WSL*), or `code --install-extension <vsix>` from a
    terminal in that window.
 3. Run **Berth: New Agent Session**. Expected: the session is created on the
-   remote's tmux (`tmux ls` in a remote terminal shows it) and its terminal
+   remote's tmux (`tmux -L berth-test-remote ls` in a remote terminal shows it) and its terminal
    opens.
 4. Reload the window (**Developer: Reload Window**). Expected: the session's
    terminal is reopened automatically and the agent is still running.
-5. `berth stamp --session <name> state=done` in a remote terminal. Expected:
+5. `BERTH_TMUX_SOCKET=berth-test-remote berth stamp --session <name> state=done` in a remote terminal. Expected:
    an in-editor notification, the row shows done.
-6. Clean up: kill the session on the remote.
+6. Clean up only the isolated remote session: `tmux -L berth-test-remote kill-session -t =<name>`.
 
 ## Recording
 

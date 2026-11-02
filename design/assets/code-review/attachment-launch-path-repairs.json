@@ -1,0 +1,54 @@
+{
+  "baseline": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "checkedAt": "2026-11-01T08:30:38.385621+00:00",
+  "workingTree": true,
+  "repaired": [
+    "CR52",
+    "CR53",
+    "CR54"
+  ],
+  "open": [
+    "CR55"
+  ],
+  "sourceHashes": {
+    "packages/core/src/tools.ts": "c49c9b25f3f356a356b7a5ef3a942a6c26a1a6659a0891cb38a99ff4e793d548",
+    "packages/core/src/registry/doctor.ts": "3dc96708225af751e9d8b2bcea07e1dadbfb3d316cdc22ab2c863f94d9002da8",
+    "packages/core/src/agents/capabilities.ts": "ff777c725dd3fbb7b7b7f1cb66f1526516d7902c739c2b773b53d5596847709f",
+    "packages/core/src/present/state.ts": "7afc5279672c279f3b581563ce4d24e86e6f309ac43736f1b1545faea788f945",
+    "packages/core/src/registry/sessions.ts": "34722eb3576e9bc3f236358cd89a8b8a1ff3cd5b1cac0266a091af74ba2b735e",
+    "packages/core/src/restore/ensure.ts": "0ebce89f32044a6639972425967d390b48c8b618403b80708c4f36ba102256c5",
+    "packages/core/src/index.ts": "aaa6755e33eb8da62e2657b8b33998778c80ab3195107aca6f9d513303a4a219",
+    "packages/vscode/src/controller.ts": "1c67bb7be06a88d4867ab1fe923819ed7c7b912effd6ea0aaf4b663939a8d09a",
+    "packages/vscode/src/extension.ts": "60b1822c8afa71090ec6694a79ad050e8c804bc0a865e766be6402fbb763b808",
+    "packages/core/test/tools.test.ts": "97a52c550d3bfa2897dfb01c43acd317dbd46ef92666eb063354e9886f069171",
+    "packages/vscode/test/controller.test.ts": "d8237eebe616e93730d668b82210a1972d9bc3d76df9133797c9f0e3e5a47b6f",
+    "packages/vscode/test/notifications.test.ts": "9df389708b5551f1079944c10fd927a9622b7810703c4c05621d7a16d045d490",
+    "design/spec.md": "3b849b45cb3a436403eb5e026a993044aeff9c5dc95a4e14a4087c211cf54c8e",
+    "design/implementation.md": "605f9636f9cb6b29a7a5d91749fc0d5f3b6c1745ba6c57ee21812a73b825c00e"
+  },
+  "validation": {
+    "build": "passed",
+    "focused": {
+      "tests": 6,
+      "passed": 6
+    },
+    "completeRegression": {
+      "tests": 215,
+      "passed": 210,
+      "skipped": 5,
+      "failed": 0
+    },
+    "relativeResumeDefectProbe": "confirmed; not repaired",
+    "logs": {
+      "berth-cr54-build.log": "f2abfa5a0221caa9e5af11ce95a9107d1ecd9422d7dfb6183f01e32c51a0c5ab",
+      "berth-cr54-full.log": "1761f73a62a1294acc760b78dc83e7d50825ea9654fa6f39798944c23f460f93",
+      "berth-cr52-probes.log": "a3b12bb183327819b95e7522e1e488101c3261ee0a2dc81ff7598161f12e32e0",
+      "berth-relative-probe.log": "134e168bfd574a86013291b23abc555f55b801e123efe58b6d6dd63de7135e17"
+    }
+  },
+  "limits": [
+    "Native editor timing not rerun",
+    "Linux and remaining agent versions not accepted",
+    "No new package, publication or daily editor installation"
+  ]
+}

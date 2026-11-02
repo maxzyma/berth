@@ -1,0 +1,176 @@
+{
+  "observed_at": "2026-10-31T23:55:26.420917+08:00",
+  "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "candidate": "Working-tree changes; no release published",
+  "upstream": {
+    "manifest": "packages/vscode/media/agents/sources.json",
+    "official_products": 6,
+    "third_party_products": 2,
+    "files": 10,
+    "identity": "Product marks; Cursor, Copilot and Qoder use shared product branding, not CLI-exclusive marks. Claude Code uses a third-party Clawd mascot rendering."
+  },
+  "scope": {
+    "agent_marks": 8,
+    "functional_glyphs": 26,
+    "berth_assets": [
+      "media/berth.svg",
+      "media/icon.svg",
+      "media/icon.png"
+    ]
+  },
+  "verification": {
+    "browser": {
+      "passed": 8,
+      "failed": 0,
+      "duration_seconds": 14.8,
+      "command": "npm run test:webview -w berth -- --grep 'all products'",
+      "outer_viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1280,
+          800
+        ]
+      ],
+      "icon_themes": [
+        "dark",
+        "light",
+        "high contrast dark",
+        "high contrast light"
+      ]
+    },
+    "build": "Passed; not separately timed",
+    "assets": "All ten files match source manifest and installed bytes. SVGs parse without scripts, event handlers or external references; Qoder embeds a PNG.",
+    "visual": "Four final product sheets inspected at actual size. Unchanged functional catalogs and working-state evidence reused from preceding review.",
+    "installed": "Extension bundle, webview JS/CSS, all shipped SVG/PNG assets and notices match reviewed files; editor not reloaded",
+    "vscode_unit": {
+      "passed": 31,
+      "failed": 0,
+      "duration_seconds": 6.932,
+      "command": "node --test --test-concurrency=1 'packages/vscode/dist-test/test/*.test.js'",
+      "scope": "Unchanged unit behavior; reused from natural-sort verification."
+    },
+    "baseline_browser": {
+      "passed": 54,
+      "failed": 0,
+      "duration_seconds": 38.3,
+      "command": "npm run test:webview -w berth",
+      "outer_viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1280,
+          800
+        ]
+      ],
+      "icon_themes": [
+        "dark",
+        "light",
+        "high contrast dark",
+        "high contrast light"
+      ],
+      "scope": "Earlier details and functional-icon baseline; product assets superseded by the targeted run below."
+    }
+  },
+  "pending_host_checks": [
+    "Native keybinding routing",
+    "Native menu dispatch",
+    "Screen reader",
+    "Editor zoom",
+    "Remote host"
+  ],
+  "hashes": {
+    "packages/vscode/media/agents/claude.svg": "d7eb2d876b49e51cc16291a42b681d7cf4906e60e0150776dbfb353ec4ca3746",
+    "packages/vscode/media/agents/codex.svg": "d08b4e824cd6727e89617f59e4737273ff53e44c1da849d016dd64dfd08b33e1",
+    "packages/vscode/media/agents/cursor.svg": "cd0e3e5d8991a4cdd4577f8896cd063105207665165c73e25a1ff918dd367eb7",
+    "packages/vscode/media/agents/opencode.svg": "5dd4abb4de60204510edf140bbe74b3580d07ebdda79fdb0081cd45acb53d44b",
+    "packages/vscode/media/agents/qoder.svg": "5e1843cb50c4613855024453e76d5c06d2ca5562efebc12b4fcd80cf9ece1dd0",
+    "packages/vscode/media/berth.svg": "bfef85d1c7e3a62f3599d297a2dac59a7cda32ac88c8028a23928a0101b7bd8d",
+    "packages/vscode/media/icon.svg": "4d937ff22f63db77188ad42346c28152a3b0b53d91701995f253e7cde0a0b3e1",
+    "packages/vscode/media/icon.png": "4bbffc43a5944c38451c4ad5e4cca096a7bd7e47c4f929b2c425259458c8495b",
+    "packages/vscode/webview/icons.ts": "c9b7f7a35bb2386650bbe5022091d24582f4919c859801f7bda63ba32f39446d",
+    "packages/vscode/webview/main.ts": "8bd8e59bb5fb5f46f31f2eb3a15d92e2fc6083d38b17c277b3e782e1397d9961",
+    "packages/vscode/webview/hover.ts": "5632c133f47c9b2ebfc4ef1d263de070f5946037e2147499e0310380019648b8",
+    "packages/vscode/webview/main.css": "25ac70b4844e6a23a28e32d2a3f6378df57b06e97ac8b4865f66ba895bf766c6",
+    "packages/vscode/src/extension.ts": "bb0b203f10ab36c61696523bfc0e059a5c40e655379c5aa8e4540f34616a4626",
+    "packages/vscode/test/browser/icons.spec.mjs": "849499ec8efdd913cfd83bd1481337798f0eb4b2b81bc9cf19e46e572792779b",
+    "packages/vscode/test/browser/fixture.mjs": "a8a978420ec81fe5ed88454ebdcdc5895e534b2f6bd20a8e1df702e83eaf0a81",
+    "packages/vscode/dist/webview/main.js": "44021343e756b80de5bac842a1f03fac6488fa1059ecf14ea8956a7868fd1555",
+    "packages/vscode/dist/webview/main.css": "25ac70b4844e6a23a28e32d2a3f6378df57b06e97ac8b4865f66ba895bf766c6",
+    "packages/vscode/dist/extension.cjs": "cf16a0b2de4bbb9617a22c40a851c1de69eb4fefeb63aee0fe8a82b3e9231ca8",
+    "packages/vscode/media/agents/gemini.png": "351e9f5b1bf863d738cd7be4ed040a625a1419450ae7fc490143e4042b7c2438",
+    "packages/vscode/media/agents/kimi.png": "dbd00e2ad61ea8832ef0b024662a4a8a5d1b66f0599d5d42e1c9688b9d4cfdf6",
+    "packages/vscode/media/agents/opencode-light.svg": "b47a4fecc77599382e238868e74064bbe92307b0e253a32f0b1a026517a2d2a6",
+    "packages/vscode/media/agents/cursor-light.svg": "c483c02f78eb2619778fdd959e72a9adfac4844854472cd2653d4cbfd60e4d71",
+    "packages/vscode/media/agents/copilot.png": "10812cc1baceeb1d932232e69e1121f290faedca3f400289c24293f1e8d57d0b"
+  },
+  "screenshots": {
+    "agents-dark.png": {
+      "sha256": "b86747a83405c833ec017eb04de299d6960efbb7bd77abf44739b9e463a11f8e",
+      "dimensions": [
+        420,
+        780
+      ]
+    },
+    "agents-hc.png": {
+      "sha256": "79097dfc518cc45ae5caa502986a02763fb599408c9cfb5c96b442af82270c43",
+      "dimensions": [
+        420,
+        780
+      ]
+    },
+    "agents-hclight.png": {
+      "sha256": "3958f62af53516d39fb68cf0aa18cbdb66447fea988274e06d02795f3d751555",
+      "dimensions": [
+        420,
+        780
+      ]
+    },
+    "agents-light.png": {
+      "sha256": "93057643097f4cf34a5d2d59158995da5d306192c815e041a1c5b028e4f827fb",
+      "dimensions": [
+        420,
+        780
+      ]
+    },
+    "functions-dark.png": {
+      "sha256": "b2271817cc8d328e271f5b4ad32ae8de560403f3004d5b930f358f5903601335",
+      "dimensions": [
+        420,
+        580
+      ]
+    },
+    "functions-hc.png": {
+      "sha256": "87ec719c87aa9d001adf4e3d6e84c47a21bd6edf1dd366f1e6543788b0a3ce6d",
+      "dimensions": [
+        420,
+        580
+      ]
+    },
+    "functions-hclight.png": {
+      "sha256": "1c7cc76ece0a33fe22a15b2ee1da86429574a4cc4d5e7909cb31ed3cd6c3fdb3",
+      "dimensions": [
+        420,
+        580
+      ]
+    },
+    "functions-light.png": {
+      "sha256": "cba1c4e17d86a03714c37917f14d53bf8ab0806d3d2e8aa5269d2c79c6d0c36d",
+      "dimensions": [
+        420,
+        580
+      ]
+    },
+    "working.png": {
+      "sha256": "39eb3aea3ca919962cc5ebc83d61ddcfd52d6011edee096d41961834c060f84b",
+      "dimensions": [
+        300,
+        560
+      ]
+    }
+  }
+}

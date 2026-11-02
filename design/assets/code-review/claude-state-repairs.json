@@ -1,0 +1,143 @@
+{
+  "observedAt": "2026-11-01T07:22:10.028584+00:00",
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "dirtyWorkingTree": true
+  },
+  "resolved": [
+    "CR43"
+  ],
+  "open": [
+    "CR44"
+  ],
+  "previousEvidence": "opencode-state-repairs.json",
+  "verification": {
+    "build": "passed",
+    "focusedPassed": 21,
+    "fullRegression": {
+      "tests": 187,
+      "passed": 182,
+      "failed": 0,
+      "skipped": 5
+    },
+    "nativeClaude": {
+      "version": "2.1.310",
+      "passed": 1,
+      "scope": [
+        "Initial identity binding and exact-ID recovery",
+        "Injected HTTP 400 emits StopFailure and clears activity",
+        "Successful subsequent turn",
+        "Approval requested without waiting for Notification",
+        "Approved command proof contents verified",
+        "PostToolBatch resumes work before held model response completes",
+        "Successful final turn preserves identity"
+      ],
+      "inference": "Loopback Messages fixture with synthetic key and temporary trusted directory. No daily profile or credentials used."
+    },
+    "cancelledClaude": {
+      "result": "Still stale; not repaired.",
+      "signal": "Diagnostic hooks provided no ending event for early cancellation or manual approval denial. A partial-response cancellation included interruptedMessageId in the transcript, while early cancellation did not.",
+      "nextEvidence": "Read-only claude agents --json includes interactive session PID, sessionId and status. Isolated probe observed busy before cancellation and idle afterward for the same identity; not integrated yet."
+    },
+    "browser": {
+      "reused": "CR36 final 74-case matrix",
+      "sourceHashesUnchanged": true
+    },
+    "installedFileMatches": {
+      "extension": 25,
+      "core": 120
+    }
+  },
+  "sourceHashes": {
+    "packages/core/src/errors.ts": "6fd21f53fb27cd2853d9c9caa021c0d811b077b8067ab348d85559775a4f6a50",
+    "packages/core/src/process-owner.ts": "ab669d581c8e6e9f65b5ccb3e882f9c445b26187a2d92aa1a46fcbc5babb99f2",
+    "packages/core/src/context.ts": "214f7ad3572fa9f04a410dd569e665ca60977904b0c1ae2f748d2720b5dfd24d",
+    "packages/core/src/process-directory.ts": "560c332e44cb526a81315531c0a975cf7eb4d177c0bc2dd526a4ac18fb2bf068",
+    "packages/core/src/shell.ts": "f4b4064d0b38bfc1b947d970d5c1fce4702b815ef527c22255767bd474987de4",
+    "packages/core/src/tools.ts": "1bd8758a45cd31130290d8ae9639516a276765ca0da03463553093c5d313bbc1",
+    "packages/core/src/index.ts": "e83b76a1ac2a9308c766375db0c1326c68806862ff60aa97de63692e3b34bb39",
+    "packages/core/src/process-arguments.ts": "f4ce9f88c3ac6103e6233b012bdb11c776c148843900bf6de0cc95227ccc12d8",
+    "packages/core/src/present/state.ts": "67da3731fa63f6c30ab0030d898b06f89baa3e87829d782fb6121a45780b6ece",
+    "packages/core/src/present/attach.ts": "2d45c466348c2b74c53b7efc7d203e52ff07a4445f416de0d23e39d2a40e6fe2",
+    "packages/core/src/snapshot/identity.ts": "7a50e2916b3d55a5da3da2cc6328408b2e5f5e416caa027d4bd7296d21bcb0f0",
+    "packages/core/src/snapshot/take.ts": "737c121bb34d53df76ab686bd0b00a321a77b8e9106ca71839351643a6ee1944",
+    "packages/core/src/snapshot/lifecycle.ts": "c0b5fb7145d14bb00a00fc48031079d261608ceb2eeb6eaba980213b2259e2e0",
+    "packages/core/src/snapshot/store.ts": "35af9dd25d0d44ce0c70de498d0734d843994c3fcc05b5bf7ce562a030dc0a17",
+    "packages/core/src/config/index.ts": "ade5925bca0db922466dccf38d445b9f78e506bdfbb4a83881e800ce3199866f",
+    "packages/core/src/agents/roots.ts": "d2fd31b3325513b155827f276b8e1f92b6e437b979119f14304303d5ad704dbe",
+    "packages/core/src/agents/commands.ts": "08ce92e36123ea765348bb9c166bdc97ac11c24312a44582af0dbbfa93839445",
+    "packages/core/src/agents/hook-files.ts": "2538285fa8ce0ce9156a3c6a036a084d7c5b0520c10bbd603c6f5737355a8071",
+    "packages/core/src/agents/titles.ts": "2f856498b24f301eaedf92f5d995197863b74ee3732559c6cd0e844018eaa8bf",
+    "packages/core/src/agents/hook-health.ts": "faaf55adf2a19ebd529b5a8335273dc6c7925ea9e56cab8f5ecea56f2fb5e314",
+    "packages/core/src/agents/profile.ts": "0ab12a74289413cdbb25614bc8b143a74d3409a49c06deafd6ecb2ce62a63de0",
+    "packages/core/src/agents/registry.ts": "9d829bad8f7f907833debaa01eed04ffb375ac987d6a079e157d8f67443e75f1",
+    "packages/core/src/agents/hooks.ts": "aac2bea2e68b83049e86d3c00c9f0f231fe3a292d0772d3cc08ceb34d95e44c6",
+    "packages/core/src/cli/main.ts": "a647a59393c12adf3e452016c1c4ccf88f37bbeaca25033a0c838358a249cb45",
+    "packages/core/src/iterm2/install.ts": "123a2ad945300d364d1693769ccd3e755c4bd5d67917d9134d98eb374e62d805",
+    "packages/core/src/tmux/install.ts": "ae51c41f35e39e27783a13e68f8a640cc5497ff6f0ce64c17e89b693f50352b5",
+    "packages/core/src/tmux/connections.ts": "4f64b6028018fc45af5537ca4ab7b8c4af6987525d53512de76781b442e9f703",
+    "packages/core/src/tmux/client.ts": "51e4af7aef85dfa3ba9443a73f2717d456a41fa3795fb585d495ca9e3f51f418",
+    "packages/core/src/tmux/fields.ts": "791e534c367fec26ebc3257732fade39254c768a26bdab91bf8e1120aeb740d4",
+    "packages/core/src/registry/doctor.ts": "ff87f9146e909f73551c075fb59316312697b43a00bbdd517a9336df88240d2a",
+    "packages/core/src/registry/directory.ts": "20334df01c99b68d89dcaad140905c7410587fd67524e6737dae586206ad6f23",
+    "packages/core/src/registry/launch.ts": "bc3b4fb141919de87c122d6dd9c73a5653a9cc149a6167cecf0b6a6e01554b3f",
+    "packages/core/src/registry/hosts.ts": "7815fd9200a44b2c0d9ffb328b1be3c917fefeb818f82a0d04ed4e02e1c36a11",
+    "packages/core/src/registry/discover.ts": "968bba7aa65889a439bbbdc25d4f34d8700148897ab999694f585ea97f4be0b2",
+    "packages/core/src/registry/sessions.ts": "710bc218d1c9d74b58697fea085a7a2d17a1e6c334927722590bd709184a2c06",
+    "packages/core/src/restore/status.ts": "116dc036d37e05bccc5cecf4d428e7c09726904bd54713d2661800c573a02cff",
+    "packages/core/src/restore/lock.ts": "e2f0808bf6fbbe308facd2f474de93734eb6a7062cdbd02ef50823ae85c4523e",
+    "packages/core/src/restore/ensure.ts": "3bea7e803f82976d1a72b18f1dd92ac3891c71ad0972c5267407347d0d61e5c7",
+    "packages/vscode/src/inventory.ts": "6e107cf02047fe7a0f370b398a3a6002deeb5986cfece47c727cdb7f56aab465",
+    "packages/vscode/src/extension.ts": "bc39f4835d343ccdda22be0594eb8578587d2ca8493aeb9b76edfd8f70b4f866",
+    "packages/vscode/src/model.ts": "379176e3b65af723fe3ef3150132b13e663eed7b1151de9387fb4943fb8c2aa5",
+    "packages/vscode/src/hookRuntime.ts": "0a607dfcbe9e533f6713fc07e08bd957e84f883b118f06cdcda3996bcd0ef522",
+    "packages/vscode/src/controller.ts": "feee37a13200e718f2af82223713832163e6cdcb8b7049d0af95b43b745fae86",
+    "packages/vscode/src/view/sessionsView.ts": "d0122ccff17adae65eb0cc0ddf665756c684d9eea781be7022cf1c246c7a934c",
+    "packages/vscode/src/view/protocol.ts": "d4e5b7594bffd0a3a156397df844d90380da52507c72cec3d522938587778622",
+    "packages/vscode/webview/hover.ts": "6f3aab057147b07a626683c2f4da259c741144338d094dc492ee30be938a6000",
+    "packages/vscode/webview/main.ts": "8bce6c71d2862df9a39fedbafd50987d54bad0a4c1eca76c5a0c2e9440770a3d",
+    "packages/vscode/webview/clipboard.ts": "de4813fc4f611592b4729783003c75629210e2bbee0007c2aa1a43254a928d47",
+    "packages/vscode/webview/icons.ts": "c9b7f7a35bb2386650bbe5022091d24582f4919c859801f7bda63ba32f39446d",
+    "packages/vscode/webview/hoverPosition.ts": "6c8c3f12e837c8861335911e757f057fea5c427f2c96123a978a223dbe8410c9",
+    "packages/vscode/webview/main.css": "399c6d9911329144fbe6b5a544edd5bec0d14cf87e5a9f4342d92030ce147557"
+  },
+  "changedTestHashes": {
+    "packages/core/test/adapters.test.ts": "5c6ecc8e41eb7d3976189a8d4a1c2563ffe371fcb4ffa9f23aa5551805209008",
+    "packages/core/test/hooks.test.ts": "52b4b1841d10cd5235f5583e5eed09c60b962272b734d5dac4a5269d89ab6524",
+    "packages/core/test/live/claude.test.ts": "da0a95e0584ee731f0b8e47c4e489eaadf33cbda515b5e60dbbaa535a3990180",
+    "packages/core/test/live/claude-local.test.ts": "dc44d74fb1662d65dc8544eda82cdd78af7b85b90b3850f3ad8dc7dfcdc15d28"
+  },
+  "artifactHashes": {
+    "berth-cr43.vsix": "fced093e22e5ee3c4dd7aa9fd407663c0c78d1c08c060b0e5098feaf03a0ca85",
+    "berthdev-berth-0.3.6.tgz": "c92b0ed7fbe82fe629736d68e6360ecafd9e4bceb88f3fb75767ca2b3f283c01"
+  },
+  "logHashes": {
+    "build-final": "2ecac3a33c5b48a658af09d0f71e422414c952a1c1133a8f898cac83df016084",
+    "focused": "0c1e9de66a31d0b14cce631758f27884a26b1c644e26a05da38c68af31f2eea1",
+    "native": "089b116ecdf2c9b972096435c4b19cdae7186b8d999f182c3ecf34329523cb68",
+    "full": "81b200a10ccae802e28e40197a620d8df76800df1eded03a0c920a9d8d36074b",
+    "package": "19d01fefbaae9b5d13841370713cea11875d0b3f0892cf4968804c856db901bb",
+    "core-package": "15401f2577b0a3dc86e179546cf8bab60008f61ec30bf5178fb690492924fa1d",
+    "install": "25f79c0920067f18fce99c76c4855000a63547853a290c5f2a0caa1cfda2c213",
+    "core-install": "1fa35311fc9f78f7bc7eded62f0121551ef38d34beac45d2b449c9326ceb8ef1"
+  },
+  "probeHashes": {
+    "invalid": "997df56d277efc4c648a72a7a8051eba1d87d29dd7e731436ffefbe2f538a2eb",
+    "permission": "2e336532cb1da35ccf54b2c7cbdaa090e431eced749a742edcdc0aba2de36224",
+    "rejection": "a25372c25b4ce2e9641ca5891c3bc4502c4fc4f18b8cde6d3f761b478c2c45b0",
+    "early-schema": "c7c2a63f06498832b318bd5eb8e8770ca20bd9dd0d228bf6e32c1689c3e2d807",
+    "partial-block": "536abd7e5799f2f969a1b4e066d9ffe353ef965e7056dd2bf97d0afaa851c638",
+    "agents": "f41d3caf76d8392bddcdff111d7674e78171ca595870f67ee98ddd8ec4fced91"
+  },
+  "pending": [
+    "CR44 Claude cancellation and manual denial state reconciliation",
+    "Native Qoder and remaining agent/version delivery",
+    "Native editor and iTerm lifecycle, OS clipboard and accessibility",
+    "Linux execution"
+  ],
+  "delivery": {
+    "isolatedInstall": true,
+    "dailyEditorChanged": false,
+    "published": false
+  }
+}

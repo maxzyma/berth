@@ -1,0 +1,97 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "checkedAt": "2026-11-01T10:54:18.311411+00:00",
+    "includesWorkingTree": true
+  },
+  "resolved": [
+    "CR66",
+    "CR67"
+  ],
+  "environment": {
+    "macOS": {
+      "node": "v22.22.0",
+      "tmux": "tmux 3.6a"
+    },
+    "linux": {
+      "os": "Ubuntu 24.04 aarch64",
+      "node": "20.20.2",
+      "tmux": "3.4",
+      "isolation": "Dedicated Colima VM, no host mounts or SSH agent forwarding; no default Docker context activation",
+      "cleanup": "VM stopped after verification; user Docker configuration hash unchanged."
+    }
+  },
+  "verification": {
+    "macFull": {
+      "tests": 238,
+      "passed": 231,
+      "skipped": 7,
+      "failed": 0
+    },
+    "linuxFull": {
+      "tests": 238,
+      "passed": 230,
+      "skipped": 8,
+      "failed": 0
+    },
+    "macFocused": {
+      "passed": 48
+    },
+    "linuxFocused": {
+      "passed": 48
+    },
+    "tmux30": {
+      "passed": 3
+    },
+    "installedCli": {
+      "passed": 4,
+      "scope": "Installed extension/core CLI hook preservation and native-event reconciliation using stand-in producers; not native-agent acceptance"
+    },
+    "linuxInstalledCli": {
+      "passed": 1,
+      "scope": "Actual npm core package under Node 20: create/list/exact newline, unit-separator, tilde, equal and percent directory preservation"
+    },
+    "installedFileComparison": {
+      "extension": 25,
+      "core": 141
+    }
+  },
+  "artifacts": {
+    "vsix": {
+      "name": "berth-cr67.vsix",
+      "sha256": "866363eef43e360c661243a27ba5170d183eb1eab58ef35ead593ca72451530d",
+      "bytes": 312661
+    },
+    "core": {
+      "name": "berthdev-berth-0.3.6.tgz",
+      "sha256": "52ce846e053b96ed2d026ce764c103602c5a011fe17eac84c06a971afb52d3c7",
+      "bytes": 98802
+    }
+  },
+  "sourceHashes": {
+    "packages/core/src/tmux/fields.ts": "b22c491fd06e6edb1daa5357d88b06abd6d3efbfccf09b68eedce5a76cfa2237",
+    "packages/core/src/tmux/client.ts": "82caf02d90b8819b106162fa13846a0549ad4f9a8adae8a7c0d4127e9a705747",
+    "packages/core/test/tmux-fields.test.ts": "3ce4944cfa7f28520bca24c6f3f5d8022038c1f2fe1290fd56ba4262d8dd039a",
+    "packages/core/test/attachment.test.ts": "7a25ad2b696b062b5760b270e88ed2723320a08e5ec5b7d225b058494333ed4b",
+    "packages/vscode/test/controller.test.ts": "3a3a35c07292016bd6432357449d4871472d566eb2d7fec92c100c2621389333",
+    "scripts/test.mjs": "94a9870d348107571244ebabdbbad507e772a8eb4aa804583664b31434e75719",
+    "package.json": "17c746b9e5f5e20a5d84d99d9610c9061a3e448f730ad093b224be2db32069d8",
+    "package-lock.json": "a1955b4bfbea965df36a82a1e85035d43407b15009347dd457e30adfc865018c"
+  },
+  "logHashes": {
+    "macFull": "c9da423ae3dc5255edc7feb94bac6a06233be0c7c11facb935f44cb339f27e89",
+    "linuxFull": "6187d22926db198b0aa8ea1ab1b7d5df836a5d889a3943741200f82331d9ac1b",
+    "macFocused": "37c1e205eca13378a7b96237c9a92801089c2abc15ab9eb7c6647789d328a49a",
+    "linuxFocused": "db9713ea696d91e66a83d8ca46468d221865c72619dc9ed4201baa55e9dd6668",
+    "tmux30": "7f13b01409eb9b45adbe8ac292e969ccb6bd899b08793a818dc2d13c15cc682b",
+    "installed": "738ef93c21703dbab7dce92be94ce756f5288f7529e9f813d52d328ca257a09f",
+    "linuxInstalled": "1a5d0125c1c012838f22a5dbc4b111243b5e9ce62ba9d07d3f6640ecd8b46ee2"
+  },
+  "limits": [
+    "Seven native-agent fixtures are opt-in and skipped by complete regression.",
+    "Linux additionally skips the macOS-specific empty argv0 probe.",
+    "Native editor/iTerm lifecycle, remaining agent/version paths and publication are still open.",
+    "No new visual/browser claims: view sources unchanged.",
+    "Development dependency installation requires Node 22; Linux Node 20 validates the core runtime and compiled regression."
+  ]
+}

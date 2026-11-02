@@ -1,34 +1,70 @@
+import { assessCapability, versionInspector } from '../agents/capabilities.js';
+import { profileKey, type AgentProfile } from '../agents/profile.js';
+import { usableDirectory } from './directory.js';
 import { existsSync } from 'node:fs';
 import type { Context } from '../context.js';
+import { launchCommand } from '../agents/commands.js';
+import { shellSplit } from '../shell.js';
+import { executableOnPath } from '../tools.js';
 import { getAdapter } from '../agents/registry.js';
-import { hooksInstalled } from '../agents/hooks.js';
 import { list } from './sessions.js';
 
 export interface Finding {
   session?: string;
   problem: string;
+  severity?: 'info' | 'warning';
+  installHooksFor?: string;
+  profile?: AgentProfile;
 }
 
 /** Drift and gaps worth a user's attention; empty when all is well. */
-export function doctor(ctx: Context, env = process.env): Finding[] {
+export function doctor(ctx: Context, env = ctx.env): Finding[] {
   const findings: Finding[] = [];
-  const agentsInUse = new Set<string>();
+  if (process.platform === 'darwin' && !existsSync('/usr/bin/perl')) findings.push({ problem: 'System Perl is unavailable; macOS launch arguments cannot be verified for recovery.' });
+  if (ctx.config.legacySnapshotRoot) findings.push({ problem: `Legacy snapshots require endpoint verification: ${ctx.config.legacySnapshotRoot}. After verifying the source server, use berth restore with an explicit snapshot directory.` });
+  const version = ctx.tmux.run(['-V'], true);
+  const major = /tmux\s+(\d+)/.exec(version.stdout)?.[1];
+  if (!version.ok || !major) findings.push({ problem: 'Could not verify tmux version. Berth requires tmux 3.0 or later.' });
+  else if (Number(major) < 3) findings.push({ problem: `Unsupported tmux version: ${version.stdout.trim()}; install tmux 3.0 or later.` });
+  const checkedProfiles = new Set<string>();
+  const checkedVersions = new Set<string>();
+  const inspectVersion = versionInspector(env);
   for (const row of list(ctx)) {
     if (!row.managed) continue;
-    agentsInUse.add(row.agent);
+
     const adapter = getAdapter(row.agent);
     if (!adapter) {
       findings.push({ session: row.name, problem: `unknown agent ${row.agent}` });
       continue;
     }
-    if (!existsSync(row.cwd)) findings.push({ session: row.name, problem: `working directory missing: ${row.cwd}` });
-    if (adapter.resume && !row.conversation) findings.push({ session: row.name, problem: 'conversation not bound; restore will start fresh' });
-  }
-  for (const agent of agentsInUse) {
-    const adapter = getAdapter(agent);
-    if (adapter?.hookTarget && !hooksInstalled(agent, env)) {
-      findings.push({ problem: `hooks for ${adapter.displayName} not installed (berth hooks install ${agent})` });
+    const versionKey = JSON.stringify([row.agent, executableOnPath(adapter.binary, env, row.cwd)]);
+    if (row.agent !== 'shell' && !checkedVersions.has(versionKey)) {
+      checkedVersions.add(versionKey);
+      const overrides = ctx.config.agents[row.agent];
+      if (overrides?.launch !== undefined || overrides?.resume !== undefined) {
+        findings.push({ session: row.name, severity: 'info', problem: `${adapter.displayName}: custom launch/resume template; version not inspected. Verify hook support in that launcher.` });
+      } else {
+        const observed = inspectVersion(adapter, row.cwd);
+        const assessment = observed.version ? assessCapability(row.agent, observed.version) : undefined;
+        findings.push({ session: row.name, severity: assessment?.severity ?? 'info',
+          problem: `${adapter.displayName} configured CLI (${observed.executable}): ${observed.version ?? observed.detail}. ${assessment?.detail ?? 'Version compatibility remains unverified.'}` });
+      }
     }
+    if (!usableDirectory(row.cwd)) findings.push({ session: row.name, problem: `working directory missing: ${row.cwd}` });
+    if (row.bindingIssue) findings.push({ session: row.name, problem: row.bindingIssue });
+    if (row.recovery && row.recovery !== 'confirmed') findings.push({ session: row.name, problem: `recovery ${row.recovery}: ${row.recoveryDetail ?? 'inspect the terminal'}` });
+    const command = launchCommand({ adapter, name: row.name, cwd: row.cwd, overrides: ctx.config.agents });
+    const [binary] = shellSplit(command);
+    if (binary && !executableOnPath(binary, env, row.cwd)) findings.push({ session: row.name, problem: `executable unavailable: ${binary}; install it or correct the agent template` });
+    if (row.agent !== 'shell' && !row.profile) findings.push({ session: row.name, problem: 'agent profile unknown; a verified start hook can report it, or choose a recovery profile once the session is stopped' });
+    if ((row.hooks === 'missing' || row.hooks === 'broken') && row.profile) {
+      const key = profileKey(row.agent, row.profile);
+      if (!checkedProfiles.has(key)) {
+        checkedProfiles.add(key);
+        findings.push({ session: row.name, installHooksFor: row.agent, profile: row.profile, problem: `hooks for ${adapter.displayName} ${row.hooks === 'broken' ? 'are incomplete or have missing runtime files' : 'are not installed'} in this session profile` });
+      }
+    }
+    if (adapter.resume && !row.conversation) findings.push({ session: row.name, problem: 'conversation not bound; automatic recovery is unavailable. Use the agent conversation picker or start a new session explicitly' });
   }
   return findings;
 }

@@ -17,9 +17,12 @@ export interface ViewSettings {
 
 export type ToView =
   | { type: 'model'; model: TreeView; flatten: boolean }
-  | { type: 'settings'; settings: ViewSettings };
+  | { type: 'settings'; settings: ViewSettings }
+  | { type: 'dismissDetails' }
+  | { type: 'error'; message: string }
+  | { type: 'copyResult'; id: number; success: boolean };
 
-export type FromView = { type: 'ready' } | { type: 'show'; session: string } | { type: 'newIn'; cwd: string };
+export type FromView = { type: 'checkRecovery'; session: string } | { type: 'copy'; id: number; value: string } | { type: 'ready' } | { type: 'retry' } | { type: 'new' } | { type: 'show'; session: string } | { type: 'newIn'; cwd: string } | { type: 'detailsVisibility'; visible: boolean };
 
 /** What the view puts in `data-vscode-context`; context-menu commands receive it. */
 export interface MenuContext {

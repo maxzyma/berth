@@ -53,7 +53,7 @@ test('L1 a live Claude session resumes its own conversation after the server die
   writeFileSync(STAMP, String(Date.now()));
 
   const settings = join(process.env.TMPDIR || '/tmp', `berth-live-settings-${process.pid}.json`);
-  const events = ['SessionStart', 'UserPromptSubmit', 'Notification', 'Stop'];
+  const events = ['SessionStart', 'UserPromptSubmit', 'PermissionRequest', 'Notification', 'PostToolBatch', 'Stop', 'StopFailure'];
   writeFileSync(
     settings,
     JSON.stringify({ hooks: Object.fromEntries(events.map((e) => [e, [{ hooks: [{ type: 'command', command: hookCommand(CLI, 'claude', e) }] }]])) }),
@@ -94,12 +94,9 @@ test('L1 a live Claude session resumes its own conversation after the server die
   assert.equal(sb.cli('snapshot').status, 0);
   killServer(sb);
   const ensured = sb.cli('ensure');
-  assert.match(ensured.stdout, /live\tresumed/, ensured.stderr);
+  assert.match(ensured.stdout, /live\tresume-requested/, ensured.stderr);
 
-  // ensure restores the recorded id itself; overwrite it so only the agent's own
-  // SessionStart hook can prove which conversation it resumed.
-  sb.cli('stamp', '--session', 'live', 'conversation=awaiting-resume');
-  const resumed = await waitFor(() => meta('conversation') !== 'awaiting-resume' && meta('conversation'), 'SessionStart after resume', 60_000);
-  assert.equal(resumed, conversation, 'resumed into the same conversation');
+  await waitFor(() => meta('recovery') === 'confirmed', 'matching SessionStart after resume', 60_000);
+  assert.equal(meta('conversation'), conversation, 'resumed into the same conversation');
   killServer(sb);
 });

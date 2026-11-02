@@ -1,0 +1,63 @@
+{
+  "baseline": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "checkedAt": "2026-11-01T09:39:41.585108+00:00",
+  "workingTree": true,
+  "sourceEvidence": "gemini-outcome-repairs.json",
+  "runtimeSourceHashesMatched": true,
+  "reusedFullRegression": {
+    "tests": 232,
+    "passed": 226,
+    "skipped": 6,
+    "failed": 0
+  },
+  "changedTestHashes": {
+    "packages/core/test/live/gemini-local.test.ts": "c0cc82b16a7747225ee70a364ac540cfe45868e7141f095ac54a96cd10b8abfe"
+  },
+  "verification": {
+    "nativeGemini": {
+      "version": "0.66.0",
+      "passed": 1,
+      "additionalChecks": [
+        "two independent tool approvals",
+        "waiting retained after first approval while second remained pending",
+        "no follow-up model request before both decisions",
+        "working after both approvals",
+        "both tool outputs verified",
+        "all prior profile/recovery/cancellation/error scenarios retained"
+      ]
+    },
+    "packages": {
+      "extensionFilesMatched": 25,
+      "coreFilesMatched": 135,
+      "artifacts": {
+        "berth-cr61.vsix": "f1fac01b1f5e86f03625987a392d891ca0fea3b05e3c3deed52c96a8350ec957",
+        "berthdev-berth-0.3.6.tgz": "df2b78e7b2e8702e84f1e5ca533128feb4f69e9d7652a64ded3dd118b383819b"
+      }
+    },
+    "installedCliJourneys": {
+      "passed": 2,
+      "checks": [
+        "selected Gemini profile",
+        "BeforeModel installed",
+        "native cancellation reader through installed ls command",
+        "uninstall retains unrelated settings",
+        "symlink retained",
+        "POSIX mode 0640 retained"
+      ],
+      "producer": "isolated stand-in, separate from native Gemini fixture"
+    },
+    "logs": {
+      "berth-multitool-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "berth-multitool-native.log": "2a01276468914ecb58cbdf471d665f565065a4e19bd45b9b02c2b8ebb9c9f8be",
+      "berth-cr61-package.log": "7cd025efef1da66a42a6705de557f822d6984eda88a554c7e1f792dfe202d754",
+      "berth-cr61-pack-core.log": "3b4acd4fba1b17b03cf767a8e43d3730b2fa8413d2f07019273ceef7989206ac",
+      "berth-cr61-install.log": "b2b60f7fab1f90d3831938b2430f2762ea9914574806d47adc867bfb3b122fb4",
+      "berth-cr61-installed-tests.log": "7bc746a4f87ed35207f385f96e4ab1427256bada31e9df945a04223f5be9d02e"
+    }
+  },
+  "limits": [
+    "No editor activation or foreground journey in this installation check",
+    "No daily editor replacement or publication",
+    "Native host, Linux and remaining agent/version acceptance stay open"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-02",
+  "baseline": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a + 0.4.0 candidate",
+  "scope": {
+    "commits": 75,
+    "git_objects": 985,
+    "historical_blobs": 450,
+    "candidate_files": 294,
+    "npm_versions": 16,
+    "github_releases": 16,
+    "marketplace_versions": 12,
+    "archives": 60,
+    "archive_files": 2555,
+    "images_ocr": 40
+  },
+  "results": {
+    "history_gitleaks": 0,
+    "candidate_gitleaks_findings": 6,
+    "candidate_verified_hash_false_positives": 6,
+    "artifact_gitleaks": 0,
+    "private_identifier_findings": 0,
+    "marketplace_content_differences": 0,
+    "github_actions_artifacts": 0,
+    "github_issues_and_comments": 0
+  },
+  "identity": "Existing public attribution retained; future release commits use GitHub noreply.",
+  "limitations": [
+    "Pattern scanning and OCR cannot prove absence of all sensitive information.",
+    "Unreachable remote objects, third-party clones and caches are outside the observed scope."
+  ],
+  "disposition": "No historical rewrite or old-version withdrawal indicated by the observed findings.",
+  "archive_manifest_sha256": "30d57128683e4e12d8397c34ab2211bea1cc1d593c4e3e8c46b28f1557e89a9b"
+}

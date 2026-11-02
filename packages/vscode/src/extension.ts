@@ -1,62 +1,92 @@
 /** Berth for VS Code: glue between the editor API and the controller (spec §6). */
-import { spawn, spawnSync } from 'node:child_process';
-import { platform } from 'node:os';
+import { notificationChannel, notifySystem } from './notifications.js';
 import * as vscode from 'vscode';
-import { ADAPTERS, createContext, type SessionRow } from '@berthdev/berth';
+import { hookInstallNotice, ADAPTERS, shellSplit, captureProfile, profileAtRoot, profileEnvironment, type AgentProfile, connections, HostRegistration, workspaceIdentity, createContext, waitForAttachment, type Context, type SessionRow } from '@berthdev/berth';
+import { sampleDoctor, sampleInventory, sampleSessions } from './inventory.js';
+import { createLayoutQueue } from './layoutRuntime.js';
+import { layoutProfileTemplate } from './layoutProfile.js';
+import { createHash, randomUUID } from 'node:crypto';
+import { recoveryCheckItems } from './recoveryCheck.js';
+import { LayoutStore } from './layoutStore.js';
 import { Controller, type Host, type TerminalRole } from './controller.js';
-import { defaultFolder, explorerTarget, launcherPicksAgent, layoutBackup, layoutChanges, orderAgents, placeOf, type Place, type Transition } from './model.js';
+import { sessionChoices, defaultFolder, explorerTarget, launcherPicksAgent, orderAgents, placeOf, type Place, type Transition } from './model.js';
 import type { MenuContext } from './view/protocol.js';
 import { SessionsView, VIEW_ID } from './view/sessionsView.js';
+import { installBundledHooks, prepareHookRuntime } from './hookRuntime.js';
 
 const REFRESH_MS = 2000;
 const LAYOUT_BACKUP = 'berth.layoutBackup';
-const WELCOMED = 'berth.welcomed';
+const LAYOUT_VALUES = 'berth.layoutAppliedValues';
 const BERTH_CONTAINER = 'workbench.view.extension.berth';
-/** Bump when Apply Agent Layout changes what it does, so users who applied an older one are offered the new one. */
-const LAYOUT_VERSION = 7;
 const APPLIED_LAYOUT = 'berth.appliedLayoutVersion';
 
-const MAC_BUNDLES: Record<string, string> = {
-  'Visual Studio Code': 'com.microsoft.VSCode',
-  'Visual Studio Code - Insiders': 'com.microsoft.VSCodeInsiders',
-  Cursor: 'com.todesktop.230313mzl4w4u92',
-};
-
-/**
- * System notification. On macOS, terminal-notifier is used when present so a
- * click brings the editor forward (where the in-editor notification offers
- * "Open"); without it the notification is shown but clicking does nothing useful.
- */
-function osNotify(title: string, body: string): void {
-  const os = platform();
-  if (os === 'darwin') {
-    const bundle = MAC_BUNDLES[vscode.env.appName];
-    const notifier = spawnSync('which', ['terminal-notifier'], { encoding: 'utf8' }).stdout.trim();
-    if (notifier) {
-      spawn(notifier, ['-title', title, '-message', body, ...(bundle ? ['-activate', bundle] : [])], { stdio: 'ignore', detached: true }).unref();
-      return;
-    }
-    const script = `display notification ${JSON.stringify(body)} with title ${JSON.stringify(title)}`;
-    spawn('osascript', ['-e', script], { stdio: 'ignore', detached: true }).unref();
-  } else if (os === 'linux') {
-    spawn('notify-send', [title, body], { stdio: 'ignore', detached: true }).unref();
-  }
+function currentWorkspaceIdentity() {
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  return workspaceIdentity(folders.map((folder) => folder.uri.toString()), vscode.workspace.workspaceFile?.toString(),
+    folders.map((folder) => `${folder.name} (${folder.uri.fsPath})`).join(', '));
 }
 
 class TerminalHost implements Host {
+  constructor(private readonly ctx: Context, private registration: HostRegistration) {}
+  ownerWorkspace(): string | undefined {
+    this.syncWorkspace();
+    return this.registration.workspace?.key;
+  }
+  dispose(): void { this.registration.dispose(); }
+  private syncWorkspace(): void {
+    const identity = currentWorkspaceIdentity();
+    if (identity?.key === this.registration.workspace?.key) return;
+    this.registration.dispose();
+    this.registration = new HostRegistration(this.ctx.config.stateDir, vscode.env.appName, identity);
+    this.registration.update([...this.pids]);
+  }
+  claimStartup(): boolean { return this.registration.claimStartup(); }
   /** The one session terminal that follows the selection, and the session it shows. */
   private main?: { terminal: vscode.Terminal; session: string };
   /** Extra terminals opened beside it. */
   private readonly side = new Map<vscode.Terminal, string>();
+  private pids = new Set<number>();
+  private terminalIds = new Map<vscode.Terminal, number>();
+  private sessionsByPid = new Map<number, string>();
+
+  activeTerminalPid(): number | undefined {
+    const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+    if (tab && !(tab.input instanceof vscode.TabInputTerminal)) return undefined;
+    const terminal = vscode.window.activeTerminal;
+    return terminal ? this.terminalIds.get(terminal) : undefined;
+  }
+
+  terminalPids(): ReadonlySet<number> { return this.pids; }
+
+  async updateTerminalPids(): Promise<void> {
+    this.syncWorkspace();
+    const terminals = [...vscode.window.terminals];
+    const pids = await Promise.all(terminals.map((terminal) => terminal.processId));
+    this.pids = new Set(pids.filter((pid, i): pid is number => pid !== undefined && !terminals[i].exitStatus && vscode.window.terminals.includes(terminals[i])));
+    this.terminalIds = new Map(terminals.flatMap((terminal, i) => this.pids.has(pids[i]!) ? [[terminal, pids[i]!] as const] : []));
+    const clients = [...connections(this.ctx.tmux).entries()];
+    const shownBy = (pid: number | undefined) => pid ? clients.find(([, values]) => values.some((client) => client.ancestors.includes(pid)))?.[0] : undefined;
+    this.sessionsByPid = new Map([...this.pids].flatMap(pid => { const name = shownBy(pid); return name ? [[pid, name] as const] : []; }));
+    if (this.main) {
+      const session = shownBy(pids[terminals.indexOf(this.main.terminal)]);
+      this.main = { ...this.main, session: session ?? '' };
+    }
+    for (const terminal of this.side.keys()) {
+      const session = shownBy(pids[terminals.indexOf(terminal)]);
+      if (session) this.side.set(terminal, session);
+      else this.side.delete(terminal);
+    }
+    this.registration.update([...this.pids]);
+  }
+
   focusSession?: (name: string) => void;
   onShown?: (row: SessionRow) => void;
-  suggestHooks?: (agent: string) => void;
 
   workspaceFolders(): string[] {
     return (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
   }
 
-  openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string): void {
+  async openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string): Promise<void> {
     const [shellPath, ...shellArgs] = argv;
     // No `name`: VS Code then follows the title the session sets (`${sequence}`).
     const terminal = vscode.window.createTerminal({
@@ -66,6 +96,22 @@ class TerminalHost implements Host {
       isTransient: true,
       location: { viewColumn: role === 'main' ? vscode.ViewColumn.One : vscode.ViewColumn.Beside, preserveFocus: false },
     });
+    try {
+      if (session) {
+        const pid = await new Promise<number | undefined>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('Terminal startup timed out. Try opening it again.')), 5000);
+          void terminal.processId.then((value) => { clearTimeout(timer); resolve(value); }, (error) => {
+            clearTimeout(timer);
+            reject(error);
+          });
+        });
+        if (!pid) throw new Error(`Terminal did not start for ${session}. Try opening it again.`);
+        await waitForAttachment(this.ctx.tmux, session, pid, { exited: () => terminal.exitStatus !== undefined });
+      }
+    } catch (error) {
+      terminal.dispose();
+      throw error;
+    }
     if (role === 'main') {
       this.main?.terminal.dispose();
       this.main = { terminal, session };
@@ -116,16 +162,10 @@ class TerminalHost implements Host {
     return new Set([...(this.main ? [this.main.session] : []), ...this.side.values()]);
   }
 
-  closeTerminals(session: string): void {
-    if (this.main?.session === session) {
-      this.main.terminal.dispose();
-      this.main = undefined;
-    }
+  renameSession(from: string, to: string): void {
+    if (this.main?.session === from) this.main = { ...this.main, session: to };
     for (const [terminal, name] of this.side) {
-      if (name === session) {
-        terminal.dispose();
-        this.side.delete(terminal);
-      }
+      if (name === from) this.side.set(terminal, to);
     }
   }
 
@@ -136,46 +176,24 @@ class TerminalHost implements Host {
   notify(t: Transition): void {
     const text = t.state === 'waiting' ? `${t.name} is waiting for you` : `${t.name} finished`;
     const detail = t.note ? `: ${t.note}` : '';
-    void vscode.window.showInformationMessage(`${text}${detail}`, 'Open').then((choice) => {
+    const activePid = this.activeTerminalPid();
+    const current = activePid !== undefined && this.sessionsByPid.get(activePid) === t.name;
+    const channel = notificationChannel(t.state, vscode.window.state.focused, current,
+      vscode.workspace.getConfiguration('berth').get<boolean>('osNotifications', true));
+    const editorNotice = () => { void vscode.window.showInformationMessage(`${text}${detail}`, 'Open').then((choice) => {
       if (choice === 'Open') this.focusSession?.(t.name);
-    });
-    if (vscode.workspace.getConfiguration('berth').get<boolean>('osNotifications', true) && !vscode.window.state.focused) {
-      osNotify('Berth', `${text}${detail}`);
-    }
+    }); };
+    if (channel === 'editor') editorNotice();
+    if (channel === 'system') void notifySystem('Berth', `${text}${detail}`, vscode.env.appName).then(ok => { if (!ok) editorNotice(); });
   }
 }
 
-/** Agents the user asked never to be offered hooks for. */
-const HOOKS_DECLINED = 'berth.hooksDeclined';
-
-/**
- * Install hooks with the user's `berth` CLI: hook commands record the CLI's
- * path, and the extension's own copy moves with every extension update.
- * VS Code's environment comes from the user's shell; a version manager that
- * only an interactive shell loads (nvm) needs `-i`.
- */
-function installHooksWithCli(agent: string): { ok: boolean; detail: string } {
-  const args = ['hooks', 'install', agent];
-  let r = spawnSync('berth', args, { encoding: 'utf8', timeout: 30_000 });
-  if (r.error) {
-    const shell = process.env.SHELL || '/bin/sh';
-    r = spawnSync(shell, ['-ilc', `berth ${args.join(' ')}`], { encoding: 'utf8', timeout: 30_000 });
-  }
-  if (r.status === 0) return { ok: true, detail: r.stdout.trim().split('\n').pop() ?? '' };
-  const missing = r.status === 127 || /not found/.test(r.stderr ?? '');
-  return {
-    ok: false,
-    detail: missing
-      ? `the berth command is not on PATH. Install it (npm install -g @berthdev/berth), then run: berth hooks install ${agent}`
-      : (r.stderr || r.error?.message || 'unknown error').trim(),
-  };
-}
 
 /** A folder's place in the folder picker, by icon and colour (spec §6). */
 const PLACE_ICONS: Record<Place, vscode.ThemeIcon> = {
   workspace: new vscode.ThemeIcon('root-folder', new vscode.ThemeColor('charts.blue')),
   inside: new vscode.ThemeIcon('file-directory'),
-  outside: new vscode.ThemeIcon('file-directory', new vscode.ThemeColor('disabledForeground')),
+  outside: new vscode.ThemeIcon('folder-library', new vscode.ThemeColor('disabledForeground')),
 };
 
 /** A session named by a command argument: a name, or the context of a right-clicked card. */
@@ -185,17 +203,29 @@ function sessionArg(arg: unknown): string | undefined {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  void vscode.commands.executeCommand('setContext', 'berth.detailsVisible', false);
+  try {
+    prepareHookRuntime(context.asAbsolutePath('dist/cli.mjs'), context.globalStorageUri.fsPath);
+  } catch (error) {
+    console.error('Berth: could not update the persistent hook runtime', error);
+  }
   const socket = vscode.workspace.getConfiguration('berth').get<string>('tmuxSocket', '');
   const ctx = createContext({ ...process.env, ...(socket ? { BERTH_TMUX_SOCKET: socket } : {}) });
-  const host = new TerminalHost();
+  const registration = new HostRegistration(ctx.config.stateDir, vscode.env.appName, currentWorkspaceIdentity());
+  registration.update([]);
+  const host = new TerminalHost(ctx, registration);
+  context.subscriptions.push(host);
   const controller = new Controller(ctx, host);
   const view = new SessionsView(context.extensionUri, (message) => {
-    if (message.type === 'show') void controller.show(message.session).then(refresh);
-    if (message.type === 'ready') refresh();
+    if (message.type === 'checkRecovery' && typeof message.session === 'string') void vscode.commands.executeCommand('berth.checkRecovery', { session: message.session });
+    if (message.type === 'show') void controller.show(message.session).then(() => refresh()).catch((error: Error) => vscode.window.showErrorMessage(`Berth: ${error.message}`));
+    if (message.type === 'ready' || message.type === 'retry') void refresh();
+    if (message.type === 'new') void vscode.commands.executeCommand('berth.new');
     if (message.type === 'newIn') void startSession(message.cwd);
+    if (message.type === 'detailsVisibility') void vscode.commands.executeCommand('setContext', 'berth.detailsVisible', message.visible);
   });
   context.subscriptions.push(view, vscode.window.registerWebviewViewProvider(VIEW_ID, view));
-  host.focusSession = (name) => void controller.show(name);
+  host.focusSession = (name) => void controller.show(name).catch((error: Error) => vscode.window.showErrorMessage(`Berth: ${error.message}`));
   // Follow the shown session in the explorer when its folder is in the workspace.
   const follow = (row: SessionRow) => {
     if (!vscode.workspace.getConfiguration('berth').get<boolean>('explorer.followSession', true)) return;
@@ -212,57 +242,53 @@ export function activate(context: vscode.ExtensionContext): void {
   };
   host.onShown = follow;
 
-  const installHooks = async (agent: string) => {
+  const installHooks = async (agent: string, profile = captureProfile(agent, ctx.env)) => {
     const name = ADAPTERS.find((a) => a.id === agent)?.displayName ?? agent;
-    const result = installHooksWithCli(agent);
-    if (result.ok) void vscode.window.showInformationMessage(`Berth: ${name} hooks installed (${result.detail}). New ${name} sessions resume their conversation after a restart.`);
+    const result = await installBundledHooks(context.asAbsolutePath('dist/cli.mjs'), context.globalStorageUri.fsPath, agent, profileEnvironment(agent, profile, ctx.env));
+    if (result.ok) void vscode.window.showInformationMessage(hookInstallNotice(agent, result.detail));
     else void vscode.window.showErrorMessage(`Berth: could not install ${name} hooks: ${result.detail}`);
     refresh();
   };
-  host.suggestHooks = (agent) => {
-    if ((context.globalState.get<string[]>(HOOKS_DECLINED) ?? []).includes(agent)) return;
-    const name = ADAPTERS.find((a) => a.id === agent)?.displayName ?? agent;
-    void vscode.window
-      .showInformationMessage(
-        `Berth: ${name} sessions start a new conversation after a restart, because ${name}'s Berth hooks are not installed. Install them? This adds Berth's entries to ${name}'s own hook configuration.`,
-        'Install',
-        'Not now',
-        "Don't ask again",
-      )
-      .then((choice) => {
-        if (choice === 'Install') void installHooks(agent);
-        if (choice === "Don't ask again") {
-          void context.globalState.update(HOOKS_DECLINED, [...(context.globalState.get<string[]>(HOOKS_DECLINED) ?? []), agent]);
-        }
-      });
-  };
 
-  const refresh = () => {
-    controller
-      .mainSession()
-      .then((session) => {
-        if (!session) return;
-        host.noteMainSession(session);
-        if (controller.settleLaunch(session)) {
-          const row = controller.row(session);
-          if (row) follow(row);
-        }
-      })
-      .catch(() => undefined); // tmux gone or a snapshot unreadable: the next refresh tries again
-    try {
-      const { tree: model } = controller.refresh();
-      view.update(model);
-      view.title = model.groups.length === 1 && model.groups[0].place === 'workspace' ? model.groups[0].label : undefined;
-      view.badge = model.waiting;
-    } catch (error) {
-      view.message = `Berth: ${(error as Error).message}`;
+  let refreshTask: Promise<void> | undefined;
+  let refreshAgain = false;
+  const refresh = (requestAgain = true): Promise<void> => {
+    if (refreshTask) {
+      if (requestAgain) refreshAgain = true;
+      return refreshTask;
     }
+    refreshTask = (async () => {
+      do {
+        refreshAgain = false;
+        try {
+          await host.updateTerminalPids();
+          const attachment = await controller.mainAttachment();
+          const session = attachment?.session;
+          if (session && attachment) {
+            host.noteMainSession(session);
+            if (await controller.settleLaunch(session, attachment.terminalPid)) {
+              const row = controller.row(session);
+              if (row) follow(row);
+            }
+          }
+          const sample = await sampleInventory(context.asAbsolutePath('dist/cli.mjs'), ctx.env);
+          const { tree: model } = controller.acceptInventory(sample.rows, sample.branches);
+          view.update(model);
+          view.message = undefined;
+          view.title = model.groups.length === 1 && model.groups[0].place === 'workspace' ? [model.groups[0].label, model.groups[0].branch].filter(Boolean).join(' · ') : undefined;
+          view.badge = model.waiting;
+        } catch (error) {
+          view.message = `Berth: ${(error as Error).message}`;
+        }
+      } while (refreshAgain);
+    })().finally(() => { refreshTask = undefined; });
+    return refreshTask;
   };
-  const guarded = (fn: (name: string) => unknown | Promise<unknown>) => async (arg: unknown) => {
+  const guarded = (fn: (name: string, arg: unknown) => unknown | Promise<unknown>) => async (arg: unknown) => {
     const name = sessionArg(arg);
     if (!name) return;
     try {
-      await fn(name);
+      await fn(name, arg);
     } catch (error) {
       void vscode.window.showErrorMessage(`Berth: ${(error as Error).message}`);
     }
@@ -270,18 +296,96 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const command = (id: string, fn: (...args: unknown[]) => unknown) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
-  command('berth.refresh', refresh);
+  command('berth.refresh', () => refresh());
+  command('berth.dismissDetails', () => view.dismissDetails());
   command('berth.focus', guarded((name) => controller.show(name)));
   command('berth.openToSide', guarded((name) => controller.openToSide(name)));
+  command('berth.checkRecovery', guarded(async (name) => {
+    const cli = context.asAbsolutePath('dist/cli.mjs');
+    const findings = await sampleDoctor(cli, ctx.env);
+    const row = (await sampleSessions(cli, ctx.env)).find(row => row.name === name);
+    if (!row) throw new Error('Session no longer exists. Refresh the list.');
+    const picked = await vscode.window.showQuickPick(recoveryCheckItems(row, findings), {
+      title: `Recovery readiness: ${name}`, matchOnDetail: true,
+      placeHolder: 'Review the findings. Select a repair action where available.',
+    });
+    if (picked?.action === 'hooks' && row.profile) await installHooks(row.agent, row.profile);
+    else if (picked?.action === 'inspect' && ctx.tmux.hasSession(name)) await controller.show(name);
+    else if (picked?.action && ['profile', 'options', 'folder'].includes(picked.action)) {
+      const commands = { profile: 'berth.recoveryProfile', options: 'berth.recoveryOptions', folder: 'berth.recoveryFolder' };
+      await vscode.commands.executeCommand(commands[picked.action as keyof typeof commands], { session: name, resumeAfterRepair: false });
+    }
+  }));
+  command('berth.checkSetup', async () => {
+    try {
+      const findings = await sampleDoctor(context.asAbsolutePath('dist/cli.mjs'), ctx.env);
+      if (!findings.length) {
+        void vscode.window.showInformationMessage('Berth: no configuration problems detected. Conversation recovery is confirmed separately by each agent.');
+        return;
+      }
+      const chosen = await vscode.window.showQuickPick(findings.map((finding) => ({
+        label: finding.session ?? 'Setup', detail: finding.problem, finding,
+      })), { title: 'Berth: Check Setup', matchOnDetail: true, placeHolder: 'Select a hook finding to install, or a live session to inspect' });
+      if (chosen?.finding.installHooksFor) await installHooks(chosen.finding.installHooksFor, chosen.finding.profile);
+      else if (chosen?.finding.session && ctx.tmux.hasSession(chosen.finding.session)) await controller.show(chosen.finding.session);
+      await refresh();
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Berth: ${(error as Error).message}`);
+    }
+  });
+  command('berth.findSession', async () => {
+    try {
+      const choices = sampleSessions(context.asAbsolutePath('dist/cli.mjs'), ctx.env).then(sessionChoices);
+      const chosen = await vscode.window.showQuickPick(choices, {
+        title: 'Find a Session', placeHolder: 'Search name, conversation or folder',
+        matchOnDescription: true, matchOnDetail: true,
+      });
+      if (chosen) await controller.show(chosen.session);
+      await refresh();
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Berth: ${(error as Error).message}`);
+    }
+  });
   command('berth.nextAttention', async () => {
-    const next = await controller.showNextAttention(host.mainSession());
-    if (!next) void vscode.window.showInformationMessage('Berth: no session is waiting for you.');
-    refresh();
+    try {
+      const next = await controller.showNextAttention(host.mainSession());
+      if (!next) void vscode.window.showInformationMessage('Berth: no session is waiting for you.');
+      await refresh();
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Berth: ${(error as Error).message}`);
+    }
   });
   command('berth.detach', guarded((name) => controller.detach(name)));
   command('berth.rename', guarded(async (name) => {
     const to = await vscode.window.showInputBox({ prompt: `Rename ${name}`, value: name });
     if (to && to !== name) controller.rename(name, to);
+  }));
+  command('berth.recoveryFolder', guarded(async (name, arg) => {
+    const chosen = await vscode.window.showOpenDialog({ title: `Choose recovery folder for ${name}`, canSelectFolders: true, canSelectFiles: false, canSelectMany: false, openLabel: 'Use Folder' });
+    if (!chosen?.[0]) return;
+    controller.relocateRecovery(name, chosen[0].fsPath);
+    if ((arg as { resumeAfterRepair?: boolean } | undefined)?.resumeAfterRepair !== false) await controller.show(name);
+  }));
+  command('berth.recoveryOptions', guarded(async (name, arg) => {
+    const options = await vscode.window.showInputBox({
+      title: `Review recovery options for ${name}`,
+      prompt: 'Enter supported agent options with shell quoting. Leave empty to use agent defaults.',
+      placeHolder: '--model <model> — quote values containing spaces',
+      validateInput: (value) => { try { shellSplit(value); return undefined; } catch (error) { return (error as Error).message; } },
+    });
+    if (options === undefined) return;
+    controller.setRecoveryOptions(name, shellSplit(options));
+    if ((arg as { resumeAfterRepair?: boolean } | undefined)?.resumeAfterRepair !== false) await controller.show(name);
+  }));
+  command('berth.recoveryProfile', guarded(async (name, arg) => {
+    const chosen = await vscode.window.showOpenDialog({ title: `Choose agent profile for ${name}`, canSelectFolders: true, canSelectFiles: false, canSelectMany: false, openLabel: 'Use Agent Profile' });
+    if (!chosen?.[0]) return;
+    controller.setRecoveryProfile(name, chosen[0].fsPath);
+    if ((arg as { resumeAfterRepair?: boolean } | undefined)?.resumeAfterRepair !== false) await controller.show(name);
+  }));
+  command('berth.retryRecovery', guarded(async (name) => {
+    const choice = await vscode.window.showWarningMessage(`Retry recovery for ${name}? This ends the current attempt and resumes its saved conversation ID.`, { modal: true }, 'Retry Recovery');
+    if (choice === 'Retry Recovery') await controller.retryRecovery(name);
   }));
   command('berth.kill', guarded(async (name) => {
     const ok = await vscode.window.showWarningMessage(`Kill session ${name}? The agent process ends.`, { modal: true }, 'Kill');
@@ -307,8 +411,17 @@ export function activate(context: vscode.ExtensionContext): void {
   }));
   command('berth.installHooks', async (arg: unknown) => {
     const name = sessionArg(arg);
-    const agent = name ? controller.row(name)?.agent : await pickAgent();
-    if (agent) await installHooks(agent);
+    const row = name ? controller.row(name) : undefined;
+    const agent = row?.agent ?? await pickAgent();
+    if (!agent) return;
+    let profile = row?.profile;
+    if (row && !profile) {
+      const chosen = await vscode.window.showOpenDialog({ title: `Choose ${agent} profile for hook installation`, canSelectFolders: true, canSelectFiles: false, canSelectMany: false, openLabel: 'Install Hooks Here' });
+      if (!chosen?.[0]) return;
+      try { profile = profileAtRoot(agent, ctx.env, chosen[0].fsPath); }
+      catch (error) { void vscode.window.showErrorMessage((error as Error).message); return; }
+    }
+    await installHooks(agent, profile);
   });
   command('berth.adopt', guarded(async (name) => {
     const agent = await pickAgent();
@@ -351,73 +464,54 @@ export function activate(context: vscode.ExtensionContext): void {
   command('berth.newInFolder', async (arg: unknown) => {
     await startSession((arg as MenuContext | undefined)?.groupCwd ?? (await pickFolder()));
   });
-  // `{ confirm: false }` skips the dialog; used by integration tests.
-  command('berth.applyLayout', async (options?: unknown) => {
-    const config = vscode.workspace.getConfiguration();
-    const hide = vscode.workspace.getConfiguration('berth').get<boolean>('layout.hideTerminalTabs', false);
-    // Object settings read through get() include every default entry; build on
-    // the user's own value so only what Berth adds is written.
-    const current = (key: string) => (key === 'workbench.editor.autoLockGroups' ? config.inspect(key)?.globalValue : config.get(key));
-    const changes = layoutChanges(current, hide);
-    const ask = (options as { confirm?: boolean } | undefined)?.confirm !== false;
-    const ok = ask
-      ? await vscode.window.showInformationMessage(
-          `Apply the agent layout? It changes ${changes.length} user settings; Revert Agent Layout restores them.`,
-          { modal: true },
-          'Apply',
-        )
-      : 'Apply';
-    if (ok !== 'Apply') return;
-    await context.globalState.update(APPLIED_LAYOUT, LAYOUT_VERSION);
-    const now = Object.fromEntries(changes.map((c) => [c.key, config.inspect(c.key)?.globalValue ?? null]));
-    await context.globalState.update(LAYOUT_BACKUP, layoutBackup(context.globalState.get(LAYOUT_BACKUP), now));
-    for (const c of changes) await config.update(c.key, c.value, vscode.ConfigurationTarget.Global);
-    // Left to right: Berth sessions (secondary side bar), session terminals
-    // (first editor group, locked), files (next group), explorer (primary side
-    // bar); the panel stays at the bottom.
-    await vscode.commands.executeCommand('workbench.action.positionPanelBottom');
-    // Session terminals live in the editor area; the panel (Problems, Output,
-    // plain shells) is closed and comes back with Cmd/Ctrl+J. It always spans the
-    // whole editor area, so it cannot sit under the files group alone.
-    await vscode.commands.executeCommand('workbench.action.closePanel');
-    await vscode.commands.executeCommand(BERTH_CONTAINER);
-  });
-  command('berth.revertLayout', async () => {
-    const backup = context.globalState.get<Record<string, unknown>>(LAYOUT_BACKUP);
-    if (!backup) {
-      void vscode.window.showInformationMessage('Berth: nothing to revert; the agent layout has not changed your settings.');
-      return;
+  const layoutStore = new LayoutStore(vscode.Uri.joinPath(context.globalStorageUri, 'layout.json').fsPath, () => ({
+    schema: 1,
+    backup: context.globalState.get(LAYOUT_BACKUP) ?? {},
+    applied: context.globalState.get(LAYOUT_VALUES) ?? {},
+    version: context.globalState.get(APPLIED_LAYOUT),
+  }));
+  const runLayout = createLayoutQueue();
+  command('berth.applyLayout', () => runLayout(async () => {
+    if (vscode.env.remoteName) {
+      throw new Error('Create the Berth layout profile in a local editor window, then select it with Profiles: Switch Profile in this remote window.');
     }
-    const config = vscode.workspace.getConfiguration();
-    for (const [key, value] of Object.entries(backup)) await config.update(key, value ?? undefined, vscode.ConfigurationTarget.Global);
-    await context.globalState.update(LAYOUT_BACKUP, undefined);
-    await context.globalState.update(APPLIED_LAYOUT, undefined);
+    const legacy = layoutStore.read();
+    const fingerprint = createHash('sha256').update(JSON.stringify(legacy)).digest('hex');
+    if (Object.keys(legacy.backup).length > 0 && context.globalState.get('berth.legacyLayoutNotice') !== fingerprint) {
+      const choice = await vscode.window.showWarningMessage(
+        'An earlier Berth layout changed settings in place. Creating or switching profiles will not undo those changes. Saved originals are available for manual recovery.',
+        { modal: true }, 'Continue', 'Inspect Saved Originals');
+      if (choice === 'Inspect Saved Originals') { await vscode.commands.executeCommand('berth.inspectLegacyLayout'); return; }
+      if (choice !== 'Continue') return;
+      await context.globalState.update('berth.legacyLayoutNotice', fingerprint);
+    }
+    const commands = await vscode.commands.getCommands(true);
+    if (!commands.includes('workbench.profiles.actions.switchProfile')) {
+      throw new Error('This editor does not expose native Profiles. Update the editor or configure the layout in its settings.');
+    }
+    const hide = vscode.workspace.getConfiguration('berth').get<boolean>('layout.hideTerminalTabs', false);
+    const directory = vscode.Uri.joinPath(context.globalStorageUri, 'layout-profiles');
+    const file = vscode.Uri.joinPath(directory, `berth-${randomUUID()}.code-profile`);
+    await vscode.workspace.fs.createDirectory(directory);
+    await vscode.workspace.fs.writeFile(file, Buffer.from(layoutProfileTemplate(hide, context.extension.packageJSON.version)));
+    const uri = vscode.Uri.from({ scheme: vscode.env.uriScheme, authority: 'profile-file', path: `/${file.toString()}` });
+    if (!await vscode.env.openExternal(uri)) {
+      throw new Error('The editor could not open its profile import. Use Profiles: New Profile > Import Profile and select ' + file.fsPath);
+    }
+  }));
+  command('berth.revertLayout', () => vscode.commands.executeCommand('workbench.profiles.actions.switchProfile'));
+  command('berth.inspectLegacyLayout', async () => {
+    // Preserve recovery evidence. Earlier journals cannot identify profile targets safely.
+    const state = layoutStore.read();
+    const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(state, null, 2) });
+    await vscode.window.showTextDocument(document, { preview: true });
   });
 
   context.subscriptions.push(
     view,
     vscode.window.onDidCloseTerminal((t) => host.forget(t)),
-    { dispose: (() => { const timer = setInterval(refresh, REFRESH_MS); return () => clearInterval(timer); })() },
+    { dispose: (() => { const timer = setInterval(() => void refresh(false), REFRESH_MS); return () => clearInterval(timer); })() },
   );
-  const appliedLayout = context.globalState.get<number>(APPLIED_LAYOUT);
-  const hadOldLayout = context.globalState.get(LAYOUT_BACKUP) !== undefined && appliedLayout !== LAYOUT_VERSION;
-  if (context.globalState.get<boolean>(WELCOMED) && hadOldLayout) {
-    void vscode.window
-      .showInformationMessage('Berth has an updated agent layout (sessions, terminal, files, explorer from left to right). Apply it?', 'Apply…', 'Not now')
-      .then((choice) => {
-        if (choice === 'Apply…') void vscode.commands.executeCommand('berth.applyLayout');
-      });
-  }
-  // First run: show the sessions view and offer the layout once; settings still change only on confirmation.
-  if (!context.globalState.get<boolean>(WELCOMED)) {
-    void context.globalState.update(WELCOMED, true);
-    void vscode.commands.executeCommand('workbench.view.extension.berth');
-    void vscode.window
-      .showInformationMessage('Berth is ready. Apply the agent layout (sessions, then terminals, then files, then the explorer)?', 'Apply…', 'Not now')
-      .then((choice) => {
-        if (choice === 'Apply…') void vscode.commands.executeCommand('berth.applyLayout');
-      });
-  }
   controller.startup().catch((error: Error) => {
     view.message = `Berth: ${error.message}`;
   });
@@ -427,7 +521,9 @@ export function activate(context: vscode.ExtensionContext): void {
       const session = terminal && host.sessionOf(terminal);
       const row = session ? controller.row(session) : undefined;
       if (row) follow(row);
+      void refresh();
     }),
+    vscode.window.tabGroups.onDidChangeTabs(() => { void refresh(); }),
   );
   refresh();
 }

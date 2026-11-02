@@ -1,3 +1,4 @@
+import { profileRoot } from '@berthdev/berth';
 /** Pure view logic for Berth for VS Code (spec §6); no `vscode` import, so it is unit-testable. */
 import { basename } from 'node:path';
 import { getAdapter, type SessionRow } from '@berthdev/berth';
@@ -15,6 +16,9 @@ export interface HoverLine {
   chip?: { icon: string; text: string; tone: Attention | 'muted' };
   /** Full text when `text` is shortened (paths). */
   full?: string;
+  copyValue?: string;
+  copyLabel?: string;
+  checkRecoveryFor?: string;
 }
 
 /**
@@ -41,6 +45,7 @@ export interface RowView {
   /** Colour goes only to what needs the user; everything else stays grey. */
   attention: Attention;
   unread: boolean;
+  active?: boolean;
 }
 
 /** Where a folder sits relative to this window's workspace (spec §6). */
@@ -53,6 +58,7 @@ export interface GroupView {
   cwd: string;
   label: string;
   place: Place;
+  branch?: string;
   /** The most urgent of its sessions, shown on the group row when collapsed. */
   attention: Attention;
   hover: HoverLine[];
@@ -95,9 +101,10 @@ export interface TreeView {
   waiting: number;
 }
 
-export function connection(row: SessionRow, here: ReadonlySet<string>): Connection {
+export function connection(row: SessionRow, here: ReadonlySet<string>, terminalPids?: ReadonlySet<number>): Connection {
   if (!row.live) return 'stopped';
-  if (here.has(row.name)) return 'attached-here';
+  const local = row.connections?.some((client) => client.ancestors.some((pid) => terminalPids?.has(pid)));
+  if (local || (!terminalPids && here.has(row.name) && row.attachedClients > 0)) return 'attached-here';
   return row.attachedClients > 0 ? 'attached-elsewhere' : 'detached';
 }
 
@@ -105,7 +112,7 @@ const CONNECTION_TEXT: Record<Connection, string> = {
   'attached-here': 'Shown in this window',
   'attached-elsewhere': 'Open in another terminal',
   detached: 'Not open in any terminal',
-  stopped: 'Stopped; comes back on the next restore',
+  stopped: 'Stopped; no running terminal',
 };
 
 const STATE_TEXT: Record<RowView['icon'], string> = {
@@ -138,14 +145,16 @@ const STATE_CODICON: Record<RowView['icon'], string> = {
 };
 
 const CONNECTION_SHORT: Record<Connection, string> = {
-  'attached-here': 'here',
-  'attached-elsewhere': 'elsewhere',
+  'attached-here': 'This window',
+  'attached-elsewhere': 'Other terminal',
   detached: 'detached',
   stopped: 'stopped',
 };
 
 export interface ViewInput {
   here: ReadonlySet<string>;
+  terminalPids?: ReadonlySet<number>;
+  activeTerminalPid?: number;
   unread: ReadonlySet<string>;
   branch: (cwd: string) => string;
   workspaceFolders?: readonly string[];
@@ -164,10 +173,23 @@ export function shortPath(cwd: string, workspaceFolders: readonly string[], home
   return h && (target === h || target.startsWith(`${h}/`)) ? `~${target.slice(h.length)}` : target;
 }
 
-const HOOKS_MISSING = "This agent's Berth hooks are not installed, so after a restart the session starts a new conversation. Right-click → Install Agent Hooks.";
+const HOOKS_MISSING = "This agent's Berth hooks are not installed. State updates and future conversation binding may be unavailable. Right-click → Install Agent Hooks.";
 
 export function rowView(row: SessionRow, input: ViewInput): RowView {
-  const conn = connection(row, input.here);
+  const conn = connection(row, input.here, input.terminalPids);
+  const clients = row.live ? row.connections ?? [] : [];
+  const locations = clients.map((client) => ({
+    local: client.ancestors.some((pid) => input.terminalPids?.has(pid)),
+    label: client.ancestors.some((pid) => input.terminalPids?.has(pid)) ? 'This window' : [client.application || 'Other terminal', client.workspace].filter(Boolean).join(' · '),
+    terminal: client.terminal,
+  })).sort((a, b) => Number(b.local) - Number(a.local));
+  const count = row.live ? Math.max(row.attachedClients, clients.length) : 0;
+  const location = locations[0]?.label ?? CONNECTION_SHORT[conn];
+  const summary = `${location}${count > 1 ? ` +${count - 1}` : ''}`;
+  const connectionLines: HoverLine[] = locations.length
+    ? locations.map((location) => ({ icon: CONNECTION_CODICON[conn], text: `${location.label}${location.terminal ? ` · ${location.terminal}` : ''}`, copyValue: `${location.label}${location.terminal ? ` · ${location.terminal}` : ''}`, copyLabel: 'connection' }))
+    : [{ icon: CONNECTION_CODICON[conn], text: CONNECTION_TEXT[conn], copyValue: CONNECTION_TEXT[conn], copyLabel: 'connection' }];
+  if (locations.length && count > locations.length) connectionLines.push({ icon: 'terminal', text: `${count - locations.length} other terminal(s)` });
   const unread = input.unread.has(row.name);
   if (!row.managed) {
     return {
@@ -176,12 +198,12 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
       agent: '',
       subtitle: '',
       subtitleKind: '',
-      details: CONNECTION_SHORT[conn],
+      details: summary,
       hover: [
-        { icon: 'terminal', text: row.name, kind: 'title', sub: 'not an agent session' },
-        { icon: 'info', text: 'Adopt it to manage it' },
+        { icon: 'terminal', text: row.name, copyValue: row.name, copyLabel: 'session name', kind: 'title', sub: 'not an agent session' },
+        { icon: row.bindingIssue ? 'warning' : 'info', text: row.bindingIssue || 'Adopt it to manage it', ...(row.bindingIssue ? { kind: 'warning' as const } : {}) },
         { icon: '', text: '', kind: 'rule' },
-        { icon: CONNECTION_CODICON[conn], text: CONNECTION_TEXT[conn] },
+        ...connectionLines,
       ],
       contextValue: `session unmanaged live ${conn}`,
       icon: 'unmanaged',
@@ -191,7 +213,7 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
     };
   }
   const branch = input.branch(row.cwd);
-  const hooksMissing = row.hooks === 'missing';
+  const hooksMissing = row.hooks === 'missing' || row.hooks === 'broken';
   // A finished turn matters until the user has seen it; after that it is idle (spec §6).
   const state = row.state === 'done' && !unread ? '' : row.state;
   const icon = !row.live ? 'stopped' : state === 'working' || state === 'waiting' || state === 'done' ? state : 'idle';
@@ -199,34 +221,54 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
   const note = (icon === 'waiting' || icon === 'done') && row.note ? row.note : '';
   // Idle says nothing; any other state is a chip on the title line.
   const chip = icon === 'idle' ? undefined : { icon: STATE_CODICON[icon], text: STATE_TEXT[icon], tone: icon === 'waiting' ? ('waiting' as const) : unread ? ('unread' as const) : ('muted' as const) };
+  const topic = row.topic !== row.name ? row.topic : '';
+  const title = row.conversationTitle !== row.name ? row.conversationTitle : '';
+  const supporting = note || topic || title || '';
   const hover: HoverLine[] = [
-    { icon: '', text: row.name, kind: 'title', sub: agentName, chip },
-    ...(note ? [{ icon: 'comment', text: note, kind: 'quote' as const }] : []),
-    ...(row.topic && row.topic !== note ? [{ icon: 'comment-discussion', text: row.topic }] : []),
+    { icon: '', text: row.name, copyValue: row.name, copyLabel: 'session name', kind: 'title', sub: agentName, chip },
+    ...(note ? [{ icon: 'comment', text: note, copyValue: note, copyLabel: 'notification', kind: 'quote' as const }] : []),
+    ...(topic && topic !== note ? [{ icon: 'comment-discussion', text: row.topic, copyValue: row.topic, copyLabel: 'task text' }] : []),
     { icon: '', text: '', kind: 'rule' },
-    { icon: CONNECTION_CODICON[conn], text: CONNECTION_TEXT[conn] },
-    ...(branch ? [{ icon: 'git-branch', text: branch }] : []),
-    { icon: 'folder', text: shortPath(row.cwd, input.workspaceFolders ?? [], input.home), full: row.cwd, kind: 'path' },
+    ...connectionLines,
+    ...(title && title !== topic && title !== note ? [{ icon: 'comment-discussion', text: `Conversation: ${row.conversationTitle}`, copyValue: row.conversationTitle, copyLabel: 'conversation title' }] : []),
+    ...(branch ? [{ icon: 'git-branch', text: branch, copyValue: branch, copyLabel: 'branch' }] : []),
+    { icon: 'folder', text: shortPath(row.cwd, input.workspaceFolders ?? [], input.home), full: row.cwd, copyValue: row.cwd, copyLabel: 'folder path', kind: 'path' },
+    ...(row.recoveryOptionsRequired ? [{ icon: 'warning', text: 'Review Recovery Options before resuming: saved launch options need verification or use unsupported syntax.' }] : []),
+    ...(row.profile ? [{ icon: 'folder', text: `Agent profile: ${profileRoot(row.agent, row.profile)}`, copyValue: profileRoot(row.agent, row.profile), copyLabel: 'agent profile' }] : !row.live && row.agent !== 'shell' ? [{ icon: 'info', text: 'Choose Recovery Profile before resuming this conversation.' }] : []),
+    ...(row.conversation ? [{ icon: 'key', text: `Conversation ID: ${row.conversation}`, copyValue: row.conversation, copyLabel: 'conversation ID' }] : []),
+    ...(row.recovery && row.recovery !== 'confirmed' ? [{ icon: 'warning', text: `Recovery ${row.recovery}: ${row.recoveryDetail ?? 'Inspect the terminal.'}`, kind: 'warning' as const }] : []),
+    ...(!row.live && row.agent !== 'shell' ? [{ icon: 'history', text: `Recovery: ${row.bindingIssue ? 'binding needs verification' : row.conversation ? 'conversation recorded' : 'conversation not bound'}`, checkRecoveryFor: row.name }] : []),
+    ...(!row.live && row.bindingIssue ? [{ icon: 'warning', text: row.bindingIssue, kind: 'warning' as const }] : []),
     ...(hooksMissing
-      ? [{ icon: 'warning', text: HOOKS_MISSING, kind: 'warning' as const }]
-      : !row.conversation
-        ? [{ icon: 'info', text: 'Conversation not bound yet: a restore would start a new one.' }]
-        : []),
+      ? [{ icon: 'warning', text: row.hooks === 'broken' ? 'Agent hooks are incomplete or their runtime files are unavailable. Reinstall hooks to repair state updates and conversation binding.' : HOOKS_MISSING, kind: 'warning' as const }]
+      : []),
+    ...(row.hookSetup ? [{ icon: 'info', text: row.hookSetup }] : []),
+    ...(!row.live && row.agent !== 'shell' && !row.conversation
+      ? [{ icon: 'info', text: 'Conversation not bound: automatic recovery is unavailable. Use the agent conversation picker or start a new session explicitly.' }]
+      : []),
   ];
   return {
     name: row.name,
     label: row.name,
+    active: !!input.activeTerminalPid && !!row.live && !!row.connections?.some(client => client.ancestors.includes(input.activeTerminalPid!)),
     agent: row.agent,
-    subtitle: note || row.topic,
-    subtitleKind: note ? 'note' : row.topic ? 'topic' : '',
-    details: [branch, CONNECTION_SHORT[conn]].filter(Boolean).join(' · '),
+    subtitle: supporting,
+    subtitleKind: note ? 'note' : supporting ? 'topic' : '',
+    details: [summary, row.bindingIssue ? (row.live ? '' : 'Verify before resuming') : row.recovery && row.recovery !== 'confirmed' ? `Recovery ${row.recovery}` : ''].filter(Boolean).join(' · '),
     hover,
-    contextValue: `session managed ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing ? ' hooks-missing' : ''}${unread ? ' unread' : ''}`,
+    contextValue: `session managed${row.agent !== 'shell' ? ' agent-session' : ''} ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing || row.hooks === 'unknown' ? ' hooks-missing' : ''}${unread ? ' unread' : ''}${row.recovery === 'failed' || row.recovery === 'unconfirmed' ? ' recovery-retry' : ''}`,
     icon,
     badge: BADGE[icon] ?? (unread ? '•' : ''),
     attention: icon === 'waiting' ? 'waiting' : unread ? 'unread' : '',
     unread,
   };
+}
+
+const sessionNames = new Intl.Collator('en', { numeric: true });
+
+/** Stable natural ordering, including a tie-break for names such as job-2/job-02. */
+export function compareSessionNames(a: string, b: string): number {
+  return sessionNames.compare(a, b) || (a < b ? -1 : a > b ? 1 : 0);
 }
 
 export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
@@ -247,18 +289,20 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
       cwd,
       label: basename(cwd) || cwd,
       place: placeOf(cwd, folders),
+      branch: input.branch(cwd),
       hover: [
-        { icon: '', text: basename(cwd) || cwd, kind: 'title' as const },
-        { icon: 'folder', text: shortPath(cwd, folders, input.home), full: cwd, kind: 'path' as const },
+        { icon: '', text: basename(cwd) || cwd, copyValue: basename(cwd) || cwd, copyLabel: 'folder name', kind: 'title' as const },
+        { icon: 'folder', text: shortPath(cwd, folders, input.home), full: cwd, copyValue: cwd, copyLabel: 'folder path', kind: 'path' as const },
+        ...(input.branch(cwd) ? [{ icon: 'git-branch', text: input.branch(cwd), copyValue: input.branch(cwd), copyLabel: 'branch' }] : []),
         { icon: PLACE_CODICON[placeOf(cwd, folders)], text: PLACE_TEXT[placeOf(cwd, folders)] },
       ],
       attention: (list.some((r) => r.attention === 'waiting') ? 'waiting' : list.some((r) => r.attention === 'unread') ? 'unread' : '') as Attention,
-      rows: list.sort((x, y) => x.name.localeCompare(y.name)),
+      rows: [...list].sort((x, y) => compareSessionNames(x.name, y.name)),
     }))
     .sort((a, b) => PLACE_RANK[a.place] - PLACE_RANK[b.place] || a.cwd.localeCompare(b.cwd));
   return {
     groups: ordered,
-    unmanaged: unmanaged.sort((x, y) => x.name.localeCompare(y.name)),
+    unmanaged: [...unmanaged].sort((x, y) => compareSessionNames(x.name, y.name)),
     waiting: rows.filter((r) => r.live && r.state === 'waiting').length,
   };
 }
@@ -313,15 +357,6 @@ export function layoutChanges(current: (key: string) => unknown, hideTerminalTab
 }
 
 /**
- * Values to restore on revert. Settings saved by an earlier apply keep their
- * saved value: applying again must not record Berth's own values as the
- * user's. Settings new in this apply are saved as they are now.
- */
-export function layoutBackup(saved: Record<string, unknown> | undefined, now: Record<string, unknown>): Record<string, unknown> {
-  return { ...now, ...(saved ?? {}) };
-}
-
-/**
  * The folder the explorer should follow for a session: its cwd, when that is
  * inside one of the workspace folders. Outside them the explorer cannot show
  * it without changing the workspace, which would reload the window.
@@ -338,8 +373,8 @@ export function explorerTarget(cwd: string, workspaceFolders: string[]): string 
  */
 export function nextAttention(rows: SessionRow[], unread: ReadonlySet<string>, current?: string): string | undefined {
   const live = rows.filter((r) => r.live && r.managed);
-  const waiting = live.filter((r) => r.state === 'waiting').map((r) => r.name).sort();
-  const others = live.filter((r) => r.state !== 'waiting' && unread.has(r.name)).map((r) => r.name).sort();
+  const waiting = live.filter((r) => r.state === 'waiting').map((r) => r.name).sort(compareSessionNames);
+  const others = live.filter((r) => r.state !== 'waiting' && unread.has(r.name)).map((r) => r.name).sort(compareSessionNames);
   const order = [...waiting, ...others];
   if (order.length === 0) return undefined;
   const at = current ? order.indexOf(current) : -1;
@@ -398,4 +433,15 @@ export function relativeToWorkspace(cwd: string, workspaceFolders: string[]): st
     if (target.startsWith(`${base}/`)) return target.slice(base.length + 1);
   }
   return '';
+}
+
+
+/** Native quick-pick data; names remain exact identity keys even with duplicate titles. */
+export function sessionChoices(rows: readonly SessionRow[]): { label: string; description: string; detail: string; session: string }[] {
+  return [...rows].sort((a, b) => compareSessionNames(a.name, b.name)).map((row) => ({
+    label: row.name,
+    description: [getAdapter(row.agent)?.displayName ?? row.agent, row.live ? 'Running' : 'Stopped', row.recovery && row.recovery !== 'confirmed' ? `Recovery ${row.recovery}` : ''].filter(Boolean).join(' · '),
+    detail: [row.conversationTitle || row.topic, row.cwd].filter(Boolean).join(' · '),
+    session: row.name,
+  }));
 }

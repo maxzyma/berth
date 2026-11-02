@@ -1,0 +1,143 @@
+{
+  "baseline": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "checkedAt": "2026-11-01T09:17:09.393539+00:00",
+  "workingTree": true,
+  "resolved": [
+    "CR59"
+  ],
+  "previousEvidence": "gemini-profile-repairs.json",
+  "sourceHashes": {
+    "packages/core/src/agents/capabilities.ts": "a4aacb66b8434e1e466be91c0a3a2cbc0376bb451d31bd7c67b11e49882b4b77",
+    "packages/core/src/agents/commands.ts": "08ce92e36123ea765348bb9c166bdc97ac11c24312a44582af0dbbfa93839445",
+    "packages/core/src/agents/gemini-state.ts": "94ceba08085aa3d9e6a2614bf07cb003267ee54a5d0397afa74371f8f1164a86",
+    "packages/core/src/agents/hook-files.ts": "3c771f9ce9946d70d575c21505d0c7b9d8f2fa71161ed9712fa8f60f1551d868",
+    "packages/core/src/agents/hook-health.ts": "faaf55adf2a19ebd529b5a8335273dc6c7925ea9e56cab8f5ecea56f2fb5e314",
+    "packages/core/src/agents/hook-write.ts": "f20d1b51d58ade626c7ec6e67cc0fc152cf81091a4093dac0f8a38f69251854f",
+    "packages/core/src/agents/hooks.ts": "902f64157f15d97f99a25e2f5e50adb7b467ec898f9a06f119b7c64a57284800",
+    "packages/core/src/agents/jsonl-titles.ts": "15a81da3e98af86dc1c1532bccd926a7c3db6bd2ea437206ec9f51bbe932a7c4",
+    "packages/core/src/agents/profile.ts": "b90e0667334d870e960f0ce01231ce53697c2054a4b20dfc68a20db17e5cc8a6",
+    "packages/core/src/agents/registry.ts": "78fe675b7bee3d67ce07cac0774c945982074d1ef181ff4fa26989c65983a311",
+    "packages/core/src/agents/roots.ts": "461ff0e4af779de8613adbede7024a93a4ad3d1f04f0eb90ff44d86e5232fa1d",
+    "packages/core/src/agents/titles.ts": "899484654cd3b229fb64aeaad56bc8547042275184e4bea86b4221a50acd9421",
+    "packages/core/src/cli/main.ts": "a647a59393c12adf3e452016c1c4ccf88f37bbeaca25033a0c838358a249cb45",
+    "packages/core/src/config/index.ts": "ade5925bca0db922466dccf38d445b9f78e506bdfbb4a83881e800ce3199866f",
+    "packages/core/src/context.ts": "214f7ad3572fa9f04a410dd569e665ca60977904b0c1ae2f748d2720b5dfd24d",
+    "packages/core/src/errors.ts": "6fd21f53fb27cd2853d9c9caa021c0d811b077b8067ab348d85559775a4f6a50",
+    "packages/core/src/index.ts": "aaa6755e33eb8da62e2657b8b33998778c80ab3195107aca6f9d513303a4a219",
+    "packages/core/src/iterm2/install.ts": "123a2ad945300d364d1693769ccd3e755c4bd5d67917d9134d98eb374e62d805",
+    "packages/core/src/present/attach.ts": "2d45c466348c2b74c53b7efc7d203e52ff07a4445f416de0d23e39d2a40e6fe2",
+    "packages/core/src/present/state.ts": "7afc5279672c279f3b581563ce4d24e86e6f309ac43736f1b1545faea788f945",
+    "packages/core/src/process-arguments.ts": "f4ce9f88c3ac6103e6233b012bdb11c776c148843900bf6de0cc95227ccc12d8",
+    "packages/core/src/process-directory.ts": "560c332e44cb526a81315531c0a975cf7eb4d177c0bc2dd526a4ac18fb2bf068",
+    "packages/core/src/process-owner.ts": "ab669d581c8e6e9f65b5ccb3e882f9c445b26187a2d92aa1a46fcbc5babb99f2",
+    "packages/core/src/registry/directory.ts": "20334df01c99b68d89dcaad140905c7410587fd67524e6737dae586206ad6f23",
+    "packages/core/src/registry/discover.ts": "968bba7aa65889a439bbbdc25d4f34d8700148897ab999694f585ea97f4be0b2",
+    "packages/core/src/registry/doctor.ts": "07da1f2f8987eef284bfaa49741b926c666bcedd876aa689b17f2b3db39d5530",
+    "packages/core/src/registry/hosts.ts": "7815fd9200a44b2c0d9ffb328b1be3c917fefeb818f82a0d04ed4e02e1c36a11",
+    "packages/core/src/registry/launch.ts": "9692fb3ecced2771e3d2d00f1397b4bbad226a0e26131470face03cba247787c",
+    "packages/core/src/registry/native-state.ts": "fe4c21eb071c5176bd3bfc779853339dfa76a776bce00f6f86c32835879c874f",
+    "packages/core/src/registry/sessions.ts": "34722eb3576e9bc3f236358cd89a8b8a1ff3cd5b1cac0266a091af74ba2b735e",
+    "packages/core/src/restore/ensure.ts": "48649455b2e9bc23f6f53c02d5e245eb6f114b654ef2e14f69a47f7a93f63469",
+    "packages/core/src/restore/lock.ts": "e2f0808bf6fbbe308facd2f474de93734eb6a7062cdbd02ef50823ae85c4523e",
+    "packages/core/src/restore/status.ts": "116dc036d37e05bccc5cecf4d428e7c09726904bd54713d2661800c573a02cff",
+    "packages/core/src/shell.ts": "f4b4064d0b38bfc1b947d970d5c1fce4702b815ef527c22255767bd474987de4",
+    "packages/core/src/snapshot/identity.ts": "7a50e2916b3d55a5da3da2cc6328408b2e5f5e416caa027d4bd7296d21bcb0f0",
+    "packages/core/src/snapshot/lifecycle.ts": "c0b5fb7145d14bb00a00fc48031079d261608ceb2eeb6eaba980213b2259e2e0",
+    "packages/core/src/snapshot/store.ts": "35af9dd25d0d44ce0c70de498d0734d843994c3fcc05b5bf7ce562a030dc0a17",
+    "packages/core/src/snapshot/take.ts": "737c121bb34d53df76ab686bd0b00a321a77b8e9106ca71839351643a6ee1944",
+    "packages/core/src/tmux/client.ts": "c295754be6a893c5fc5bc21a644ced66a24412e0538a5f80fd3e0c2b3b852a93",
+    "packages/core/src/tmux/connections.ts": "4f64b6028018fc45af5537ca4ab7b8c4af6987525d53512de76781b442e9f703",
+    "packages/core/src/tmux/fields.ts": "791e534c367fec26ebc3257732fade39254c768a26bdab91bf8e1120aeb740d4",
+    "packages/core/src/tmux/install.ts": "ae51c41f35e39e27783a13e68f8a640cc5497ff6f0ce64c17e89b693f50352b5",
+    "packages/core/src/tools.ts": "9061fe2a7b01d1f1331a9ef7d918f5c83ec67e039e84e3f15b419f2e2fad6740",
+    "packages/vscode/src/controller.ts": "1c67bb7be06a88d4867ab1fe923819ed7c7b912effd6ea0aaf4b663939a8d09a",
+    "packages/vscode/src/extension.ts": "8f19c48d2356edc92e84625996297e8e080f474f7eae29bc12886d4105077385",
+    "packages/vscode/src/hookRuntime.ts": "f62e75b43fda420cb3260468a1299458c647b6a5f1430f32fc77b4aa62a61e3d",
+    "packages/vscode/src/inventory.ts": "8a1cf20513c09099d0aa821e1968c9151176141c0060357b3256da66e0db930e",
+    "packages/vscode/src/model.ts": "379176e3b65af723fe3ef3150132b13e663eed7b1151de9387fb4943fb8c2aa5",
+    "packages/vscode/src/notifications.ts": "e9e9246e94651583dc7c5b2a3821de06a157e0cb176438b088ad754375db699f",
+    "packages/vscode/src/view/protocol.ts": "d4e5b7594bffd0a3a156397df844d90380da52507c72cec3d522938587778622",
+    "packages/vscode/src/view/sessionsView.ts": "d0122ccff17adae65eb0cc0ddf665756c684d9eea781be7022cf1c246c7a934c",
+    "packages/vscode/webview/clipboard.ts": "de4813fc4f611592b4729783003c75629210e2bbee0007c2aa1a43254a928d47",
+    "packages/vscode/webview/hover.ts": "6f3aab057147b07a626683c2f4da259c741144338d094dc492ee30be938a6000",
+    "packages/vscode/webview/hoverPosition.ts": "6c8c3f12e837c8861335911e757f057fea5c427f2c96123a978a223dbe8410c9",
+    "packages/vscode/webview/icons.ts": "c9b7f7a35bb2386650bbe5022091d24582f4919c859801f7bda63ba32f39446d",
+    "packages/vscode/webview/main.css": "399c6d9911329144fbe6b5a544edd5bec0d14cf87e5a9f4342d92030ce147557",
+    "packages/vscode/webview/main.ts": "8bce6c71d2862df9a39fedbafd50987d54bad0a4c1eca76c5a0c2e9440770a3d"
+  },
+  "testHashes": {
+    "packages/core/test/gemini-state.test.ts": "1b8801c166b829398095042e140a27f51259fef96400439aafc514ef3ae3f69e",
+    "packages/core/test/native-state.test.ts": "73e6b89ed33d0df63a93b7cee79d6585d51c7a302d92669b934ffe3867c7c651",
+    "packages/core/test/live/gemini-local.test.ts": "0b94d1862daeb1a3e6a514de4e6fa90066c2d21e7917787578fd0c1787b7a785",
+    "packages/core/test/live/claude-local.test.ts": "0b884b7424c0fa6aa81b492cd9321629fa464e3f7ed75621ea8eb027dbfba6ba",
+    "packages/core/test/adapters.test.ts": "9b3df26ce9c3ce11a096fa9f1a4dd028c0003c2eb52b409ab2ac35dcee4941ae"
+  },
+  "verification": {
+    "fullRegression": {
+      "tests": 230,
+      "passed": 224,
+      "skipped": 6,
+      "failed": 0
+    },
+    "focusedNativeState": {
+      "passed": 10,
+      "failed": 0
+    },
+    "adapterRegression": {
+      "passed": 13,
+      "failed": 0
+    },
+    "nativeLocalFixtures": [
+      {
+        "agent": "Gemini CLI",
+        "version": "0.66.0",
+        "passed": 1,
+        "checks": [
+          "custom profile binding",
+          "exact-ID and history recovery",
+          "native cancellation acknowledgement",
+          "inventory clears activity",
+          "successful next turn retains exact ID and done state"
+        ]
+      },
+      {
+        "agent": "Claude Code",
+        "version": "2.1.310",
+        "passed": 1,
+        "checks": [
+          "existing native lifecycle fixture including cancellation and denial reconciliation"
+        ]
+      }
+    ],
+    "logs": {
+      "berth-cr59-cancel.log": "440e1c029b5c632428525dd0b30869ca65936f285216efb4615d022356850be2",
+      "berth-cr59-build.log": "f75e20c5a5664ce59cc75c2dcc345c9a767af48283a2aef1755bcee3eda5e55f",
+      "berth-cr59-focused.log": "a3dae8339df4c6366ffdf2b3b7bbc429f6f9fc522f201fb2eb7e49f2eb34e7e7",
+      "berth-cr59-full.log": "3107015075fa6c215e483f26c27f4147d2554e9324fd42909bd433c4390bb232",
+      "berth-cr59-native.log": "e75971aa6107e1d93d1a02ec062e940456cf746be13e044d24cd96d383347f15",
+      "berth-cr59-claude.log": "5e0fdc911d69a2e329490bed3a6d6d9f1764bf761ef4c19e5e3757faa1d1f0e9",
+      "berth-cr59-adapters.log": "c322d7b12088961dc799cda2011775004929dc97517f56ff16fa68f88772f920"
+    }
+  },
+  "limits": [
+    "Source candidate; no daily editor installation or new package verification",
+    "Gemini tool approval, rejection and provider-failure paths still require native acceptance",
+    "Native editor/iTerm lifecycle, Linux and other agent/version paths remain open",
+    "Full regression preceded the adapter source-attribution string update; adapter tests and Claude native fixture passed after rebuilding"
+  ],
+  "vendorEvidence": {
+    "package": "@google/gemini-cli",
+    "version": "0.66.0",
+    "bundleHashes": {
+      "chunk-M44FJWED.js": "4e9eba0566cec4de72d6a19515fb85eaeeb06b52f8be38dd129be6f7db7125bb",
+      "interactiveCli-46HBJDMM.js": "3a0290e03cbeceb6785646c4ba87c2a143c249b28e54ca387651dc49f0752ca7",
+      "chunk-LAMG73EJ.js": "ca8e6e61706bc9e79fc61eee816951c65c54216e378834bad6121fbc47333063"
+    },
+    "observations": [
+      "useHistory records UI info as native typed info messages",
+      "Cancellation records may be followed by a native rewind",
+      "appendRecord uses synchronous appendFileSync",
+      "BeforeAgent provides transcript_path and session_id"
+    ]
+  }
+}

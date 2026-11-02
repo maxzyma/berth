@@ -1,0 +1,84 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T13:54:01.413092+00:00"
+  },
+  "finding": "CR80",
+  "status": "repaired",
+  "finding_evidence": "Find a Session called synchronous core list before constructing Quick Pick.",
+  "repair": "Share asynchronous session sampling and pass its promise to Quick Pick without git branch enrichment.",
+  "checks": {
+    "focused_inventory_tests": 5,
+    "extension_macos": {
+      "pass": 72,
+      "fail": 0
+    },
+    "extension_linux_node20": {
+      "pass": 72,
+      "fail": 0
+    },
+    "native_editor": "VS Code 1.144.0 Linux arm64, isolated Xvfb",
+    "native_viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "clipboard": true,
+        "keyboardCopy": true,
+        "escapeFocus": true,
+        "pointerReentry": true,
+        "findCancel": true,
+        "findNoMatch": true,
+        "findOpen": true
+      },
+      {
+        "width": 1280,
+        "height": 800,
+        "clipboard": true,
+        "keyboardCopy": true,
+        "escapeFocus": true,
+        "pointerReentry": true,
+        "findCancel": true,
+        "findNoMatch": true,
+        "findOpen": true
+      }
+    ],
+    "installed_comparison": {
+      "extension": 25,
+      "core": 141
+    },
+    "bundled_core_identical_to_CR79": true,
+    "core_regression_reused": "attachment-event-repairs.json"
+  },
+  "candidate": {
+    "name": "berth-cr80.vsix",
+    "sha256": "e73abc5c3d9fb252302523dee5b30772d5bc1e487639629130fdbcd5564f7311"
+  },
+  "logs": [
+    {
+      "name": "berth-cr80-focused.log",
+      "sha256": "25540b661e7d15e18756695b5624e0d1cdfbdce315b45266b6963c0fd5452939"
+    },
+    {
+      "name": "berth-cr80-extension-macos.log",
+      "sha256": "0ec46dadee19689437338cedc06c5f45f8023592d25f882d7297656429081f31"
+    },
+    {
+      "name": "berth-cr80-extension-linux.log",
+      "sha256": "4a14602ab3e61b19b0e571708f8e5a4b4437726b08b7377cf7239d85b9a83cb2"
+    },
+    {
+      "name": "berth-cr80-native.log",
+      "sha256": "3f1f6d3678d3542b08738814ff9c992775d94fb7dbe0647334d5981550e8da86"
+    },
+    {
+      "name": "berth-cr80-install-check.json",
+      "sha256": "2966687ade3d22ce90be5eb243d4985dae582a1cd7e0b9244fd1c6f6c9a0def5"
+    }
+  ],
+  "limitations": [
+    "No native latency measurement or full accessibility verdict.",
+    "CR74 and CR75 remain open.",
+    "Daily editor unchanged; no publication."
+  ]
+}

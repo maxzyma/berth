@@ -1,0 +1,44 @@
+{
+  "baseline": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "checkedAt": "2026-11-01T08:24:21.508198+00:00",
+  "workingTree": true,
+  "findings": {
+    "CR52": "open: cached activity replay",
+    "CR53": "open: failed launch intent retained",
+    "CR54": "open: non-executable PATH entry selected"
+  },
+  "sourceHashes": {
+    "packages/vscode/src/controller.ts": "feee37a13200e718f2af82223713832163e6cdcb8b7049d0af95b43b745fae86",
+    "packages/core/src/tools.ts": "1bd8758a45cd31130290d8ae9639516a276765ca0da03463553093c5d313bbc1",
+    "packages/core/src/registry/doctor.ts": "c22a58635f51005fe547def6588ba2d8fe3e4e4a8a493cc07c5e8e3c41fb2ab7",
+    "packages/core/src/agents/capabilities.ts": "3e40eb0ffdd4d0e4251f6479416bc1af7a686d46de77a73678297cb56674e511",
+    "packages/vscode/src/inventory.ts": "8a1cf20513c09099d0aa821e1968c9151176141c0060357b3256da66e0db930e",
+    "packages/core/src/present/state.ts": "67da3731fa63f6c30ab0030d898b06f89baa3e87829d782fb6121a45780b6ece",
+    "packages/core/src/registry/sessions.ts": "51325d3d11e467e695e0270a3dad1359618fabcab8aa0fc3d09f1bb124d041ed",
+    "design/assets/code-review/current-review-probes.mjs": "d25214619fbc3d4fe632fd57f71f154ca1b8772eb639d06edd05ad0a662b921f"
+  },
+  "validation": {
+    "build": "passed",
+    "regression": {
+      "tests": 211,
+      "passed": 206,
+      "skipped": 5,
+      "failed": 0
+    },
+    "defectProbes": {
+      "confirmed": 3,
+      "meaning": "Passing assertions reproduce current defects, not repairs."
+    },
+    "logs": {
+      "berth-review-build.log": "b3caa1e922764b9f0b42fb428b90785de29f36eddc9c0f1e306b8f0b3b8a8111",
+      "berth-review-full.log": "420d163c6136cf46fd24b730553d39936f3a26f02c940c1e0011562fafb51c0d",
+      "berth-review-probes.log": "3a1f330329a70972bee6067a4aa5f9fd59d1e034408132ac2b11b67c9dcba9cf"
+    }
+  },
+  "limits": [
+    "Synthetic host transport; no native editor interaction",
+    "No Linux execution",
+    "No new package or deployment",
+    "Other agent/version and native host gates remain open"
+  ]
+}

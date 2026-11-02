@@ -1,0 +1,122 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "checkedAt": "2026-11-01T11:25:35.732880+00:00",
+    "includesWorkingTree": true
+  },
+  "resolved": [
+    "CR69"
+  ],
+  "previousReceipt": "hook-format-repairs.json",
+  "verification": {
+    "macFull": {
+      "tests": 244,
+      "pass": 237,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 7
+    },
+    "linuxFull": {
+      "tests": 244,
+      "pass": 236,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 8
+    },
+    "targeted": {
+      "tests": 17,
+      "pass": 17,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "tmux30": {
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "installed": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "installedRegression": {
+    "previousCandidate": {
+      "baseline": "CR68 installed extension CLI",
+      "reportedSuccessDespiteLiveFailure": true,
+      "userMouseSettingLost": true
+    },
+    "currentCandidate": {
+      "candidate": "CR69 installed extension CLI",
+      "reportedSuccessDespiteLiveFailure": false,
+      "userMouseSettingLost": false
+    },
+    "reinstallationOrder": {
+      "managedBlockMovedAfterUserSetting": false,
+      "byteStable": true
+    }
+  },
+  "installedFileComparison": {
+    "extension": 25,
+    "core": 141
+  },
+  "artifacts": {
+    "vsix": {
+      "name": "berth-cr69.vsix",
+      "sha256": "3819ef31497d4dcc9dcfd96646fb28293d9ebe1818e20850f96133182a6382b5",
+      "bytes": 312962
+    },
+    "core": {
+      "name": "berthdev-berth-0.3.6.tgz",
+      "sha256": "042e3fa184272ab652b6c19da9f59c02f33c446e01138fdfb9fe8dd5fe1067ca",
+      "bytes": 99355
+    }
+  },
+  "sourceHashes": {
+    "packages/core/src/config/write.ts": "4e2d9cbc7c325828d5e74232ec73b73db59019dbe4e9076e97c2b4289473b54d",
+    "packages/core/src/agents/hook-files.ts": "7aedefec977c95106a407753ae3ea90a89a89ac5f125e2445e844c6d8af7b5cf",
+    "packages/core/src/tmux/install.ts": "129efacc461ae89fc38450b04f3002622d1b12f5bdab4151b5bae668908df9ab",
+    "packages/core/test/tmux-install.test.ts": "d6980368c33f7dfd3a1dfb87b69979c309ba3851d9eccea512259a52d9b803dc"
+  },
+  "removedSource": "packages/core/src/agents/hook-write.ts",
+  "logHashes": {
+    "macFull": "57e7bede789f4782ab8d4f378b3072f2c91947ab9a09050f7357accc1a370818",
+    "linuxFull": "4e665bc11a1cbdbf127a0e6d2ed6ee44c3134d334e870b6fc742b32111cba4f6",
+    "targeted": "12668f69849d16ccef3a889cb5800b0cb08df5f6d4ffc18ad929c8a033f2c1a9",
+    "tmux30": "77a5fb6ac5af161b0f6badf77ab241203de3f21de1617309fc542a3d23efefd3",
+    "installed": "832f2143ef90da279eb1f7702653a8d32633ebcb485e1567e38d9f2207219ca3"
+  },
+  "timingObservation": {
+    "initialMacFull": {
+      "tests": 244,
+      "passed": 236,
+      "cancelled": 1,
+      "skipped": 7,
+      "failed": 0
+    },
+    "case": "CR63 inspection deadlines terminate children that ignore SIGTERM",
+    "observation": "The unchanged test exceeded its 18-second outer timeout while host load was elevated. The cause was not established; load alone is not proof. No product or timing assertion was weakened.",
+    "isolatedProbe": {
+      "passed": 1,
+      "durationMs": 12068.880125,
+      "testEventLoopMaxMs": 35.586047
+    },
+    "initialLogHash": "3a3a2765d2ea986522ccf355bda5f5f23ecd38bfba2813141a0ff018a62f0917",
+    "probeLogHash": "9b845c2e5d3e0267a9bd2aeb0e8e87fce7a058d1356ef9e155fa354bba21f883"
+  },
+  "limits": [
+    "Native editor/iTerm lifecycle and remaining agent/version acceptance remain open.",
+    "Seven native-agent fixtures are opt-in; Linux also skips the macOS-specific empty argv0 test.",
+    "Installed CLI activity checks use stand-in producers; they are not native-agent acceptance.",
+    "No publication or daily editor replacement."
+  ],
+  "environment": {
+    "linux": "Ubuntu 24.04 aarch64, Node 20.20.2, tmux 3.4; isolated VM without host mounts or SSH agent forwarding",
+    "cleanup": "VM stopped after verification; user Docker configuration unchanged."
+  }
+}

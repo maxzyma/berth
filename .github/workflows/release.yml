@@ -44,21 +44,26 @@ jobs:
       - run: npm ci
       - run: npm test
 
+      - name: Package both artifacts and release notes
+        run: |
+          mkdir -p out
+          (cd packages/core && npm pack --pack-destination ../../out)
+          (cd packages/vscode && npx --yes @vscode/vsce@4.1.0 package --no-dependencies -o "../../out/berth-vscode-${GITHUB_REF_NAME#v}.vsix")
+          awk -v version="${GITHUB_REF_NAME#v}" '
+            $0 == "## " version { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' packages/vscode/CHANGELOG.md > out/release-notes.md
+          test -s out/release-notes.md
+
       - name: Publish to npm
-        working-directory: packages/core
         run: |
           version="${GITHUB_REF_NAME#v}"
           if npm view "@berthdev/berth@$version" version >/dev/null 2>&1; then
             echo "@berthdev/berth@$version is already on npm; skipping publish"; exit 0
           fi
           case "$GITHUB_REF_NAME" in *-*) tag=next ;; *) tag=latest ;; esac
-          npm publish --tag "$tag"
-
-      - name: Package for the GitHub release
-        run: |
-          mkdir -p out
-          (cd packages/core && npm pack --pack-destination ../../out)
-          (cd packages/vscode && npx --yes @vscode/vsce@4.1.0 package --no-dependencies -o "../../out/berth-vscode-${GITHUB_REF_NAME#v}.vsix")
+          npm publish "out/berthdev-berth-${version}.tgz" --tag "$tag"
 
       - name: GitHub release
         env:
@@ -66,7 +71,7 @@ jobs:
         run: |
           prerelease=""
           case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" out/* --generate-notes $prerelease
+          gh release create "$GITHUB_REF_NAME" out/*.tgz out/*.vsix --notes-file out/release-notes.md $prerelease
 
       # After the GitHub release, so a Marketplace problem never blocks it.
       # Prereleases stay on GitHub and npm `next`.

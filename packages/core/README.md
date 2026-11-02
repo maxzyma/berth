@@ -13,5 +13,11 @@ berth tmux install                   # snapshot automatically as sessions change
 berth ensure                         # after a reboot: rebuild and resume
 ```
 
-Requires Node ≥ 20 and tmux ≥ 3.0. Behaviour is specified in the repository's
+Recovery requires a verified conversation ID and its profile. Installing hooks
+cannot identify every conversation that was already running: the agent must
+execute a supported event or expose verified native identity evidence. Codex's
+shared-daemon TUI does not yet support passive binding. Berth preserves unknown
+bindings rather than resuming the most recent conversation in a directory.
+
+Requires Node ≥ 20 and tmux ≥ 3.0. macOS process discovery also uses system Perl. Behaviour is specified in the repository's
 `design/spec.md`.

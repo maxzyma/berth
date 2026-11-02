@@ -3,7 +3,7 @@
   "displayName": "Berth",
   "description": "Every terminal coding agent in one list: kept running in tmux, resumed after restarts, state on your terminal tabs.",
   "icon": "media/icon.png",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "publisher": "berthdev",
   "license": "MIT",
   "type": "module",
@@ -55,7 +55,7 @@
       },
       {
         "command": "berth.newChooseFolder",
-        "title": "New Agent Session in Folder…",
+        "title": "New Agent Session in Folder\u2026",
         "category": "Berth",
         "icon": "$(folder-opened)"
       },
@@ -100,38 +100,85 @@
       },
       {
         "command": "berth.rename",
-        "title": "Rename…",
+        "title": "Rename\u2026",
         "category": "Berth"
       },
       {
         "command": "berth.kill",
-        "title": "Kill Session…",
+        "title": "Kill Session\u2026",
         "category": "Berth"
       },
       {
         "command": "berth.forget",
-        "title": "Forget Session…",
+        "title": "Forget Session\u2026",
         "category": "Berth"
       },
       {
         "command": "berth.adopt",
-        "title": "Adopt as Agent Session…",
+        "title": "Adopt as Agent Session\u2026",
         "category": "Berth"
       },
       {
         "command": "berth.installHooks",
-        "title": "Install Agent Hooks…",
+        "title": "Install Agent Hooks\u2026",
         "category": "Berth"
       },
       {
         "command": "berth.applyLayout",
-        "title": "Apply Agent Layout",
+        "title": "Create Agent Layout Profile\u2026",
         "category": "Berth"
       },
       {
         "command": "berth.revertLayout",
-        "title": "Revert Agent Layout",
+        "title": "Switch Layout Profile\u2026",
         "category": "Berth"
+      },
+      {
+        "command": "berth.inspectLegacyLayout",
+        "title": "Inspect Earlier Layout Backup",
+        "category": "Berth"
+      },
+      {
+        "command": "berth.findSession",
+        "title": "Find a Session\u2026",
+        "category": "Berth",
+        "icon": "$(search)"
+      },
+      {
+        "command": "berth.checkSetup",
+        "title": "Check Setup\u2026",
+        "category": "Berth",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "berth.retryRecovery",
+        "title": "Retry Recovery\u2026",
+        "category": "Berth",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "berth.recoveryFolder",
+        "title": "Choose Recovery Folder\u2026",
+        "category": "Berth",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "berth.recoveryProfile",
+        "title": "Choose Recovery Profile\u2026",
+        "category": "Berth",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "berth.recoveryOptions",
+        "title": "Review Recovery Options\u2026",
+        "category": "Berth",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "berth.checkRecovery",
+        "title": "Check Recovery Readiness",
+        "category": "Berth",
+        "icon": "$(checklist)"
       }
     ],
     "menus": {
@@ -154,7 +201,17 @@
         {
           "command": "berth.newChooseFolder",
           "when": "view == berth.sessions",
+          "group": "1_session@2"
+        },
+        {
+          "command": "berth.findSession",
+          "when": "view == berth.sessions",
           "group": "navigation@2"
+        },
+        {
+          "command": "berth.checkSetup",
+          "when": "view == berth.sessions",
+          "group": "2_setup@1"
         }
       ],
       "commandPalette": [
@@ -192,6 +249,26 @@
         },
         {
           "command": "berth.markRead",
+          "when": "false"
+        },
+        {
+          "command": "berth.retryRecovery",
+          "when": "false"
+        },
+        {
+          "command": "berth.recoveryFolder",
+          "when": "false"
+        },
+        {
+          "command": "berth.recoveryProfile",
+          "when": "false"
+        },
+        {
+          "command": "berth.recoveryOptions",
+          "when": "false"
+        },
+        {
+          "command": "berth.checkRecovery",
           "when": "false"
         }
       ],
@@ -245,6 +322,31 @@
           "command": "berth.forget",
           "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /stopped/",
           "group": "3@2"
+        },
+        {
+          "command": "berth.retryRecovery",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /recovery-retry/",
+          "group": "1_session@5"
+        },
+        {
+          "command": "berth.recoveryFolder",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /stopped/",
+          "group": "2@4"
+        },
+        {
+          "command": "berth.recoveryProfile",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /stopped/ && berthItem =~ /agent-session/",
+          "group": "2@5"
+        },
+        {
+          "command": "berth.recoveryOptions",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /stopped/ && berthItem =~ /agent-session/",
+          "group": "2@6"
+        },
+        {
+          "command": "berth.checkRecovery",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /agent-session/",
+          "group": "2@3"
         }
       ]
     },
@@ -277,7 +379,7 @@
         "berth.layout.hideTerminalTabs": {
           "type": "boolean",
           "default": false,
-          "description": "Let Apply Agent Layout also hide the native terminal tab list in the panel."
+          "description": "Let the new agent layout profile hide the native terminal tab list in the panel."
         },
         "berth.explorer.followSession": {
           "type": "boolean",
@@ -299,6 +401,11 @@
     },
     "keybindings": [
       {
+        "command": "berth.dismissDetails",
+        "key": "escape",
+        "when": "berth.detailsVisible"
+      },
+      {
         "command": "berth.nextAttention",
         "key": "ctrl+alt+u",
         "mac": "cmd+alt+u"
@@ -306,13 +413,15 @@
     ]
   },
   "scripts": {
-    "build": "tsc -p tsconfig.extension.json && tsc -p tsconfig.webview.json && tsc -p tsconfig.json && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs && node scripts/build-webview.mjs",
+    "test:webview": "playwright test --config playwright.config.mjs",
+    "build": "tsc -p tsconfig.extension.json && tsc -p tsconfig.webview.json && tsc -p tsconfig.json && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs && esbuild ../core/src/cli/main.ts --bundle --platform=node --format=esm --outfile=dist/cli.mjs && node scripts/build-webview.mjs",
     "test:integration": "vscode-test --config .vscode-test.mjs"
   },
   "dependencies": {
     "@berthdev/berth": "*"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^20.11.0",
     "@types/vscode": "~1.90.0",
     "@vscode/codicons": "^0.0.46-24",

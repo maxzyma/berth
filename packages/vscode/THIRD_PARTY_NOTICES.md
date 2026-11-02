@@ -63,3 +63,63 @@ The icon font `dist/webview/codicon.ttf` and `codicon.css`, by Microsoft Corpora
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE
 ```
+
+## Agent product marks
+
+These assets identify coding products, not their vendors or sibling chat products.
+Six products use official assets. Claude Code uses Lobe Icons’ Clawd mascot
+rendering and Codex uses its terminal product mark; those two are third-party
+renderings, not vendor-issued files. Shared Cursor, Copilot and Qoder marks are
+not claimed to be separate CLI-only logos. Product names and marks remain their
+owners’ trademarks; their use does not imply endorsement.
+
+Assets are copied unchanged. Official artwork keeps its colours and supplied
+light/dark variants; the two monochrome third-party SVGs use theme foreground.
+Checked 2026-10-31. Archive members and hashes are also recorded in
+[the asset manifest](media/agents/sources.json).
+
+| File | Product identity | Channel | Source | SHA-256 |
+|---|---|---|---|---|
+| `gemini.png` | Gemini CLI | official | [Asset](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/vscode-ide-companion/assets/icon.png) | `351e9f5b1bf863d738cd7be4ed040a625a1419450ae7fc490143e4042b7c2438` |
+| `kimi.png` | Kimi CLI | official | [Asset](https://github.com/MoonshotAI/kimi-cli/blob/9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82/web/public/logo.png) | `dbd00e2ad61ea8832ef0b024662a4a8a5d1b66f0599d5d42e1c9688b9d4cfdf6` |
+| `qoder.svg` | Qoder (shared product mark for CLI) | official | [Asset](https://qoder.com/favIcon.svg) | `5e1843cb50c4613855024453e76d5c06d2ca5562efebc12b4fcd80cf9ece1dd0` |
+| `opencode.svg` | OpenCode | official | [Asset](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/console/app/src/asset/brand/opencode-logo-dark.svg) | `5dd4abb4de60204510edf140bbe74b3580d07ebdda79fdb0081cd45acb53d44b` |
+| `opencode-light.svg` | OpenCode (light theme) | official | [Asset](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/console/app/src/asset/brand/opencode-logo-light.svg) | `b47a4fecc77599382e238868e74064bbe92307b0e253a32f0b1a026517a2d2a6` |
+| `claude.svg` | Claude Code (Clawd mascot) | third-party | [Asset](https://github.com/lobehub/lobe-icons/blob/8b7bbc433d38437fa2b0cca58ae896917162b812/packages/static-svg/icons/claudecode.svg) | `d7eb2d876b49e51cc16291a42b681d7cf4906e60e0150776dbfb353ec4ca3746` |
+| `codex.svg` | Codex (terminal product mark) | third-party | [Asset](https://github.com/lobehub/lobe-icons/blob/8b7bbc433d38437fa2b0cca58ae896917162b812/packages/static-svg/icons/codex.svg) | `d08b4e824cd6727e89617f59e4737273ff53e44c1da849d016dd64dfd08b33e1` |
+| `cursor.svg` | Cursor (shared product mark for CLI) | official | [Asset](https://ptht05hbb1ssoooe.public.blob.vercel-storage.com/assets/brand/cursor-brand-assets.zip) | `cd0e3e5d8991a4cdd4577f8896cd063105207665165c73e25a1ff918dd367eb7` |
+| `cursor-light.svg` | Cursor (shared product mark for CLI) | official | [Asset](https://ptht05hbb1ssoooe.public.blob.vercel-storage.com/assets/brand/cursor-brand-assets.zip) | `c483c02f78eb2619778fdd959e72a9adfac4844854472cd2653d4cbfd60e4d71` |
+| `copilot.png` | GitHub Copilot (shared product mark for CLI) | official | [Asset](https://GitHub.gallerycdn.vsassets.io/extensions/github/copilot/1.388.0/1761326434179/Microsoft.VisualStudio.Services.Icons.Default) | `10812cc1baceeb1d932232e69e1121f290faedca3f400289c24293f1e8d57d0b` |
+
+Gemini CLI and Kimi CLI repository assets are distributed under
+[Apache-2.0](media/licenses/Apache-2.0.txt). OpenCode artwork retains its
+[MIT notice](media/licenses/OpenCode-MIT.txt). Cursor’s official
+[brand assets](https://cursor.com/brand), Qoder’s website product mark, and
+GitHub’s published Copilot extension icon retain their respective owners’
+rights; no MIT or Apache license is asserted for these marks.
+
+Lobe Icons SVGs retain the following notice:
+
+```text
+MIT License
+
+Copyright (c) 2023 LobeHub
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

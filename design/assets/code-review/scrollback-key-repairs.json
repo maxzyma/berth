@@ -1,0 +1,97 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T13:24:27.576455+00:00"
+  },
+  "finding": "CR76",
+  "status": "repaired",
+  "root_cause": "Plain-object indexed assignment does not create an own property for __proto__, dropping captured and retained scrollback.",
+  "repair": "Construct the scrollback index with Object.fromEntries for both live and retained sessions.",
+  "checks": {
+    "failing_baseline": {
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "targeted_transactions": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "macos_regression": {
+      "tests": 258,
+      "pass": 251,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 7
+    },
+    "linux_node20_regression": {
+      "tests": 258,
+      "pass": 250,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 8
+    },
+    "installed_clis": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "installed_file_comparison": {
+      "extension": 25,
+      "core": 141
+    }
+  },
+  "artifacts": [
+    {
+      "name": "berth-cr76.vsix",
+      "sha256": "2a48137784aeaecc29a55e22a24280131fd5d7b6275218b64d9cfd7d786c77a4"
+    },
+    {
+      "name": "berth-cr76-artifacts/berthdev-berth-0.3.6.tgz",
+      "sha256": "062ecffd89aa59be21a33c6f5921ff1591e58673caa87f627df678b84e4814f4"
+    }
+  ],
+  "logs": [
+    {
+      "name": "berth-cr76-baseline.log",
+      "sha256": "2614a3abb6f69a1102f166e98cbd9949ce6fde04096731ecaa5bb0663893009a"
+    },
+    {
+      "name": "berth-cr76-focused.log",
+      "sha256": "0468247949352dd451eed6c2a3a7b0879be427bb8ec1f811a6e53f359a9862b3"
+    },
+    {
+      "name": "berth-cr76-regression-macos.log",
+      "sha256": "9dd4fc86b5ec24978482df0837f17d782e3bded953e78309bf6c71b7a34f3653"
+    },
+    {
+      "name": "berth-cr76-regression-linux.log",
+      "sha256": "07fc261c64cd346c7c3d3ddba67af87978809d8e7dd17679d009c0e03efea0ef"
+    },
+    {
+      "name": "berth-cr76-installed-tests.log",
+      "sha256": "14b33b98c0cd7bf78a68257e079e9c8d7a3b0fff9ed28716603bc91253f3fff6"
+    },
+    {
+      "name": "berth-cr76-install.log",
+      "sha256": "d18b96008ea33d8f756078202eb52e02fd7ed5ebb268adcec1bcff565808d755"
+    },
+    {
+      "name": "berth-cr76-install-check.json",
+      "sha256": "2966687ade3d22ce90be5eb243d4985dae582a1cd7e0b9244fd1c6f6c9a0def5"
+    }
+  ],
+  "limitations": [
+    "CR74 and CR75 remain open; this is not a release acceptance verdict.",
+    "No native rendering, clipboard or focus recheck for this snapshot-only change.",
+    "Daily editor unchanged; no publication."
+  ]
+}

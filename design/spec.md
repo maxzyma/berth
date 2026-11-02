@@ -18,9 +18,12 @@ running, and people run many at once across projects. Three things break:
 3. **Losing the place.** Sessions are spread over terminals (VS Code, iTerm2).
    After a restart each should come back where it was opened, and only there.
 
-Agent-focused terminal apps (cmux, Warp) address these by asking people to
-move their agents into a new app, leaving behind the tools and extensions they
-already use. Berth takes the other route.
+Berth targets people who already work across editor terminals and iTerm2 and
+want those hosts to remain their session entry points. Persistence alone is
+not a unique reason to choose it: tmux provides live process persistence, and
+[cmux supports local tmux and agent restore](https://github.com/manaflow-ai/cmux/blob/main/docs/local-tmux.md).
+Berth must earn its place through discovery, exact conversation binding and
+host-specific reopening within the user's existing tools.
 
 ## 2. Goals
 
@@ -36,8 +39,8 @@ them sit on one core. Each host is supported for its own reason:
 
 Across hosts, one set of live sessions is shared: a session attached in one
 host can be attached in the other, and returns after a restart to the host
-that last took it (§4.1). Standalone agent terminal apps cannot share live
-sessions with an editor.
+that last took it (§4.1). Other terminals can attach to the same tmux sessions;
+Berth does not claim exclusive cross-terminal sharing.
 
 A feature counts as a Berth difference only if it relies on the host: if an
 agent terminal app running beside an editor can do it equally well, it is not
@@ -54,9 +57,10 @@ a reason for Berth to exist.
 - G6. Ship a VS Code layout that puts the session list first.
 - G7. Depend on no directory layout, workspace structure, or private script.
 - G8. Support every agent CLI in the baseline set (§8) from the first
-  release: launch, conversation binding and resume for each. Missing resume
-  for a baseline agent is a defect, not a lower tier. Not every agent has to
-  be verified against its own CLI first (§8).
+  release: launch, conversation binding and resume for each. Adapter fixtures
+  establish command construction, not live compatibility. User-facing support
+  claims must distinguish implemented adapters from agents whose binding and
+  resume have been verified against the stated CLI version (§8).
 
 ## 3. Non-goals
 
@@ -87,10 +91,14 @@ session and any tool can read it:
 |---|---|
 | `@berth_agent` | adapter id or `shell` |
 | `@berth_cwd` | working directory at launch |
-| `@berth_argv` | the launch command, verbatim |
+| `@berth_argv` | Berth launch command or shell-quoted OS argument vector; control characters use the `berth-json:` JSON string encoding |
+| `@berth_argvVerified` | `1` when arguments come from launch, exact process capture or explicit review |
 | `@berth_conversation` | conversation id, or empty if not yet known |
 | `@berth_origin` | `vscode` / `iterm2` / `none` |
-| `@berth_state` | `working` / `waiting` (needs the user) / `done` / empty when unknown; written by agent hooks |
+| `@berth_state` | `working` / `waiting` (needs the user) / `done` / empty when inactive or unknown; written by hooks and verified native observations |
+| `@berth_stateRevision` | opaque revision advanced on every activity write |
+| `@berth_nativeCheckedAt` | last native observation attempt; scheduling only, never restored |
+| `@berth_nativeTranscript` | Gemini request cursor: canonical path, file identity, byte offset, prefix fingerprint and capture time; live-only |
 | `@berth_note` | latest notification text from the agent, shown in session lists |
 | `@berth_topic` | first line of the user's latest prompt, from the prompt-submitted hook; the session's subtitle |
 
@@ -98,22 +106,59 @@ session and any tool can read it:
 
 - Stamped when a frontend creates a session, and re-stamped when a frontend
   attaches a session: opening a VS Code session from iTerm2 moves it to iTerm2.
+  Attachment eligibility uses current core session metadata, not a cached view
+  row. Metadata added or removed since inventory must affect both main and side
+  attachment ownership.
 - Never inferred from attached clients. A session can be attached from two
   terminals at once, or from none.
 - `none` sessions are restored as processes but no frontend reopens them.
 
 ### 4.2 Conversation binding
 
-Order of preference, first hit wins:
+One managed session represents one independent agent producer. Binding records
+its pane and detectable process lifetime; discovery examines all panes and independent process branches, not
+only the selected pane. Descendants of an agent are its subagents, not new
+owners. Multiple independent agents, an adapter mismatch or a hook from a
+non-owner pane must never overwrite conversation, task or lifecycle state.
+Missing process-lifetime evidence on an existing conversation means its binding
+needs verification; it is not proof that the producer changed. Discovery preserves
+the original ID and blocks automatic recovery until a producer-verified hook
+reports that same ID, or an authoritative start event establishes the conversation.
+Existing change warnings without lifetime evidence are reclassified, not cleared.
+Replacing the producer inside the same pane does not preserve its conversation
+identity. Discovery marks the row conflicted until a verified new start event or
+explicit re-adoption establishes the replacement. Public `stamp` agent changes
+follow the same transition as adoption; manual conversation changes reset obsolete
+recovery expectations and capture the current profile.
+
+The session remains attachable and displays a binding conflict; snapshots keep
+the conflict and automatic recovery skips it until the user separates the
+agents and explicitly adopts the verified single producer again. Re-adoption
+clears the old conversation binding and waits for authoritative identity evidence. Pane/process identity is live-only;
+it is never reused after a server restart.
+
+A lifecycle payload carrying a different conversation ID cannot update the
+current conversation's state. Only a start event can replace the ID. When a
+producer process is detectable, the hook must descend from that process;
+a delayed hook from a different process is ignored. Unknown process formats
+retain the pane-level guard and cannot replace a different existing ID: the
+row reports a binding conflict instead. They are not process-verified. Verified
+start events may update the ID after a native fork or clear operation.
+
+Binding authority:
 
 1. **Agent hook.** The agent reports its own id at session start (Claude Code
    `SessionStart`, which also fires on resume, clear, compact and fork, so the
-   stamp follows id changes). The hook runs `berth stamp --conversation <id>`.
-2. **Name key.** When the agent supports naming a conversation at launch
-   (Claude Code and Qoder CLI `--name`), Berth passes the session name, and later resolves
-   the newest conversation in that directory carrying that name.
-3. **Unbound.** Restore relaunches without resuming and the session row says
-   so. Berth never falls back to "most recent conversation in this directory".
+   stamp follows id changes). The hook runs `berth hook <agent> <event>` and passes the producer guard.
+2. **Verified native evidence.** Passive first-install binding may establish identity under the checks below.
+3. **Unbound.** Automatic restore is skipped. When recovery is requested, offer
+   the agent’s native conversation picker or an explicit new session. Berth never falls back to "most recent conversation in this directory".
+
+Conversation names are display metadata. Berth may pass `--name` at launch, but
+matching an old transcript title cannot establish a current conversation ID.
+Fresh and externally launched sessions remain unbound until an authoritative
+start hook, verified native evidence or explicit exact-ID binding establishes their identity. A later
+name match cannot overwrite or fill that identity.
 
 The same hooks keep `@berth_state` current from the agent's lifecycle events
 (prompt submitted → `working`, needs approval → `waiting`, turn finished →
@@ -124,15 +169,20 @@ it (`prompt`); it is metadata for display only and never enters snapshots.
 Agents without Berth hooks can still ask for attention: a terminal bell in
 their session (tmux `alert-bell`, hooked by `berth tmux install`) sets
 `@berth_state` to `waiting` with note `bell`. Agents whose installed hooks
-report `waiting` ignore the bell, since hooks are more precise; agents whose
-hooks have no waiting event (Cursor CLI, OpenCode) keep it. Showing the session in a
-frontend clears a bell-raised `waiting`.
+report `waiting` ignore the bell when no separate native trust decision is required.
+Codex keeps the fallback because each hook may still be untrusted; agents with
+no waiting event (Cursor CLI, OpenCode) also keep it. A bell preserves an existing
+non-bell waiting state and its explanation. Showing the session in a
+frontend clears a bell-raised `waiting`. After main or side attachment, the core
+re-reads and presents current activity under its state lock. Cached inventory
+state must not overwrite a newer hook or bell acknowledgement.
 
 Hooks are written only by `berth hooks install <agent>`, are marked as Berth's,
 and are removed by `berth hooks uninstall <agent>`.
 
-Without hooks a session cannot be resumed, and nothing shows it until after
-a restart, so Berth says so when an agent without hooks is in use: `berth new`
+Missing hooks mean lifecycle updates and future conversation binding may be
+unavailable. An already bound ID remains resumable. Berth explains hook installation separately from
+the current conversation binding: `berth new`
 and `berth adopt` print the install command on stderr; a terminal other than
 VS Code attaching to such a session shows it in tmux's status line, once per
 agent per tmux server (sessions started by a custom launcher reach the user
@@ -140,25 +190,156 @@ this way); VS Code offers to install them (§6). Session rows carry the
 agent's hook status so every frontend decides the same way. Installing still
 needs the user's go-ahead, because it edits the agent's own configuration.
 
+#### Late first-install binding
+
+For Claude Code, Codex CLI, Gemini CLI, OpenCode, GitHub Copilot CLI, Cursor CLI
+and Kimi CLI, a missed start event must not permanently prevent binding. A
+registered top-level turn event carrying an explicit conversation ID may fill an
+empty binding when the hook descends from the sole detected producer in the
+owning pane. Preserve a different existing ID, reject child-agent evidence and
+unknown events, and do not treat these events as recovery-start acknowledgements.
+Capture the hook's profile and persist the binding before returning. This also
+applies to previously unmanaged sessions when automatic adoption is enabled.
+Qoder remains outside this iteration.
+
+A late event requires the agent to load and execute its integration. Installing
+hooks does not retroactively deliver events or establish the currently open ID.
+Passive evidence and late events are complementary; neither may guess from a
+conversation name, directory or last-used record.
+
+#### Passive first-install binding
+
+Hooks are one identity source, not the only source. For a Codex CLI process that
+holds its active rollout file open for writing, discovery may read the bounded
+session-meta header and bind its exact ID and profile. Require a single top-level
+CLI rollout, matching filename/header IDs, a stable process lifetime, the same
+single producer/pane and the same tmux session generation before publication.
+Never use working-directory recency, a global loaded-thread list, a launch-time
+resume argument alone, subagent rollouts or a shared daemon's file handles as
+current TUI identity. Existing different IDs and conflicting profiles are preserved.
+Probe failures leave identity unknown; they do not invalidate a known binding.
+
+This is a capability-based fallback, not a guarantee across Codex versions.
+Codex 0.166.0's shared-daemon TUI can expose neither a directly held rollout nor a
+client-PID/thread mapping through its generated protocol. That mode remains
+unbound without another authoritative event; never describe it as progressing
+when no evidence source is available.
+
+### 4.2.1 Session names and conversation titles
+
+The tmux session name remains the stable session key and terminal title. A
+launcher may choose it; detecting an agent never renames the session or imposes
+a launcher. Agent conversation titles are separate display metadata, read only
+from the exact bound conversation ID. Titles must not replace IDs for restore,
+and a prompt excerpt must not be presented as an explicit conversation name.
+When available, details show the conversation title and ID alongside the session
+name. Missing or unreadable title data leaves the title absent. JSONL title readers
+search records from the end until the latest matching names are found; disjoint
+head/tail samples cannot establish the latest name. Memory holds read chunks and
+at most one complete JSON record, not the whole conversation.
+
+Derived title caches live in Berth's state directory, never in agent stores or
+recovery snapshots. They contain only requested IDs/titles and a source fingerprint
+(device, inode, size, nanosecond modification and change times). Unchanged sources
+may reuse results across inventory workers. Any source change, including growth,
+truncation, replacement or rewriting, invalidates the result; append-only behavior
+is not assumed. Check the open file and pathname again before accepting a scan.
+Cache read/write failure falls back to direct inspection and never blocks sessions.
+
+Existing launch-time name propagation (Claude Code and Qoder) is preserved.
+A launcher that supports resume must resolve its own named session to an exact
+conversation, or report that it cannot; it must not silently resume the latest
+conversation in the directory. Berth never rewrites agent databases to force
+name agreement. Native agent naming support, where available, belongs to the
+launcher or agent hook, not terminal discovery.
+
+### 4.2.2 Live connections
+
+Connections come from the current tmux client inventory, independently of
+origin and agent state. Each connection has its client PID and terminal;
+verified application names are shown when available. A matching live host
+registration supplies its application name before process-name or terminal-type
+fallbacks; an unrelated registration supplies neither application nor workspace. A frontend determines
+which clients descend from terminals in its own window, including terminals
+not created by Berth. Unknown hosts remain “Other terminal”; a working
+directory is not evidence of a window identity.
+
+The row shows “This window”, a known application name, “Other terminal”,
+“Detached”, or “Stopped”. Multiple clients show a count of additional
+connections; details enumerate every client. Detached means the live session
+has no attached client, not that its agent has stopped. Missing client details
+retain the attached count and an unknown-terminal label, never a guessed origin.
+
+Resume argument preservation parses option arity before selecting options to
+replay. Values of discarded options cannot become flags. Retained variadic
+options preserve their complete value list; paired restrictions such as Claude's
+`--strict-mcp-config` travel with the selected configuration. Words after the
+standalone `--` terminator remain positional input. Unknown option syntax or
+missing values requires Review Recovery Options even when the OS argv is verified;
+provenance does not prove that Berth understands the option semantics.
+
+Copilot recovery preserves its model/reasoning options, explicit tool restrictions,
+added directories and switches disabling telemetry, updates, built-in MCPs,
+custom instructions or user questions. Startup prompts (`--interactive`/`-i`
+and `--prompt`/`-p`), names and session selectors are consumed with their values
+and omitted; the bound conversation ID is the sole recovery target. Option
+arity is checked against native CLI help (1.0.105). Unsupported syntax continues
+to require review rather than silently changing the recovered configuration.
+
+Native tmux records use one reversible field transport for session, pane and
+client lists and scalar identity/path reads. The escape prefix, newline, carriage return, tab, unit separator
+and field separator are encoded
+before tmux emits each record and decoded once after framing. Framing uses a
+printable delimiter, encoded when it occurs inside a value, because tmux 3.4
+escapes control bytes in command output. The escape syntax contains no percent
+directives that `display-message` could interpret as date formatting. On tmux 3.0, which lacks `session_path`, the native path falls back to the
+active pane path; a managed producer still records its own verified cwd. Paths and names
+retain leading/trailing whitespace; a scalar reply removes only its final output
+newline. Metadata writes do not silently replace identity characters. macOS
+process directories come from `PROC_PIDVNODEPATHINFO`, not escaped `lsof` display
+text; Linux uses the process cwd link. Discovery and explicit adoption consume the same producer cwd;
+they do not substitute a launcher shell directory when the producer directory is
+readable. The native reader reports failure instead of interpreting escaped display
+text; the pane path remains the fallback when the producer directory is unavailable.
+
 ### 4.3 Discovery
 
 Berth must not depend on how a session was started: a launcher needs no
-knowledge of Berth. A live session without metadata whose active pane runs an
-agent is managed automatically: Berth finds the agent among the pane's
-processes by program name, or by script name behind an interpreter (`node
-<cli>`), since some agents run as a binary named after their version. It
+knowledge of Berth. A live session without metadata, or one marked as a shell,
+with exactly one independent agent across its panes is managed automatically: Berth finds the
+agent among the pane's processes by program name, or by script name behind an interpreter (`node
+<cli>`). The script position is considered only for a supported interpreter;
+an editor opening a file named after an agent is not an agent producer. Some agents
+run as a binary named after their version. It
 records the agent, that process's command line as `argv`, that process's own
 working directory as `cwd` (a launcher often starts the session elsewhere and
 changes into the project; the pane's current path names the foreground
 group's leader, which may be the launcher's shell), and origin `iterm2` when an iTerm2 client is attached,
-else `none`. A plain shell is never discovered.
+else `none`. An existing host origin is preserved when a managed shell starts
+an agent. A plain shell remains a shell; an existing non-shell agent binding
+is not replaced by discovery.
+
+Recovery arguments must come from the original argument vector, not whitespace
+splitting of process-list display text. Linux reads `/proc/<pid>/cmdline`; macOS
+reads `KERN_PROCARGS2` through the system Perl syscall bridge. Only argv leaves
+the bridge; environment entries are neither returned nor saved. Reads are bounded,
+fail closed on missing tools, permissions, malformed data or a departed process,
+and preserve spaces, quotes and empty argument values. A detected producer whose
+arguments cannot be verified carries a recovery conflict until a later successful
+observation or explicit re-adoption. Process-table display text can identify a
+candidate but never supply its recoverable options. No native compilation or
+additional npm binary is required at installation time. Exact argument provenance
+is recorded with snapshots. Live producers can refresh legacy arguments from the
+OS. Stopped legacy records with retained options require explicit review through
+Review Recovery Options or `berth recovery-options <session> -- <options>`;
+empty options explicitly select agent defaults. Unknown options are rejected,
+not silently dropped. Records that replay no options need no migration prompt.
 
 Discovery runs whenever Berth looks at sessions — every snapshot (so every
 hook-triggered snapshot), a client attaching, `berth ls`, `berth doctor`, and
 each VS Code refresh — and is switched off with `[sessions] auto_adopt =
-false` or `BERTH_AUTO_ADOPT=0`. Metadata a launcher stamps itself is still
-kept, and conversation ids come from agent hooks or the name key as for any
-session (§4.2).
+false` or `BERTH_AUTO_ADOPT=0`. Conversation ids come from agent hooks or
+the binding authority rules for any session (§4.2).
 
 ## 5. Berth core
 
@@ -172,7 +353,7 @@ A frontend only does what its host alone can do:
 
 | | Berth for VS Code (§6) | Berth for iTerm2 (§7) |
 |---|---|---|
-| Uses the core | in-process (bundled library) | through the CLI, from an AutoLaunch script |
+| Uses the core | bundled library for actions; bundled CLI for asynchronous sampling | through the CLI, from an AutoLaunch script |
 | Shows sessions | its sessions view and one session terminal | the panes iTerm2 restores |
 | Layout | VS Code's own parts, set by the layout preset | iTerm2's own window restoration |
 | Asks the core to | list, show, rebuild, adopt, stamp origin `vscode` | reattach a pane's session |
@@ -206,6 +387,15 @@ The VS Code extension is published to the Marketplace, not npm.
 | `berth iterm2 install\|uninstall` | Install the iTerm2 AutoLaunch script (§7.3). |
 | `berth iterm2 reattach <session>` | Rebuild the session if missing, then print its attach command (§7.3). |
 
+Tmux installation recognizes only complete standalone managed-block markers.
+Unpaired, reversed or repeated markers fail before changing configuration. Text
+outside the block is preserved, including marker text inside another command.
+Reinstallation replaces the block in place, preserving configuration order.
+Configuration publication uses the same atomic, symlink- and mode-preserving
+writer as agent hooks. Updating the running server is a separate operation:
+if it fails, report the cause and that the saved configuration has already changed,
+so retry is explicit rather than reporting a successful installation.
+
 Every command accepts `--socket <name>` (a tmux `-L` server) and
 `--socket-path <path>` (a `-S` server). Run by hooks, not by people: `hook
 <agent> <event>` (§4.2), `bell --session <s>` (§4.2), `attached --session <s>
@@ -235,22 +425,249 @@ adopts it with the agent the user chose and the directory detected from the
 session's active pane (a launcher may resolve a project name and change into
 it); sessions it starts elsewhere are discovered (§4.3). A launcher may also
 stamp metadata itself (`berth stamp`, or the `@berth_*` options); what it
-stamps is kept.
+stamps is kept. Activity updates use `berth stamp` so the state revision and
+shared lock protect them from older observations.
+
+The frontend scopes pending adoption to the successful launcher terminal process.
+It assigns that intent inside the serialized main-terminal action and clears it
+on failure, expiry or an explicit main selection/detach. An observation from
+another terminal cannot consume it; session creation time alone is insufficient.
 
 When the agent exits, the session ends — Berth does not leave a stray shell.
 
+### Operation ordering and failure boundaries
+
+- A verified first start hook may adopt its producer before periodic discovery,
+  only when auto-adoption is enabled. Owned creation stamps metadata before
+  releasing the agent process. Unverified external hooks cannot adopt a session.
+- Runtime tmux lifecycle hooks record normal closure by server lifetime and
+  immutable session ID, including the last session. They do not edit tmux.conf.
+  Paths embedded in tmux hook commands remain literal through both tmux format
+  expansion and shell parsing. Only explicit runtime placeholders may expand;
+  format-looking directory or executable names cannot redirect a hook.
+  Snapshots exclude closed identities; abrupt server loss retains recovery data.
+  Recovery waits out a live server owner whose missing session is still closing,
+  so a delayed closure marker cannot race a new launch.
+  Legacy records without lifecycle identity keep their existing recovery behavior.
+- Recovery locks use independently owned contender records: dead contenders are
+  ignored, never replaced through a shared lock pathname. Release deletes only
+  the caller's record. The newest restore snapshot is read after acquisition.
+- Invalid or inaccessible cwd never falls back to another directory. The launch
+  placeholder's actual cwd is checked before starting an agent.
+- Each failed reconstruction has its own result. Only its owned placeholder may
+  be removed; unrelated sessions still restore, and the saved identity remains
+  retryable. Placeholder cleanup is not a normal user-requested closure.
+- Main-terminal selections are serialized; the latest selection is the final
+  destination. Failed earlier selections do not cancel later selections. Detach
+  joins the same ordering, so a pending open cannot silently undo it.
+- Snapshot ordering compares timestamps and numeric collision suffixes.
+
+### Identity boundaries for recovery and terminal actions
+
+- Server liveness compares the endpoint's current server lifetime with the saved
+  lifetime. A reused PID is not the original owner. Persistent restore tickets
+  and workspace claims carry a process-lifetime fingerprint; legacy PID records
+  are checked against their creation time and cannot silently imply identity.
+- Stopped names are reserved for explicit creation as well as generated names.
+  An external live session reusing a stopped name creates a visible conflict;
+  snapshots preserve the stopped conversation instead of replacing it. Rename
+  or end the colliding live session to expose the stopped record again. Neither
+  action implicitly forgets a distinct stopped conversation. Retry applies the
+  same identity collision check before ending any live attempt; it cannot replace
+  a different live conversation merely because the names match.
+- Every agent change validates the currently observed producer; an incompatible
+  producer selection is rejected. Re-adoption of a conflicted producer or an
+  agent change clears the prior binding and all recovery
+  expectation fields together, then records the verified producer's agent/cwd/argv.
+  The next valid start hook establishes the new identity. Unrelated producers
+  remain rejected.
+- Each adapter resolves its storage root once for hooks, binding and titles.
+  Claude respects CLAUDE_CONFIG_DIR, Codex respects CODEX_HOME, and existing
+  adapter-specific overrides remain supported. Installation and removal do not
+  touch another profile's files.
+- Generated hooks preserve the executable's runtime mode, including OpenCode
+  installed through the editor's Electron runtime and later executed by a shell.
+- Detach acts on observed tmux clients, never disposes an editor terminal merely
+  because a cached label matched. Direct attach terminals exit naturally; shell
+  wrappers may remain as ordinary terminals. End kills only the target tmux
+  session. Polling clears stale session references without closing terminals.
+
+Claude Code reports waiting on `PermissionRequest` immediately. Typed
+`Notification` payloads count as waiting only for `permission_prompt`; message
+matching is a fallback for legacy payloads without a notification type.
+`PostToolBatch` returns to working after the full tool batch resolves. Individual
+tool completions do not clear another parallel tool's pending approval.
+`StopFailure` clears activity and its note without declaring successful completion.
+These mappings are verified against Claude Code 2.1.310 and its
+[hook reference](https://code.claude.com/docs/en/hooks).
+A cancelled or denied turn may emit no terminal hook. Inventory supplements hooks
+with the read-only `claude agents --json` query in the recorded profile. Only an
+unambiguous interactive idle record matching the bound conversation, live producer
+PID, process lifetime and pane may clear working/waiting and its note. It never
+creates a binding or successful completion, and preserves done. Unsupported CLI
+versions, query errors, unknown records and conflicting identities leave state
+unchanged. Do not infer cancellation from elapsed time or a missing response.
+
+Native queries run outside the state lock. Every activity write advances an opaque
+revision; before applying a result, inventory rechecks that revision, identity and
+activity metadata, server/session incarnation and the producer lifetime. Scheduling
+markers are excluded from that comparison: another observer starting a query
+cannot invalidate an otherwise current result. A newer turn invalidates an
+older observation even when both turns have the same activity and conversation.
+Each inventory pass queries at most one profile, with a 1.5-second timeout, forced
+termination on expiry and a bounded output buffer. A CLI that ignores graceful
+termination must not keep the inventory worker blocked. Profiles with eligible active sessions are selected by
+oldest last attempt, so a failed profile cannot starve another. These attempt
+markers are scheduling metadata, not evidence of idle or cancellation.
+
+Gemini reports working on `BeforeAgent`. `BeforeModel` changes an existing
+permission wait to working when the next model request begins after tool decisions resolve.
+An individual tool completion does not clear another tool's pending approval.
+
+Gemini cancellation may omit `AfterAgent`. On a verified `BeforeAgent`, core
+records a live-only cursor into the hook's native transcript: canonical file
+identity, byte offset and prefix fingerprint, within the recorded Gemini profile.
+For cancellation, inventory requires a new typed native `info` cancellation
+record for the bound conversation after that cursor, including native rewind
+records following cancellation. This may override a late completion hook from
+the aborted turn. User/model text with the same content is not a cancellation
+signal. A later message, partial record,
+changed file identity/prefix, unknown schema or unreadable file leaves activity
+unchanged. Reads are bounded and run outside the state lock; the same producer,
+profile, session incarnation and activity revision checks apply before clearing.
+A typed terminal error or the native failure summary may override done only
+when `AfterAgent` has acknowledged the end of that loop. An error record alone
+cannot clear working: diagnostic errors can occur while a turn continues.
+This handles both full and reduced error verbosity without treating a successful
+response following an earlier error as failure.
+Session start and a new request discard the previous cursor. This observation
+never binds a conversation or marks a turn successful.
+
+Cursor's `stop` hook reports the end of the loop, not necessarily success.
+Only `status: completed` produces done; aborted, error, missing or unrecognized
+outcomes clear activity and its note without success. The conversation binding
+and next prompt remain intact. This follows the [official stop schema](https://cursor.com/docs/hooks#stop),
+checked 2026-11-01; runtime delivery by individual CLI versions remains a separate
+acceptance requirement.
+
+Kimi profile display, hook installation and health checks share one directory
+resolver: `KIMI_CODE_HOME` overrides the default `.kimi-code` directory; an
+existing legacy `.kimi` directory is used only when `.kimi-code` is absent.
+The displayed profile must match the location actually inspected and installed.
+Kimi binds its agent at session creation. Exact-ID recovery omits creation-only
+`--agent` and `--agent-file` selectors and lets Kimi restore that stored binding;
+model, permission and directory restrictions continue to follow the adapter policy.
+Kimi emits `Interrupt` instead of `Stop` when a user cancels a turn, and
+`StopFailure` when a turn fails. Both clear active state and note while preserving
+the bound conversation; neither produces a successful-completion indicator.
+`PermissionResult` returns the session to working after an approval decision,
+including denial when Kimi continues its agent loop. The subsequent lifecycle
+event determines whether the turn completes, fails or is interrupted.
+
+Qoder returns to working after `PostToolUse` or a non-interrupted
+`PostToolUseFailure`; a completed permission-gated tool must not leave an approval
+request active. `PostToolUseFailure` with `is_interrupt: true` and `StopFailure`
+clear activity and its note without declaring completion or changing conversation
+identity. Unknown events and unverified denial semantics do not synthesize a state.
+These mappings follow [Qoder's hook reference](https://docs.qoder.com/cli/hooks);
+native version delivery remains a separate acceptance check.
+
+Codex recovery retains the verified `--no-alt-screen` terminal presentation option.
+Codex maps `UserPromptSubmit` and completed-tool `PostToolUse` events to working,
+`PermissionRequest` to waiting and `Stop` to done. `Interrupt` clears active
+state and its note without declaring success or changing conversation identity.
+A new prompt replaces a previous turn's completion. Permission details use the
+agent-provided message or tool description, with a tool-name fallback. Independently trusted hooks cannot suppress the terminal-bell fallback
+based on file presence alone; a bell must preserve an already reported waiting
+state and its explanation. Only observed lifecycle events change state: a successful tool completion
+clears waiting; clicks, elapsed time and file presence cannot imply approval.
+
+Codex hook installation writes configuration but does not grant trust. Installation
+feedback and installed-session details direct users to Codex `/hooks` to review
+new or changed Berth definitions. Berth never edits Codex trust records or adds a
+trust-bypass flag on the user's behalf. File completeness remains separate from
+runtime activation. This follows the [Codex hook trust contract](https://learn.chatgpt.com/docs/hooks)
+(checked against CLI 0.166.0 on 2026-11-01).
+
+Hook health distinguishes missing configuration, broken/partial configuration,
+and a complete installed configuration. Completeness requires the adapter's
+expected events, matching Berth-owned commands and accessible runtime/script
+files in the selected profile. Broken hooks offer repair and cannot suppress
+bell fallback. This file-health check does not certify agent-version support or
+successful runtime delivery. Installation preserves unrelated user hooks.
+
+Copilot error hooks also fire during automatic retries and cannot establish
+that a turn has ended. For a verified Copilot producer, the prompt hook records
+a cursor in its exact profile/session event stream. A matching root turn-end
+followed by a terminal session error or user-initiated abort may clear working
+or waiting; retries and
+successful turn-end records alone may not. This fallback uses the shared native
+observation ownership/revision checks and never establishes binding. New prompts,
+unknown event shapes and changed files invalidate the observation.
+
+Copilot resumes working after tool decisions only when native inspection sees
+all observed approval requests completed with matching request/tool IDs and a
+subsequent assistant turn starting. A single tool result cannot clear another
+pending approval. Unknown or incomplete approval records leave hooks authoritative.
+This transition uses the same producer, profile, cursor and revision checks as
+native terminal-outcome reconciliation.
+
+### State transactions and host reattachment
+
+- Snapshot collection/publication, Forget, rename, End, relocation, binding changes
+  and recovery share one endpoint-scoped transaction. Nested synchronous calls
+  participate in their caller's transaction. Publication order is monotonic even
+  if the wall clock moves backward; background snapshots cannot resurrect a
+  forgotten record or overwrite a completed relocation with an older read.
+- Agent binding includes its non-secret profile selectors. Owned launches pass
+  the selected profile to the tmux session even when its server already exists;
+  resume uses the saved profile. A hook captures selectors from the verified
+  producer environment. Unknown external profile identity remains explicit;
+  host environment alone is not proof of the producer's profile.
+- Unknown or legacy agent profiles block automatic recovery. The user can select
+  the stopped conversation's profile with Choose Recovery Profile or
+  `berth recovery-profile <session> --root <directory>` (`--current` explicitly
+  selects the invoking environment). This records only directory selectors,
+  never credentials. Titles and hook checks/installations use that same profile.
+  Gemini records `GEMINI_CLI_HOME` when set. It selects a home directory, so
+  Gemini settings live in its `.gemini` child. Choosing a Gemini recovery root
+  selects the `.gemini` folder and stores its parent as `GEMINI_CLI_HOME`.
+- Launch/resume also refreshes PATH and the Berth configuration/state routing for
+  hook children. These runtime values are separate from persisted agent identity.
+- Host attachment preserves the complete tmux endpoint, including socket-path
+  precedence. A successful rebuild and its attach command address the same server.
+- iTerm reattachment requires positive evidence of a ready shell prompt and the
+  unchanged marked pane after restoration. A busy shell, editor or agent receives
+  no injected text. Uncertain readiness offers an explicit reattach action.
+
+The iTerm readiness check uses [prompt state](https://iterm2.com/python-api/prompt.html)
+and an [API transaction](https://iterm2.com/python-api/transaction.html) to keep
+verification and sending input atomic (checked 2026-11-01). It requires shell
+integration, an empty editing prompt and a stable prompt ID; unsupported or busy
+panes remain untouched and receive a deferred-reattachment message in the script log.
+
 ### 5.3 Snapshot
 
-- Location: `$XDG_STATE_HOME/berth/servers/<tmux socket or "default">/snapshots/<UTC timestamp>/`
+- Location: `$XDG_STATE_HOME/berth/servers/<socket identity>/snapshots/<UTC timestamp>/`
   (default `~/.local/state/berth/…`). State is kept per tmux server, so one
   server's snapshots never restore into another. The root is overridable in
-  config; servers stay separate under it.
+  config; servers stay separate under it. The conventional system tmux directory
+  retains its default/named keys for compatibility. Other socket directories use
+  a canonical full-endpoint hash; `-L` and equivalent `-S` resolve identically.
+  Ambiguous legacy basename-only state for custom endpoints is not automatically
+  imported; explicit restore remains available after the user verifies its source. Check Setup
+  reports the legacy location so it is not silently mistaken for an empty history.
 - Contents:
   - `sessions.json` — one entry per managed session: name, cwd, agent, argv,
     conversation id, origin, and the tmux server lifetime it was seen in
     (server start time and pid).
   - `scrollback/<name>.txt` — last N lines of each pane (default 3000), for
-    reading only.
+    reading only. Every accepted session name is an opaque data key, including
+    names that match object prototype properties; snapshot capture and carry-forward
+    must preserve their scrollback without special treatment. Missing scrollback
+    may be omitted. Other read failures must abort carry-forward and recovery
+    configuration edits before publishing or pruning snapshots; they must not
+    become empty output.
 - Triggers: `berth snapshot`; tmux hooks on session created / renamed / closed
   (installed by `berth tmux install`, which also hooks `alert-bell`, §4.2,
   and `client-attached` / `client-session-changed`, §7.3).
@@ -270,8 +687,31 @@ When the agent exits, the session ends — Berth does not leave a stray shell.
 - `ensure` reads live tmux first; if a managed session is missing, it rebuilds
   from the newest snapshot. After a reboot there is no tmux server, so the
   snapshot is the only source.
-- A rebuilt session runs the resume template when it has a conversation id,
-  the launch template otherwise, `shell` sessions get a shell in their cwd.
+- A rebuilt agent session requires an exact conversation ID and a resume
+  template. Missing IDs, missing directories, missing executables and binding
+  conflicts produce distinct skipped results. No failure silently starts a new
+  conversation or substitutes a shell. Shell sessions reopen in their cwd.
+- Issuing the resume command is `resume-requested`, not confirmation. A guarded
+  start hook for the exact expected ID confirms recovery and restores normal
+  pane exit behavior. A different ID reports
+  failed recovery and preserves the expected ID. A process that exits before confirmation leaves
+  its pane and diagnostic output available and reports failure.
+- Without a matching acknowledgement within 30 seconds, recovery is unconfirmed:
+  inspect the terminal before relying on it. Agents without start hooks begin
+  unconfirmed. A later matching hook can still confirm. Recovery status and
+  reason survive snapshots; a live tmux session is not proof of conversation
+  recovery. The agent starts only after its expected identity is registered.
+- An intentional End removes the restore record even when it ends the last
+  session and tmux shuts down. Detach only closes the local terminal view.
+  Start New is explicit; an unbound stopped record is forgotten before its name
+  is reused. Retry Recovery explicitly ends a failed or unconfirmed attempt
+  and reissues the same bound ID under the restore lock. Preflight failure
+  preserves the inspectable pane. Requested or confirmed attempts reject a
+  concurrent retry; stopped records follow normal ensure rules.
+- A stopped record offers Choose Recovery Folder. Selecting an existing folder
+  updates only that record's cwd; its agent and exact conversation ID remain.
+  Cancellation changes nothing. The host can then request recovery through the
+  normal guarded open action. A running session cannot be relocated this way.
 - `--origin` limits work to one frontend's sessions.
 
 ### 5.5 Configuration
@@ -283,29 +723,45 @@ Berth runs with no config file.
 
 ## 6. Berth for VS Code
 
-- **Layout preset.** The Berth container lives in the secondary side bar.
-  Command *Berth: Apply Agent Layout* writes, after confirmation, the user
-  settings `workbench.sideBar.location = right` (so the secondary side bar,
-  and Berth with it, is on the left), `workbench.secondarySideBar.defaultVisibility
-  = visible`, adds `terminalEditor: true` to `workbench.editor.autoLockGroups`
-  (keeping the user's other entries), adds `${progress}` to
-  `terminal.integrated.tabs.description`, and optionally
-  (`berth.layout.hideTerminalTabs`) hides the native terminal tab list.
-  Berth opens session terminals as editors in the first editor group; that
-  group locks, so files open in the group beside it. Left to right: Berth
-  sessions (secondary side bar), session terminals, files, the explorer
-  (primary side bar). The panel, with Problems, Output and plain terminals,
-  stays at the bottom and is closed; it opens on demand. It spans the whole
-  editor area, so it cannot sit under the files group alone. Berth does not move views it does not own, such as
-  Chat.
-  Applying again re-establishes the layout after the user has changed it,
-  and keeps the values saved by the first apply. *Revert Agent Layout*
-  restores the user's settings from before the first apply, and says so when
-  there is nothing to restore. Views the user drags elsewhere, including
-  Berth's, go back with VS Code's own *View: Reset View Locations*. On first
-  activation the
-  extension opens its sessions view and offers this command once; nothing
-  changes unless the user confirms.
+- **Layout profile.** Optional layout uses an independent VS Code Profile.
+  *Create Agent Layout Profile* prepares a local `.code-profile` template and
+  opens VS Code's native import review. Creation, naming and activation require
+  the native confirmation; opening the review is not reported as successful
+  creation or activation. Reusing an existing name opens native Replace review;
+  only the user can choose Replace. Cancel must preserve that existing profile.
+  The template contains only the Berth layout settings and the installed Berth
+  extension version. Native extension import may access Marketplace. For offline
+  use or an unpublished VSIX installed in Default, select Extensions → Default
+  in the import review to reuse those installed extensions. Other extensions and
+  customizations can be selected in VS Code's Profiles editor. It does not clone credentials or export user data.
+  The layout places Berth in the left secondary side bar, the Explorer on the
+  right, locks terminal editor groups, and displays session title/progress in
+  terminal tabs. The optional `berth.layout.hideTerminalTabs` affects the template.
+  *Switch Layout Profile* opens the native profile picker, including the user's
+  original profile. VS Code owns profile identity, workspace association and
+  switching. Berth cannot infer the original profile from its shared storage
+  URI and does not claim automatic return to it. Cancel leaves configuration
+  unchanged. The command IDs `berth.applyLayout` and `berth.revertLayout` remain
+  available for existing shortcuts with these new meanings.
+  Berth never writes layout settings through the global configuration API.
+  Settings applied to all profiles, remote-user settings and workspace overrides
+  can override the imported profile; Berth does not alter those targets to force
+  the preset. Profile-local import and switching must leave their files unchanged.
+  Unsupported profile import must show an actionable error, not silently fall
+  back to editing current settings. Profile import uses the running editor's URI
+  scheme and a local file, without uploading the template. Create/import from a
+  local editor window; remote windows use the native profile switcher afterward.
+  Berth must not misinterpret a remote file path as a client-local template.
+  Legacy layout journals remain intact. Because earlier journals do not identify
+  the configuration target reliably, migration does not auto-restore or delete
+  them. On an explicit Create Layout Profile request, users acknowledge the
+  retained legacy changes once per unchanged backup and may inspect the originals.
+  Startup itself does not issue a migration notice. Switching profiles does not undo
+  layout changes made by the old Apply command.
+  First activation does not switch views or advertise a layout. Users open Berth
+  from its activity icon and may choose the optional layout command themselves.
+  This workflow uses [VS Code Profiles](https://code.visualstudio.com/docs/configure/profiles);
+  it is distinct from terminal shell profiles and agent conversation profiles.
 - **Session view.** The rich session list, contributed as a webview view so
   the user can place it in any side bar. VS Code's native tree has one line
   per row, a fixed hover delay and no way to wrap; a session needs a second
@@ -314,16 +770,38 @@ Berth runs with no config file.
   - **Content.** Every session from `berth ls`, grouped by cwd. What a card
     carries follows the vertical tabs of agent terminal apps (cmux, Warp):
     agent; state (`@berth_state`) with the latest notification; unread;
-    topic; git branch; connection (attached here / elsewhere / detached /
-    stopped — in snapshot, not live); conversation bound or not; hooks.
-  - **Card.** Line one: the agent's icon (one coloured letter per agent, a
-    terminal icon for a shell), the session name, and a state badge on the
+    topic; git branch; live connections (this window / application name / other
+    terminal / detached / stopped — in snapshot, not live); conversation bound or not; hooks.
+  - **Card.** Line one: the agent's sourced product mark (a
+    terminal icon for a shell or an unrecognised agent), the session name, and a state badge on the
     right (working `⋯`, waiting `!`, unread `•`). Line two, the subtitle: the
     latest notification while waiting or done (what the agent needs from the
     user), otherwise the topic — the first line of the user's latest prompt
-    (§4.2 hooks); empty when there is neither. An optional third line
-    (`berth.view.details`, on by default) shows branch and connection. Long text ends in an
+    (§4.2 hooks), then the exact-bound conversation title when no task text is
+    available. Duplicate name/title/task text is suppressed. An optional third
+    line (`berth.view.details`, on by default) shows connection and any recovery
+    limitation. The shared Git branch appears once beside the folder heading (in the native
+    view description when one workspace folder is flattened),
+    with its full value also available in details. Long text ends in an
     ellipsis; the hover card has it in full.
+  - **Entry and recovery.** The empty list has a keyboard-accessible New
+    Session action. Refresh errors appear in the view with a Retry action;
+    retained rows are explicitly labelled as the last successful list.
+    Opening a session reports failures through the host notification instead
+    of leaving an unhandled operation. Successful refresh clears its error.
+  - **Icons.** List and details use the same agent asset mapping. Product identity takes precedence over vendor identity: use the specific CLI
+    or coding product mark, not a company or sibling chat-product logo. Prefer
+    official assets; a documented third-party rendering is allowed when a
+    suitable official product asset is unavailable. Preserve official artwork
+    and colours; monochrome assets use the theme foreground. The accessible session name includes the agent
+    name; details also show it as text. Asset origins, pinned revisions and
+    licenses are recorded in the extension third-party notices. Functional
+    icons remain Codicons; modifiers such as `~spin` map to the web font
+    modifier classes and respect reduced motion.
+  - **Order.** Sessions within each folder, and unmanaged sessions, use natural
+    name order: `job`, `job-2`, `job-3`, `job-10`, `job-13`. Live and restored
+    entries follow the same order. Attention navigation uses that ordering
+    within each priority (waiting first, then unread).
   - **Colour.** As in cmux, colour goes only to what needs the user: waiting
     is amber, unread blue; stopped cards are dimmed; the rest keep the
     default colours. A finished turn is unread until the user has seen it and
@@ -342,6 +820,35 @@ Berth runs with no config file.
     for its own views), a card in VS Code's hover style: the session name
     with the agent's icon, the notification as a quote, then state,
     connection, branch, folder and any warning, each line led by its icon.
+    Every data value in details has a small, labelled Copy action: session and
+    folder names, agent name, notification/topic text, connection value, branch,
+    full folder path, conversation title and exact ID. Copy uses the complete
+    underlying value, without field labels or display shortening. Buttons are
+    keyboard reachable, preserve the open card and report host-confirmed success
+    or failure. Pending copy requests retain keyboard focus and suppress duplicate
+    activation; success or failure must not move focus. State chips, guidance
+    and warning prose are not data fields.
+    Conversation-binding warnings apply to agent sessions, not plain shells.
+    The details form a non-modal dialog: entering it never selects or opens
+    the session. The pointer can cross the gap, read, scroll and select text
+    without a deadline. Full paths wrap in the card. Keyboard focus on a row
+    opens its details after the same delay; Tab enters the dialog, Shift+Tab
+    returns to the row, and Escape closes it without reopening until the
+    trigger is left and entered again. A host Escape binding dismisses details
+    even when keyboard focus remains in the terminal. A close button provides
+    pointer access. Closing from inside details must allow the first deliberate
+    pointer re-entry onto its row, even when closing returned keyboard focus there.
+    A stationary pointer exposed by the disappearing card must not reopen it.
+    Focus stays on the row until the user enters details; focus is not trapped.
+    The card is offset from the icon column, fits the webview width, and uses
+    the available space below or above the row. Long content scrolls inside
+    the card. If neither side has useful space, it fits inside the viewport
+    without an arrow. Resize repositions it; list scroll, outside click,
+    context menu, window blur, or removal of the source closes it. Scrolling
+    inside the card preserves it. Unrelated refreshes preserve selection;
+    changes to its source update the displayed details. Updates retain keyboard
+    focus on the same value action and preserve scroll position. If that action
+    disappears, focus returns to the details content, without activating a session.
   - **Interaction.** Click shows the session (below); right-click opens VS
     Code's own context menu with the same actions as before, plus *Mark as
     Read* and *Forget Session*; title bar actions and the view badge (count of
@@ -359,7 +866,8 @@ Berth runs with no config file.
     Settings a webview cannot see are read by the extension and pushed on
     change: `workbench.tree.indent`, `workbench.tree.renderIndentGuides`;
     reduced motion follows VS Code's own flag. Rows are at least 22 px, VS
-    Code's list row height. Icons are VS Code's codicons. Context menu,
+    Code's list row height. Functional icons are VS Code's codicons; agent
+    marks follow the icon contract above. Context menu,
     title actions and badge are native, not imitations.
 - **One session terminal.** Selecting a row shows that session in the one
   session terminal: the terminal's tmux client switches to it
@@ -367,6 +875,14 @@ Berth runs with no config file.
   stopped session is rebuilt first. The list, not a row of tabs, is how
   sessions are switched; tmux keeps each session's screen. *Open to the Side*
   adds a second terminal for watching two sessions at once.
+- **Find a session.** A native Quick Pick searches session name, exact-bound
+  conversation title and folder across live and stopped inventory. Results show
+  product identity and lifecycle/recovery state. Selection uses the same guarded
+  open action; cancellation leaves selection and terminals unchanged. Removed
+  selections report a refresh instruction. Search is a sidebar title action;
+  Choose Folder remains in the overflow menu to keep the title compact.
+  Inventory loading must leave the editor responsive and the picker cancellable;
+  finding a session does not wait for git branch decoration.
 - **Go to the next session needing you.** A command and key (⌘⌥U on macOS,
   Ctrl+Alt+U elsewhere) shows the next session waiting for the user, then
   unread ones, wrapping around.
@@ -385,20 +901,61 @@ Berth runs with no config file.
   sessions with the session name prefixed by the state glyph, and the layout
   makes tab titles use `${sequence}`, so a tab reads like "● work" and follows
   `switch-client`.
-- **Notifications.** When an agent starts waiting for the user or finishes a
-  turn: an in-editor notification through the VS Code API, and a native OS
-  notification through a platform helper, because VS Code has no API for OS
-  notifications. "Open" in the editor notification focuses the session;
-  clicking the OS notification brings the editor forward (on macOS this needs
-  `terminal-notifier`).
+- **Notifications.** Initial inventory and extension reload do not replay old
+  waiting/completion events. In a focused editor, the visible active terminal
+  needs no popup; other sessions waiting for input receive an editor notification.
+  Finished turns use the unread marker without a foreground popup. In a background
+  editor, a new waiting/completion event uses the OS channel when enabled, otherwise
+  the editor channel; never both. A failed OS-helper launch falls back to the
+  editor notification, but successful launch is not proof of OS delivery.
+- **Check Setup.** A host-native command lists core health findings: missing
+  directories/executables, missing hooks, unbound/conflicting conversations and
+  unconfirmed/failed recovery. Selecting a hook finding offers that agent's
+  existing installer; a session finding opens its terminal when available.
+  An inspection failure is an error, not an empty healthy result. A clean
+  configuration report makes no claim that every agent version was validated.
+  It reports the resolved configured CLI version separately from hook-file health,
+  native trust, conversation binding and recovery acknowledgement. A PATH version
+  describes the configured launcher, not an already-running process. Custom
+  launch/resume templates are not executed for inspection and remain unverified.
+  Executable lookup skips non-executable files and directories on PATH, follows
+  executable symlinks, and treats commands containing a slash as explicit paths.
+  Diagnostics and invocations share this lookup. Relative commands and relative
+  or empty PATH entries resolve against the session working directory, including
+  recovery preflight. An explicitly empty PATH reaches the launched agent unchanged
+  instead of inheriting an older tmux server PATH. Internal launch staging uses
+  the known runtime path and does not require `sleep` on the agent PATH. Version probes use that directory and identify the resolved
+  executable; one diagnosis runs at most eight probes and reports further
+  executables as unqueried.
+  Standard executables are queried once per resolved path with `--version`, a
+  one-second forced timeout and 16 KiB output limit. No inference request is sent.
+  The editor runs this diagnosis in a worker so slow probes do not block commands.
+  Unknown versions and versions outside the tested set are informational, not
+  automatic failures. Only verified incompatibility bounds prompt an update.
+
+  Cursor builds dated before 2026-01-16 predate the documented session/prompt/stop
+  lifecycle hooks. This boundary comes from its [release announcement](https://cursor.com/changelog/cli-jan-16-2026),
+  checked 2026-11-01. Later dates do not certify runtime delivery. Other agents
+  without a verified incompatibility bound remain explicitly unverified.
 - **Missing hooks.** The first time a window sees a session whose agent has
-  no hooks installed, it says that such sessions start a new conversation
-  after a restart and offers *Install*, *Not now* and *Don't ask again* (per
-  agent). The session row's tooltip says why it is unbound, and its context
-  menu offers *Install Agent Hooks*. Installing runs the user's `berth` CLI
-  (found through VS Code's environment, then an interactive login shell, since
-  version managers such as nvm load only there), so the hooks keep pointing at
-  a stable path across extension updates.
+  no hooks installed, it explains that lifecycle updates and future conversation
+  binding may be unavailable. An already bound ID is retained; missing hooks
+  do not mean a new conversation will be started. Offer *Install*, *Not now*
+  and *Don't ask again* per agent, plus *Install Agent Hooks* in the context
+  menu. The installer uses the bundled CLI and persistent host runtime described
+  below, independent of a global npm installation or the shell PATH.
+
+  Hook installation in the editor runs asynchronously with a 30-second forced
+  timeout and a 1 MiB output limit. Pending installation must leave host events
+  available. Requests in one extension host execute in order; runtime refresh
+  and each installer invocation finish before the next request starts. Failure
+  reports the installer cause and does not block later requests.
+  Each hook configuration file is staged in its target directory and atomically
+  replaced only after the complete write succeeds. A failed write leaves the
+  previous file intact. File replacement keeps existing symlinks pointing to their resolved target;
+  dangling symlinks fail without replacement. Preserve existing POSIX permission
+  bits and use mode 0600 for new files. This is per-file publication, not a
+  transaction across multiple configuration files or external editors.
 - **Projects.** A project in the sessions view is a folder that has sessions;
   starting a session in a folder creates its group. A window works in a
   workspace, so each group shows where its folder sits: the workspace folder
@@ -433,19 +990,75 @@ Berth runs with no config file.
   by *New Session*, in that order (for example `["shell"]` for someone who
   starts their own launcher by hand in a plain session); like the launcher it
   can differ per workspace.
-- **Actions.** New session, show (also re-stamps origin), open to the side,
-  detach, rename, kill (with confirmation), adopt.
-- **Startup.** On startup, missing `vscode`-origin sessions are rebuilt and
-  the first one not attached anywhere is shown in the session terminal; the
-  rest stay in the list. Session terminals are ordinary unnamed terminals, so
-  tab titles follow tmux.
+- **Actions.** New session, show, open to the side, detach, rename, kill
+  (with confirmation), adopt. Opening commits unread, bell and origin changes
+  only after the host acknowledges attachment to the requested tmux session.
+  The main and side entry points use the same rule. A failed open preserves
+  these fields and reports an actionable error; creating a terminal is not
+  attachment acknowledgement. A replacement main terminal must attach before
+  disposing the previous one.
+  Rename validates the new name, updates tmux and immediately writes a snapshot
+  before updating host references and unread keys. Snapshot failure rolls the
+  tmux name back and reports failure. A collision leaves both sessions intact.
+- **Startup.** Restore ownership records the verified workspace identity at
+  successful attachment. A workspace key derives from its registered folder
+  URIs and workspace-file URI, never from the session cwd or folder basename.
+  Only sessions owned by that workspace are rebuilt automatically. Legacy
+  host-only records and empty windows stay listed for explicit opening.
+  One live window holds the startup claim for a workspace; duplicate windows
+  can open sessions explicitly without both auto-restoring. Dead process claims
+  can be replaced. The first eligible detached session in natural name order is
+  shown; others remain listed. Terminal titles still follow tmux.
+- **Host registration.** Each editor window registers its workspace label and
+  terminal PIDs in the tmux server's local state directory. Live client ancestry
+  may then display the registered workspace alongside its application. Expired
+  or dead registrations fall back to the application, not a guessed workspace.
+  Registration is runtime evidence, distinct from durable restore ownership.
+  Remote extension hosts use their remote state and process namespace.
 - **Remote workspaces.** Works the same in Remote-SSH, Dev Containers and
   WSL: the extension runs on the workspace side, next to the tmux server it
   manages.
 - Disabled in untrusted workspaces. Bundles the core library and calls it
-  in-process, so apart from installing agent hooks it never depends on a
-  `berth` CLI on `PATH` or on its version; it shells out to tmux only through
-  the core.
+  in-process for actions and in an asynchronous child for sampling; it invokes tmux only through the core. Hook installation
+  also uses a bundled CLI, copied to the extension host's persistent global
+  storage on activation so hook paths survive extension updates. The CLI
+  runs with the host runtime (Electron in Node mode where needed), without
+  requiring a global npm installation or shell PATH. Installing hooks still
+  requires the user's explicit action; activation only updates the runtime.
+
+### Installation and upgrade experience
+
+New installation and upgrade preserve existing windows, layout, terminals and
+agent configuration. Inventory refresh never launches a hook-install prompt.
+Missing hooks and unknown identity/profile remain in session details and explicit
+Check Setup / Check Recovery Readiness. Hook installation requires a user action
+and reports its result once. Optional layout creation is separate from basic use.
+A blocked recovery explains the exact prerequisite when requested; missing evidence
+on a running session is not an immediate incident.
+
+A producer-verified lifecycle event carrying the already-bound conversation ID may
+automatically fill a missing profile from that producer's environment, record its
+process identity and clear the corresponding verification warning. Preserve an
+existing profile; a different ID or unverified event cannot perform this migration.
+Persist the repaired record immediately so restart does not resurrect its warning.
+No restart, re-adoption, fabricated event or configuration rewrite is required.
+
+### Session row state separation
+
+Window membership is connection metadata, never selection. List selection follows
+explicit row activation; keyboard focus has its own outline. The current terminal
+session has a thin accent marker, at most one per window; an active non-terminal
+editor clears that marker. No marker is inferred merely from window membership.
+Running-session details omit internal recovery diagnostics and check buttons.
+The session context menu offers Check Recovery Readiness for deliberate diagnosis.
+Stopped-session details may explain recovery blockers. It samples current binding, hooks, profile,
+launch options and setup findings, then explains concrete gaps and offers the
+applicable existing repair action. Checking never clears an unresolved binding or
+starts/restarts an agent. A clean check permits a recovery attempt; it does not
+claim a successful resume. Unknown profile or identity remains explicitly unknown. Stopped conflicted rows say “Verify
+before resuming”. Failed recovery attempts remain distinct from an unverified
+binding. Working/waiting/finished state remains independent of both.
+
 
 ## 7. Berth for iTerm2
 
@@ -484,7 +1097,10 @@ these sessions Berth writes the state itself.
    `client_termtype`), Berth writes `OSC 1337 ; SetUserVar=berthSession=<name,
    base64>` to that client's tty and stamps the session's origin `iterm2`
    (§4.1). The variable belongs to the iTerm2 pane and is saved with it.
-   Clients of other terminals are left alone.
+   Clients of other terminals are left alone. Before marking a pane, changing
+   origin or replaying state, the hook rechecks the client against the session
+   it currently shows. A delayed event for a detached or switched client has no
+   effects; current tmux client metadata determines terminal type.
 2. **Reattaching.** `berth iterm2 install` writes an AutoLaunch script that
    runs when iTerm2 starts, after iTerm2 has restored its windows. For every
    pane whose `user.berthSession` is set and which is not attached to tmux,
@@ -526,20 +1142,20 @@ the CLI by Berth. "cmux" means cmux integrates the same interface (commit
 
 | Agent | Launch | Resume | Conversation id source | Status |
 |---|---|---|---|---|
-| Claude Code | `claude --name {name}` | `claude --resume {id}` | `SessionStart` hook (`~/.claude/settings.json`), then name key | Proven in a private prototype; help 2.1.310 |
-| Codex CLI | `codex` | `codex resume {id}` (id or session name) | `SessionStart` hook (`~/.codex/hooks.json`) | Help 0.162.1; cmux |
-| Gemini CLI | `gemini` | `gemini --resume {id}` | `SessionStart` hook (`~/.gemini/settings.json`) | Docs; hooks on by default from 0.27 |
-| OpenCode | `opencode` | `opencode --session {id}` | `session.created` event via a plugin (`~/.config/opencode/plugins/berth.js`) | Docs; cmux |
-| GitHub Copilot CLI | `copilot` | `copilot --resume={id}` | `sessionStart` hook (`~/.copilot/hooks/berth.json`) | Docs; 1.0.21 or later; cmux |
-| Cursor CLI | `cursor-agent` | `cursor-agent --resume {id}` | `sessionStart` hook (`~/.cursor/hooks.json`) | Help 2025.09.12; docs: the CLI runs hooks from 2026.01; cmux |
-| Kimi Code | `kimi` | `kimi --session {id}` | `SessionStart` hook (`[[hooks]]` in `~/.kimi-code/config.toml`) | Help 0.31.1; docs; cmux |
-| Qoder CLI | `qodercli --name {name}` | `qodercli --resume {id}` | `SessionStart` hook (`~/.qoder/settings.json`), then name key | Help 1.0.48; docs; cmux |
+| Claude Code | `claude --name {name}` | `claude --resume {id}` | `SessionStart` hook (`~/.claude/settings.json`) | Help and native fixture 2.1.310 |
+| Codex CLI | `codex` | `codex resume {id}` (id or session name) | `SessionStart` hook (`~/.codex/hooks.json`) | Help 0.166.0; native fixtures 0.162.1 and 0.166.0 |
+| Gemini CLI | `gemini` | `gemini --resume {id}` | `SessionStart` hook (`~/.gemini/settings.json`) | Docs; native fixture 0.66.0 |
+| OpenCode | `opencode` | `opencode --session {id}` | `session.created` / `session.updated` events via a plugin (`~/.config/opencode/plugins/berth.js`) | Docs; cmux; native fixture 1.19.5 |
+| GitHub Copilot CLI | `copilot` | `copilot --resume={id}` | `sessionStart` hook (`~/.copilot/hooks/berth.json`) | Docs; cmux; native fixture 1.0.105 |
+| Cursor CLI | `cursor-agent` | `cursor-agent --resume {id}` | `sessionStart` hook (`~/.cursor/hooks.json`) | Help 2025.09.12; lifecycle hooks added 2026-01-16; native version acceptance pending |
+| Kimi Code | `kimi` | `kimi --session {id}` | `SessionStart` hook (`[[hooks]]` in `~/.kimi-code/config.toml`) | Native 0.31.1: custom-agent recovery, interruption, approval/rejection and provider failure |
+| Qoder CLI | `qodercli --name {name}` | `qodercli --resume {id}` | `SessionStart` hook (`~/.qoder/settings.json`) | Help 1.0.48; docs; cmux |
 | `shell` | user shell | — | — | — |
 
 Every hook receives a JSON payload on stdin and the id is read from
 `session_id`, `sessionId`, `sessionID` or `conversation_id`. The other hooks
 installed per agent map prompt submitted → `working`, permission request →
-`waiting`, turn finished → `done`; where the agent's notification event also
+`waiting`, successful turn completion → `done`; where the agent's notification event also
 fires for idle reminders, only a permission notification counts.
 
 Agent-specific limits:
@@ -548,10 +1164,26 @@ Agent-specific limits:
   event, so Berth writes only `event` and `command`, as one marked block at the
   end of `config.toml`. The legacy Python Kimi CLI (`~/.kimi/config.toml`, hooks
   from 1.28) is used only when `~/.kimi-code` does not exist.
-- Cursor CLI and OpenCode have no hook for "needs approval" in Berth's set,
-  so the terminal bell still marks them `waiting`.
+- Cursor CLI has no hook for "needs approval" in Berth's set, so its terminal
+  bell still marks it `waiting`. OpenCode uses `permission.asked` and
+  `permission.replied` for waiting and subsequent activity. Replies `once` and
+  `always` resume work; `reject` clears activity and suppresses a following idle
+  completion until a new busy/retry event. Unknown reply values leave state intact.
+- OpenCode `session.status` reports working only for `busy` or `retry`.
+  `session.error` clears activity without declaring completion. A following
+  `session.idle` retains that failure/interruption outcome until a new busy or
+  retry event starts another turn. Successful turns use `session.idle` as done.
+  Plugin forwarding preserves native event order, handles subprocess/pipe errors,
+  and bounds each hook process lifetime. State events require an observed root
+  session identity; unknown and child identities cannot affect the main session.
+- OpenCode binds from `session.created` and `session.updated`, both of which
+  carry session metadata. Restoring an existing session does not create it again;
+  a subsequent native update can confirm the expected ID. Until such an event,
+  recovery remains unconfirmed. Process existence and stored history alone are
+  insufficient acknowledgement.
 - An OpenCode session spawns child sessions for subagents; the plugin ignores
-  sessions with a parent, so the conversation id stays the one the user resumes.
+  sessions with a parent on creation and update, so the conversation id stays the
+  one the user resumes.
 
 Sources: [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks),
 [Gemini CLI hooks](https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/index.md),
@@ -631,3 +1263,58 @@ from MIT-licensed projects keep their notices.
 - Which host-native features beyond the session view earn a place (for
   example a per-session changes view built on VS Code's source control), judged
   by the rule in §2.
+
+
+## 13. Product completion contract
+
+The next complete release must satisfy the install → discover/start → identify
+→ open/attend → detach → recover → rename → end/forget journey described in the
+[product review](product-review.md). The [iteration plan](iterations.md) records
+implementation state; these requirements are the target contract, not a claim
+that the current candidate already conforms.
+
+- One managed row binds one independent agent producer to one exact conversation.
+  Conflicting producers remain attachable but cannot silently overwrite or guess
+  the recovery binding. Stale events do not replace current identity or state.
+- A recovery request is distinct from confirmed recovery. Failure and unavailable
+  confirmation remain visible with a relevant next action. Missing binding never
+  silently substitutes an unrelated or newly created conversation.
+- User actions commit unread, owner and persistence changes after successful
+  completion. Rename updates all references; failed actions preserve prior state.
+  Terminal close/detach, process termination and forgetting have distinct scopes.
+- Live connections and restore ownership stay separate. Workspace names and
+  restoration destinations require verified host registration; ambiguous legacy
+  records do not seize an arbitrary window.
+- Rows prioritize stable identity and task/attention information. Shared context
+  belongs at group level. Details expose complete copyable values while keeping
+  diagnostic metadata secondary. Existing host-native navigation/settings remain
+  the default mechanism; one native session finder is sufficient.
+- Readiness describes actual capabilities and missing prerequisites. Inspection
+  remains bounded and cannot block user actions behind slow background work.
+  Agent/host support claims require versioned lifecycle and recovery evidence.
+- A stable-complete claim requires critical adversarial cases plus the native
+  supported-host journey. Browser and stand-in checks retain their actual scope.
+
+
+### Details control placement
+
+The fixed close button has a reserved side lane for the entire scrollable
+content, including value-copy buttons. Scrolling long content must never move
+text or copy controls beneath Close. Narrow cards wrap values and scroll within
+the viewport; they do not cover another control to preserve more text width.
+
+### Inspection limits
+
+The editor runs core inventory sampling in an asynchronous child process with a
+single in-flight request, timeout and output limit. Branch reads are asynchronous
+and bounded as well. Deadline expiry forcibly terminates the inspection child,
+including one that ignores graceful termination, and releases the refresh queue.
+Process ancestry lookups also have a deadline. Interactive terminal attachment
+has no inspection deadline. Sampling must not occupy the extension-host event loop.
+A refresh samples the process table and tmux pane inventory once per operation.
+Codex title lookup searches its index once for the requested bound IDs and uses
+one read-only SQLite query for remaining IDs, rather than spawning a query per
+row. Unchanged JSONL sources reuse derived cached title results.
+Optional inspection commands have time and output limits. Failure leaves a title
+unknown; it never selects a different conversation. Adapter command support,
+hook acknowledgement support and live-version verification remain distinct.

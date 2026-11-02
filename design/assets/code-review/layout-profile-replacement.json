@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-01T23:27:06.404077+08:00",
+  "sourceHead": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "workingTreeChanges": true,
+  "candidateSha256": "b29857f10bbf082e8719ca9a255b0c95d6767146f2c74af5825c9997a10f5c39",
+  "nativeEditor": "VS Code 1.144.0 / Linux",
+  "tests": {
+    "macOSExtension": {
+      "passed": 67,
+      "failed": 0
+    },
+    "linuxExtension": {
+      "passed": 67,
+      "failed": 0
+    }
+  },
+  "nativeCases": [
+    {
+      "width": 1440,
+      "height": 900,
+      "sourceProfile": "Default",
+      "cancelled": true,
+      "created": true,
+      "replacementReviewCancelled": true,
+      "restarted": true,
+      "switchedAndReturned": true,
+      "originalAndSharedSettingsPreserved": true,
+      "legacyPreserved": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "sourceProfile": "Original",
+      "cancelled": true,
+      "created": true,
+      "replacementReviewCancelled": true,
+      "restarted": true,
+      "switchedAndReturned": true,
+      "originalAndSharedSettingsPreserved": true,
+      "legacyPreserved": true
+    }
+  ],
+  "logSha256": "cb0446c607196cb8e009b2bf3525c2696bb1ddfc12bce6c6377a744c808ce1d3",
+  "scope": "Native import uses Extensions Default to reuse installed VSIX. Legacy journals are read-only. Original and application settings are preserved.",
+  "limitations": [
+    "macOS native and remote acceptance pending",
+    "Marketplace extension installation not tested",
+    "No daily editor replacement or publication",
+    "Qoder deferred",
+    "Broader CR51 diagnosis flake remains unresolved"
+  ]
+}

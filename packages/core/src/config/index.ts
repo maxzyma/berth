@@ -1,6 +1,7 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
 import { parse } from 'smol-toml';
 import { BerthError, ExitCode } from '../errors.js';
 
@@ -16,6 +17,7 @@ export interface BerthConfig {
   tmuxSocketPath?: string;
   stateDir: string;
   snapshotRoot: string;
+  legacySnapshotRoot?: string;
   scrollbackLines: number;
   retention: number;
   agents: Record<string, AgentOverride>;
@@ -27,7 +29,7 @@ export interface BerthConfig {
 
 type Env = Record<string, string | undefined>;
 
-function configPath(env: Env): string {
+export function configPath(env: Env): string {
   if (env.BERTH_CONFIG) return env.BERTH_CONFIG;
   const base = env.XDG_CONFIG_HOME || join(env.HOME || homedir(), '.config');
   return join(base, 'berth', 'config.toml');
@@ -71,23 +73,53 @@ function agentOverrides(value: unknown): Record<string, AgentOverride> {
   return result;
 }
 
+function canonical(path: string): string {
+  try { return realpathSync(path); }
+  catch {
+    const absolute = resolve(path);
+    const parent = dirname(absolute);
+    return parent === absolute ? absolute : join(canonical(parent), basename(absolute));
+  }
+}
+
+/** Resolve the full endpoint once for persistence and host attachment. */
+export function socketPathFor(socket: string | undefined, path: string | undefined, env: Env): string {
+  const directory = canonical(join(env.TMUX_TMPDIR || '/tmp', `tmux-${process.getuid?.() ?? 0}`));
+  const inherited = !socket && !path ? env.TMUX?.split(',')[0] : undefined;
+  const endpoint = path || inherited || join(directory, socket || 'default');
+  return join(canonical(dirname(resolve(endpoint))), basename(endpoint));
+}
+
+/** Same endpoint through -L/-S shares state; different directories never do. */
+export function socketIdentity(socket: string | undefined, path: string | undefined, env: Env): string {
+  const uid = process.getuid?.() ?? 0;
+  const standard = canonical(`/tmp/tmux-${uid}`);
+  const endpoint = socketPathFor(socket, path, env);
+  const parent = canonical(dirname(resolve(endpoint)));
+  if (parent === standard) return basename(endpoint);
+  return `socket-${createHash('sha256').update(join(parent, basename(endpoint))).digest('hex')}`;
+}
+
 /** Precedence: environment > config file > defaults (flags are applied by the CLI). */
 export function loadConfig(env: Env = process.env): BerthConfig {
   const file = readFile(configPath(env));
   const tmux = (file.tmux ?? {}) as Record<string, unknown>;
   const snapshot = (file.snapshot ?? {}) as Record<string, unknown>;
   const tmuxSocket = env.BERTH_TMUX_SOCKET || (typeof tmux.socket === 'string' ? tmux.socket : undefined);
-  const tmuxSocketPath = env.BERTH_TMUX_SOCKET_PATH || undefined;
+  const tmuxSocketPath = env.BERTH_TMUX_SOCKET_PATH || (!tmuxSocket ? env.TMUX?.split(',')[0] : undefined) || undefined;
   // State is per tmux server: snapshots and locks of one server never restore
-  // into another. A server is named by its socket (its -L name is the basename).
-  const server = tmuxSocketPath ? basename(tmuxSocketPath) : (tmuxSocket ?? 'default');
+  // into another. Canonical endpoint identity also covers custom socket directories.
+  const server = socketIdentity(tmuxSocket, tmuxSocketPath, env);
   const baseState = env.BERTH_STATE_DIR || (typeof file.state_dir === 'string' ? file.state_dir : defaultStateDir(env));
   const stateDir = join(baseState, 'servers', server);
+  const legacyKey = basename(tmuxSocketPath || tmuxSocket || 'default');
+  const legacyRoot = typeof snapshot.root === 'string' ? join(snapshot.root, legacyKey) : join(baseState, 'servers', legacyKey, 'snapshots');
   return {
     tmuxBin: env.BERTH_TMUX || (typeof tmux.binary === 'string' ? tmux.binary : 'tmux'),
     tmuxSocket,
     tmuxSocketPath,
     stateDir,
+    legacySnapshotRoot: server !== legacyKey && existsSync(legacyRoot) ? legacyRoot : undefined,
     snapshotRoot: typeof snapshot.root === 'string' ? join(snapshot.root, server) : join(stateDir, 'snapshots'),
     scrollbackLines: positiveInt(snapshot.scrollback_lines, 'snapshot.scrollback_lines', 3000),
     retention: positiveInt(snapshot.keep, 'snapshot.keep', 5),

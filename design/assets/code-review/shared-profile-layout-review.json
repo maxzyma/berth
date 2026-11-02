@@ -1,0 +1,162 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T13:06:39.042493+00:00"
+  },
+  "status": "local-user-repair-verified",
+  "finding": "CR73",
+  "environment": {
+    "editor": "VS Code 1.144.0",
+    "os": "Ubuntu 24.04 arm64",
+    "node": "22.23.4",
+    "display": "isolated Xvfb",
+    "same_profile": true,
+    "distinct_extension_hosts": true
+  },
+  "regression_evidence": {
+    "baseline": {
+      "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+      "working_tree": true,
+      "observed_at": "2026-11-01T12:47:06.555668+00:00"
+    },
+    "status": "failed",
+    "finding": "CR73",
+    "environment": {
+      "editor": "VS Code 1.144.0",
+      "os": "Ubuntu 24.04 arm64",
+      "node": "22.23.4",
+      "display": "isolated Xvfb",
+      "same_profile": true,
+      "distinct_extension_hosts": true
+    },
+    "observations": {
+      "applying_window_api_before": "${process}",
+      "reverting_window_api_before": "${process}",
+      "reverting_window_disk_before": "${sequence}",
+      "revert_returned_success": true,
+      "journal_after": {
+        "schema": 1,
+        "backup": {},
+        "applied": {}
+      }
+    },
+    "runs": [
+      {
+        "scope": "immediate and overlapping cross-window apply/revert",
+        "pass": 0,
+        "fail": 1
+      },
+      {
+        "scope": "API/disk diagnostic",
+        "pass": 0,
+        "fail": 1
+      }
+    ],
+    "candidate": {
+      "name": "berth-cr72.vsix",
+      "sha256": "f06daa4f687ee90dd2b882f1fa67d6d3f7f3695502d8906d871ebf37ec648af9",
+      "runtime_changed": false
+    },
+    "logs": [
+      {
+        "name": "berth-layout-multi-native.log",
+        "sha256": "16db1cd818aa94dd7d3482203796cfb33d7550f9dcdcf4a5220b97dc488025e6"
+      },
+      {
+        "name": "berth-layout-multi-trace.log",
+        "sha256": "5d487caf6d69c7653a1e51d66b397ac8095d60c43ef07e264a6402cf39bca8e0"
+      },
+      {
+        "name": "berth-layout-multi-state.json",
+        "sha256": "d857597fe9f20ee2fdcc9e91bb5a99c4a26c73993e674c09cb905b5b206f7383"
+      }
+    ],
+    "limitations": [
+      "Fixture commands execute through the extension API, not pointer/keyboard UI.",
+      "No repair or passing shared-profile verdict.",
+      "The new exclusive-create fixture guard has syntax validation; the failing runs used the same fresh-profile inputs.",
+      "Daily editor unchanged."
+    ]
+  },
+  "repair": "Await editor local-user configuration refresh inside the journal lock before backup and preservation decisions; retain recovery on refresh failure.",
+  "checks": {
+    "extension_macos": {
+      "pass": 71,
+      "fail": 0
+    },
+    "extension_linux": {
+      "pass": 71,
+      "fail": 0
+    },
+    "native_regular": {
+      "pass": 7,
+      "pending": 3
+    },
+    "native_shared_profile": {
+      "primary_journeys": 1,
+      "pass": 1,
+      "companion_host_is_not_an_independent_journey": true,
+      "assertions": [
+        "distinct extension hosts, shared storage",
+        "sequential and overlapping Apply/Revert",
+        "later user edit preserved",
+        "complete settings restored, unrelated setting preserved",
+        "empty Revert leaves settings byte-identical"
+      ]
+    },
+    "native_restart": {
+      "phases": 2,
+      "pass": 2
+    },
+    "installed_file_comparison": {
+      "extension": 25,
+      "core": 141
+    },
+    "reuse": {
+      "core_tar_identical_to_CR72": true,
+      "current_core_files_equal_tar": 141,
+      "bundled_cli_identical_to_CR72": true,
+      "core_regression_and_installed_cli": "host-name-repairs.json"
+    }
+  },
+  "candidate": {
+    "name": "berth-cr73.vsix",
+    "sha256": "eb426e084a9e5269614ba2efd0fe4cb63bb8f0b951a49bda1071b96987bcfe81"
+  },
+  "logs": [
+    {
+      "name": "berth-cr73-extension-macos.log",
+      "sha256": "df1e910af5e75d3377816210cb96499299d1ae12af56ce8c34cdd04443f75d05"
+    },
+    {
+      "name": "berth-cr73-extension-linux.log",
+      "sha256": "f5df5385adcd3b39f971e53c388acfe77d1b40d9d95d517a6e10a6a30db195f6"
+    },
+    {
+      "name": "berth-cr73-native-suite.log",
+      "sha256": "0964c6bae2b8c83672a0776dc7f9b2bc7052cbb3cc88a2bbe46988788af93b6f"
+    },
+    {
+      "name": "berth-cr73-native-multi-complete.log",
+      "sha256": "747bf11a5d3facf428349c9aab6c7efd8f0ef643896c87ec03c404f72a7ab73d"
+    },
+    {
+      "name": "berth-cr73-native-restart.log",
+      "sha256": "daf17124e161f7ed3fe6b2d1435c4049ba842fa6170c8d0130ff63becda63ad4"
+    },
+    {
+      "name": "berth-cr73-install.log",
+      "sha256": "9d408aa92a2055a84a7eeabc86b7b3bd023940700c4537745965d189f7dda6c7"
+    },
+    {
+      "name": "berth-cr73-install-check.json",
+      "sha256": "2966687ade3d22ce90be5eb243d4985dae582a1cd7e0b9244fd1c6f6c9a0def5"
+    }
+  ],
+  "limitations": [
+    "Remote-user and application/all-profile configuration freshness and journal ownership require separate acceptance.",
+    "Commands execute through extension APIs; no native visual, clipboard, keyboard or accessibility verdict.",
+    "Daily editor unchanged; no publication."
+  ]
+}

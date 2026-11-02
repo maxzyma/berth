@@ -1,0 +1,118 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T14:10:53.482376+00:00"
+  },
+  "finding": "CR81",
+  "status": "repaired",
+  "checks": {
+    "before": {
+      "pass": 0,
+      "fail": 4
+    },
+    "focused": {
+      "pass": 26,
+      "fail": 0
+    },
+    "macos_regression": {
+      "tests": 265,
+      "pass": 257,
+      "fail": 1,
+      "skipped": 7
+    },
+    "CR51_recheck": {
+      "pass": 3,
+      "fail": 0
+    },
+    "installed_files": {
+      "extension": 25,
+      "core": 141
+    },
+    "installed_cli": {
+      "pass": 4,
+      "fail": 0,
+      "scope": "VSIX bundled CLI and npm CLI: retained output, stale attachment rejection, read-failure preservation and missing-output continuation"
+    },
+    "linux_node20_affected": {
+      "pass": 31,
+      "fail": 0,
+      "scope": "state transactions, recovery, profiles and capabilities"
+    },
+    "installed_native": [
+      {
+        "width": 1440,
+        "height": 900,
+        "clipboard": true,
+        "keyboardCopy": true,
+        "escapeFocus": true,
+        "pointerReentry": true,
+        "findCancel": true,
+        "findNoMatch": true,
+        "findOpen": true,
+        "pasteAndSave": true,
+        "installed": true
+      },
+      {
+        "width": 1280,
+        "height": 800,
+        "clipboard": true,
+        "keyboardCopy": true,
+        "escapeFocus": true,
+        "pointerReentry": true,
+        "findCancel": true,
+        "findNoMatch": true,
+        "findOpen": true,
+        "pasteAndSave": true,
+        "installed": true
+      }
+    ]
+  },
+  "unresolved_regression": "CR51 configured CLI diagnosis expected warning, received info. Focused rerun passed; root cause not established. Assertion now includes the observed finding for diagnosis.",
+  "candidate": {
+    "name": "berth-cr81.vsix",
+    "sha256": "ec526a7e49c9bb884e19706562e0292446b8de9419f6c8b042b77b51bb80f875",
+    "installed_acceptance": "Isolated install, full file comparison, four CLI checks and Linux native UI at both viewport sizes passed."
+  },
+  "logs": [
+    {
+      "name": "berth-cr81-before.log",
+      "sha256": "204112cb606b393662cdd972119e46a3c810cfe94832bde61d78eb85e23792a1"
+    },
+    {
+      "name": "berth-cr81-focused.log",
+      "sha256": "a3caec3d36d0e311b74362a995d764b9e19b1f3763c8974f81fcdac8ff1d2ee7"
+    },
+    {
+      "name": "berth-cr81-regression.log",
+      "sha256": "be2ff3efc612c97cd06b0073975a2d0e54ef42501eb15acfa65b4c03cbe2df76"
+    },
+    {
+      "name": "berth-cr81-capability-recheck.log",
+      "sha256": "c1bf0094951f60f5959eed4d3aad25975843bfed4f42c0d477a58d472b6070dd"
+    },
+    {
+      "name": "berth-cr81-install-check.json",
+      "sha256": "2966687ade3d22ce90be5eb243d4985dae582a1cd7e0b9244fd1c6f6c9a0def5"
+    },
+    {
+      "name": "berth-cr81-installed-tests.log",
+      "sha256": "31737859293524075b280e2fae0a32cde354e3afe2e44f5de9893bc3e55f2e4f"
+    },
+    {
+      "name": "berth-cr81-linux-focused.log",
+      "sha256": "3ec86fc1443cbeb93675e30bec15068e3031d8f9868ab56732347530d5766792"
+    },
+    {
+      "name": "berth-cr81-native.log",
+      "sha256": "4cc8b70a56e602ba090d5bb2d1c30b4ec680374ab22b38d94fffb18fd7a9d298"
+    }
+  ],
+  "limitations": [
+    "CR81 Linux validation covers affected tests; unchanged regression evidence remains in prior receipts. Native UI checks do not establish full visual or accessibility acceptance.",
+    "CR74 and CR75 remain open.",
+    "No publication or daily editor replacement."
+  ],
+  "installed_observed_at": "2026-11-01T14:12:50.934759+00:00",
+  "linux_observed_at": "2026-11-01T14:14:56.648476+00:00"
+}

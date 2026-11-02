@@ -1,0 +1,137 @@
+{
+  "observed_at": "2026-11-01T04:40:30.842675+00:00",
+  "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "candidate": "uncommitted working tree; isolated packages only",
+  "diagnostic_baseline": "command-repairs.json",
+  "resolved": [
+    "CR26"
+  ],
+  "verification": {
+    "full": {
+      "passed": 159,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tmux30": {
+      "passed": 12,
+      "failed": 0,
+      "scope": "native field, discovery, process argument, adoption and control-client checks",
+      "source": "https://github.com/tmux/tmux/releases/tag/3.0"
+    },
+    "liveClaude": {
+      "passed": 1,
+      "version": "2.1.310",
+      "scope": "real start hook, one short response, server loss and exact-ID recovery; isolated tmux and injected hooks; local auth/transcript profile"
+    },
+    "browserReuse": {
+      "priorEvidence": "command-repairs.json",
+      "priorPassed": 70,
+      "unchangedViewAndModelSources": 13,
+      "viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1280,
+          800
+        ]
+      ],
+      "scope": "unchanged UI sources only; not native host acceptance"
+    },
+    "packages": {
+      "extensionFilesMatched": 25,
+      "coreBuildFilesMatched": 114,
+      "offlineCoreInstall": true,
+      "cliHelpIncludesRecoveryOptions": true,
+      "dailyEditorModified": false
+    },
+    "logs": {
+      "full": {
+        "name": "berth-cr26-verified.log",
+        "sha256": "18c887ef3873a280f88f67bc67dfe211b8f7fd6ebb6772299780f62f12533711"
+      },
+      "tmux30": {
+        "name": "berth-cr26-tmux30-verified.log",
+        "sha256": "e1090a8eb17f7e22d2059f56cd786825cb07bb629f5e1cd7a8937835d869f372"
+      },
+      "liveClaude": {
+        "name": "berth-cr26-live.log",
+        "sha256": "8bca46d2a7addc6e8880386f6047ec677d802b9dc52242ce68302738ff68e366"
+      },
+      "build": {
+        "name": "berth-cr26-build-final.log",
+        "sha256": "d5bfeb438b714fb6fab446302d4a82f9b34dd25e8c22abcf04053ac7f60efea8"
+      }
+    },
+    "publicBoundaryCheck": "passed"
+  },
+  "source_hashes": {
+    "packages/core/src/agents/commands.ts": "a0339b7b60c1cb233b76fd8181a0936e1ac8036eea583dfc00a21aac4f776416",
+    "packages/core/src/agents/hook-files.ts": "dcb3f143db4462712f455d7b7566831a5ded0f8c2a3f59f4f80a4a5a5d851cf1",
+    "packages/core/src/agents/hooks.ts": "cb530901621f6033009759e9f9d1573a98874e8405de1c2905e94628a59cbcd9",
+    "packages/core/src/agents/profile.ts": "0ab12a74289413cdbb25614bc8b143a74d3409a49c06deafd6ecb2ce62a63de0",
+    "packages/core/src/agents/registry.ts": "5cbfe39655a40b0edbb5035edcd3a148cbbef5e826ffb8f969b6fbf03b3cf0ac",
+    "packages/core/src/agents/roots.ts": "9543b116a4223c7ca54c7f1dbf1e37de9c619850a39bad66a9016e4383c264e3",
+    "packages/core/src/agents/titles.ts": "2f856498b24f301eaedf92f5d995197863b74ee3732559c6cd0e844018eaa8bf",
+    "packages/core/src/cli/main.ts": "72032822f221abff092e6eb5442e59fcfa5007a56573bd8b563684dc836c4637",
+    "packages/core/src/config/index.ts": "ade5925bca0db922466dccf38d445b9f78e506bdfbb4a83881e800ce3199866f",
+    "packages/core/src/context.ts": "214f7ad3572fa9f04a410dd569e665ca60977904b0c1ae2f748d2720b5dfd24d",
+    "packages/core/src/errors.ts": "6fd21f53fb27cd2853d9c9caa021c0d811b077b8067ab348d85559775a4f6a50",
+    "packages/core/src/index.ts": "2e9cf3cd104158a2f675398e0865e0c739f0a7ed0c1bddeef329c9cf05d5bb37",
+    "packages/core/src/iterm2/install.ts": "123a2ad945300d364d1693769ccd3e755c4bd5d67917d9134d98eb374e62d805",
+    "packages/core/src/present/attach.ts": "2d45c466348c2b74c53b7efc7d203e52ff07a4445f416de0d23e39d2a40e6fe2",
+    "packages/core/src/present/state.ts": "67da3731fa63f6c30ab0030d898b06f89baa3e87829d782fb6121a45780b6ece",
+    "packages/core/src/process-arguments.ts": "f4ce9f88c3ac6103e6233b012bdb11c776c148843900bf6de0cc95227ccc12d8",
+    "packages/core/src/process-directory.ts": "560c332e44cb526a81315531c0a975cf7eb4d177c0bc2dd526a4ac18fb2bf068",
+    "packages/core/src/process-owner.ts": "ab669d581c8e6e9f65b5ccb3e882f9c445b26187a2d92aa1a46fcbc5babb99f2",
+    "packages/core/src/registry/directory.ts": "20334df01c99b68d89dcaad140905c7410587fd67524e6737dae586206ad6f23",
+    "packages/core/src/registry/discover.ts": "968bba7aa65889a439bbbdc25d4f34d8700148897ab999694f585ea97f4be0b2",
+    "packages/core/src/registry/doctor.ts": "2c73bcd6633794f6c7ed8668cebbd253d88ae153e799fdc1f6edf4c1d33c9c22",
+    "packages/core/src/registry/hosts.ts": "7815fd9200a44b2c0d9ffb328b1be3c917fefeb818f82a0d04ed4e02e1c36a11",
+    "packages/core/src/registry/launch.ts": "bc3b4fb141919de87c122d6dd9c73a5653a9cc149a6167cecf0b6a6e01554b3f",
+    "packages/core/src/registry/sessions.ts": "462875d78fa65cbb35dedab1c8ceece2d75f963061619dbd8654a6016db2d817",
+    "packages/core/src/restore/ensure.ts": "b8d019eeb9c8fc6ddbbb1ae63ab51e5a4f4bb31cb4e506e489321118a440e94e",
+    "packages/core/src/restore/lock.ts": "e2f0808bf6fbbe308facd2f474de93734eb6a7062cdbd02ef50823ae85c4523e",
+    "packages/core/src/restore/status.ts": "116dc036d37e05bccc5cecf4d428e7c09726904bd54713d2661800c573a02cff",
+    "packages/core/src/shell.ts": "f4b4064d0b38bfc1b947d970d5c1fce4702b815ef527c22255767bd474987de4",
+    "packages/core/src/snapshot/identity.ts": "7a50e2916b3d55a5da3da2cc6328408b2e5f5e416caa027d4bd7296d21bcb0f0",
+    "packages/core/src/snapshot/lifecycle.ts": "c0b5fb7145d14bb00a00fc48031079d261608ceb2eeb6eaba980213b2259e2e0",
+    "packages/core/src/snapshot/store.ts": "35af9dd25d0d44ce0c70de498d0734d843994c3fcc05b5bf7ce562a030dc0a17",
+    "packages/core/src/snapshot/take.ts": "737c121bb34d53df76ab686bd0b00a321a77b8e9106ca71839351643a6ee1944",
+    "packages/core/src/tmux/client.ts": "51e4af7aef85dfa3ba9443a73f2717d456a41fa3795fb585d495ca9e3f51f418",
+    "packages/core/src/tmux/connections.ts": "4f64b6028018fc45af5537ca4ab7b8c4af6987525d53512de76781b442e9f703",
+    "packages/core/src/tmux/fields.ts": "791e534c367fec26ebc3257732fade39254c768a26bdab91bf8e1120aeb740d4",
+    "packages/core/src/tmux/install.ts": "ae51c41f35e39e27783a13e68f8a640cc5497ff6f0ce64c17e89b693f50352b5",
+    "packages/core/src/tools.ts": "1bd8758a45cd31130290d8ae9639516a276765ca0da03463553093c5d313bbc1",
+    "packages/vscode/src/controller.ts": "6bd592b25a4d0c7483d7e844d6e2bb490eb855c06503dac1810185e24ebb94c4",
+    "packages/vscode/src/extension.ts": "d6be0d0712d7afa4f644d41ec2b0c2fc5058716cebfad5886232c5f2fa425b99",
+    "packages/vscode/src/hookRuntime.ts": "0a607dfcbe9e533f6713fc07e08bd957e84f883b118f06cdcda3996bcd0ef522",
+    "packages/vscode/src/inventory.ts": "6e107cf02047fe7a0f370b398a3a6002deeb5986cfece47c727cdb7f56aab465",
+    "packages/vscode/src/model.ts": "dd6495e4cf74d35af2c77c41453cc8c6e88a0004500e01488f310527fbc8d39c",
+    "packages/vscode/src/view/protocol.ts": "d4e5b7594bffd0a3a156397df844d90380da52507c72cec3d522938587778622",
+    "packages/vscode/src/view/sessionsView.ts": "d0122ccff17adae65eb0cc0ddf665756c684d9eea781be7022cf1c246c7a934c",
+    "packages/vscode/webview/clipboard.ts": "de4813fc4f611592b4729783003c75629210e2bbee0007c2aa1a43254a928d47",
+    "packages/vscode/webview/hover.ts": "f5632996440b46e82ecdfd8d567e413f42dfcd0329a11a87f1a821b233fa60f8",
+    "packages/vscode/webview/hoverPosition.ts": "6c8c3f12e837c8861335911e757f057fea5c427f2c96123a978a223dbe8410c9",
+    "packages/vscode/webview/icons.ts": "c9b7f7a35bb2386650bbe5022091d24582f4919c859801f7bda63ba32f39446d",
+    "packages/vscode/webview/main.css": "399c6d9911329144fbe6b5a544edd5bec0d14cf87e5a9f4342d92030ce147557",
+    "packages/vscode/webview/main.ts": "8bce6c71d2862df9a39fedbafd50987d54bad0a4c1eca76c5a0c2e9440770a3d"
+  },
+  "build_hashes": {
+    "packages/vscode/dist/extension.cjs": "42eb44c9f6672334e3984e092730a49ea92467f4988394c9b3eceb82cbe96e6a",
+    "packages/vscode/dist/cli.mjs": "8530de8dfb366f4e12978bdd4e94958afddda33be29b39e648e3398d9202462f"
+  },
+  "artifacts": {
+    "berth-cr26-fixes.vsix": "30bb8130b9395f1dd6b2dba143e32d3b197ae1aa64cc8ad890bf45c6b3d4e143",
+    "berth-cr26-core.tgz": "9b63fcbb89da5906e699c42aaa65b9657ec7982e2f17fbf848ee2b13e97cb72e"
+  },
+  "pending": [
+    "Native VS Code foreground acceptance awaits agreed window",
+    "Native editor/iTerm lifecycle, clipboard and multi-window acceptance",
+    "Linux platform execution: Docker CLI present but daemon socket unavailable; no frontend was opened",
+    "Remaining agent/version matrix"
+  ],
+  "dailyEditorModified": false,
+  "published": false
+}

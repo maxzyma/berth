@@ -11,20 +11,34 @@ export function requireAdapter(id: string): Adapter {
 
 /**
  * Options from an original launch command that are kept on resume
- * (implementation §3.2). Anything not in the adapter's keep-set is dropped:
- * prompts, positional arguments, session selectors, one-shot modes.
+ * (implementation §3.2). Parse known option arity before selecting the keep-set. Unknown syntax
+ * requires explicit review instead of interpreting its values as options.
  */
 export function keptArgs(adapter: Adapter, argv: string): string[] {
   const words = argv ? shellSplit(argv).slice(1) : [];
   const kept: string[] = [];
   for (let i = 0; i < words.length; i++) {
     const word = words[i];
-    if (!word.startsWith('-')) continue;
+    if (word === '--') break;
+    if (!word.startsWith('-') || word === '-') continue;
     const [flag] = word.split('=', 1);
-    if (!(flag in adapter.keep)) continue;
-    kept.push(word);
-    const takesValue = adapter.keep[flag];
-    if (takesValue && !word.includes('=') && i + 1 < words.length) kept.push(words[++i]);
+    const retain = Object.hasOwn(adapter.keep, flag);
+    const arity = retain ? adapter.keep[flag] : adapter.discard?.[flag];
+    if (arity === undefined) throw new BerthError(`Review recovery options: unsupported option ${flag}.`);
+    const values: string[] = [];
+    if (word.includes('=')) {
+      if (arity === false) throw new BerthError(`Unexpected value for ${flag}.`);
+    } else if (arity === true) {
+      if (i + 1 >= words.length || words[i + 1] === '--') throw new BerthError(`Missing value for ${flag}.`);
+      values.push(words[++i]);
+    } else if (arity === 'optional' && i + 1 < words.length && !words[i + 1].startsWith('-')) {
+      values.push(words[++i]);
+    }
+    if (arity === 'many') {
+      while (i + 1 < words.length && !words[i + 1].startsWith('-')) values.push(words[++i]);
+      if (!word.includes('=') && values.length === 0) throw new BerthError(`Missing value for ${flag}.`);
+    }
+    if (retain) kept.push(word, ...values);
   }
   return kept;
 }
@@ -54,4 +68,12 @@ export function resumeCommand(input: CommandInput & { conversation: string; orig
   if (!tpl) return undefined;
   const args = keptArgs(input.adapter, input.originalArgv).map(shellQuote).join(' ');
   return renderTemplate(tpl, { name: input.name, cwd: input.cwd, conversation: input.conversation, args });
+}
+
+
+/** Unverified provenance or unsupported syntax requires explicit review. */
+export function recoveryOptionsRequired(agent: string, argv: string, verified?: boolean): boolean {
+  if (agent === 'shell') return false;
+  try { return keptArgs(requireAdapter(agent), argv).length > 0 && verified !== true; }
+  catch { return true; }
 }

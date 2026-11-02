@@ -8,11 +8,11 @@
   ],
   "scripts": {
     "build": "tsc -b packages/core && npm run build -w berth",
-    "test": "npm run build && node --test --test-concurrency=1 'packages/core/dist/test/**/*.test.js' 'packages/vscode/dist-test/test/**/*.test.js'",
-    "test:live": "npm run build && BERTH_LIVE=1 node --test 'packages/core/dist/test/live/*.test.js'",
+    "test": "npm run build && node scripts/test.mjs",
+    "test:live": "npm run build && node scripts/test.mjs --live",
     "test:vscode": "npm run build && npm run test:integration -w berth"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }

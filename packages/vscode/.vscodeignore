@@ -2,8 +2,9 @@ src/**
 test/**
 dist-test/**
 tsconfig*.json
-.vscode-test.mjs
+.vscode-test*.mjs
 node_modules/**
 media/icon.svg
 webview/**
 scripts/**
+playwright.config.mjs

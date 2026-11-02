@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { homedir } from 'node:os';
+import { agentRoot } from './roots.js';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { writeConfigFile } from '../config/write.js';
+import { join } from 'node:path';
 import { BerthError, ExitCode } from '../errors.js';
 import type { Adapter, HookTarget } from './registry.js';
 
@@ -21,8 +22,6 @@ interface HookFormat {
   uninstall(file: string): void;
 }
 
-const home = (env: Env) => env.HOME || homedir();
-
 // ---- JSON files ---------------------------------------------------------
 
 type Json = Record<string, unknown>;
@@ -36,12 +35,7 @@ function readJson(file: string): Json {
   }
 }
 
-function writeText(file: string, text: string): void {
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, text);
-}
-
-const writeJson = (file: string, data: Json) => writeText(file, `${JSON.stringify(data, null, 2)}\n`);
+const writeJson = (file: string, data: Json) => writeConfigFile(file, `${JSON.stringify(data, null, 2)}\n`);
 
 /** Claude Code layout: `hooks.<Event>: [{ matcher?, hooks: [{ type, command }] }]`. */
 interface NestedGroup { matcher?: string; hooks?: { type?: string; command?: string }[] }
@@ -126,58 +120,84 @@ function stripTomlBlock(text: string): string {
  */
 const tomlConfig: HookFormat = {
   file(env) {
-    if (env.KIMI_CODE_HOME) return join(env.KIMI_CODE_HOME, 'config.toml');
-    const legacy = join(home(env), '.kimi');
-    const current = join(home(env), '.kimi-code');
-    return existsSync(legacy) && !existsSync(current) ? join(legacy, 'config.toml') : join(current, 'config.toml');
+    return join(agentRoot('kimi', env), 'config.toml');
   },
   install(path, events, commandFor) {
     const base = stripTomlBlock(existsSync(path) ? readFileSync(path, 'utf8') : '');
     const tables = events.map((event) => `[[hooks]]\nevent = ${JSON.stringify(event)}\ncommand = ${JSON.stringify(commandFor(event))}\n`);
     const sep = base && !base.endsWith('\n') ? '\n\n' : base ? '\n' : '';
-    writeText(path, `${base}${sep}${TOML_BEGIN}\n${tables.join('\n')}${TOML_END}\n`);
+    writeConfigFile(path, `${base}${sep}${TOML_BEGIN}\n${tables.join('\n')}${TOML_END}\n`);
   },
   uninstall(path) {
-    if (existsSync(path)) writeText(path, stripTomlBlock(readFileSync(path, 'utf8')));
+    if (existsSync(path)) writeConfigFile(path, stripTomlBlock(readFileSync(path, 'utf8')));
   },
 };
 
 // ---- OpenCode: a plugin module ------------------------------------------
 
 /** OpenCode loads every module in its plugins folder; this one forwards session events to `berth hook`. */
-export function opencodePlugin(node: string, cli: string, events: string[]): string {
+export function opencodePlugin(node: string, cli: string, events: string[], electron = process.env.ELECTRON_RUN_AS_NODE === '1'): string {
   return `// ${MARKER}: written by \`berth hooks install opencode\`; remove with \`berth hooks uninstall opencode\`.
 import { spawn } from 'node:child_process';
 
 const EVENTS = new Set(${JSON.stringify(events)});
-const children = new Set();
+const roots = new Set();
+const failed = new Set();
+let pending = Promise.resolve();
 
-function send(event, id) {
-  if (!process.env.TMUX_PANE) return;
-  try {
-    const child = spawn(${JSON.stringify(node)}, [${JSON.stringify(cli)}, 'hook', 'opencode', event], {
-      stdio: ['pipe', 'ignore', 'ignore'],
-      env: { ...process.env, BERTH_HOOK: '1' },
-    });
-    child.on('error', () => {});
-    child.stdin.end(JSON.stringify({ session_id: id ?? '' }));
-  } catch {
-    // Never disturb the agent.
+function send(event, id, payload = {}) {
+  if (!process.env.TMUX_PANE) return Promise.resolve();
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(${JSON.stringify(node)}, [${JSON.stringify(cli)}, 'hook', 'opencode', event], {
+        stdio: ['pipe', 'ignore', 'ignore'],
+        env: { ...process.env, BERTH_HOOK: '1', ...${JSON.stringify(electron ? { ELECTRON_RUN_AS_NODE: '1' } : {})} },
+      });
+      const timer = setTimeout(() => child.kill('SIGKILL'), 10_000);
+      const finish = () => { clearTimeout(timer); resolve(); };
+      child.on('error', finish);
+      child.on('close', finish);
+      child.stdin.on('error', () => {});
+      child.stdin.end(JSON.stringify({ ...payload, session_id: id }));
+    } catch {
+      resolve();
+    }
+  });
+}
+
+async function forward(event) {
+  if (!EVENTS.has(event.type)) return;
+  const props = event.properties ?? event.data ?? {};
+  const identity = event.type === 'session.created' || event.type === 'session.updated';
+  const id = props.sessionID ?? (identity ? props.info?.id : undefined);
+  if (typeof id !== 'string' || !id) return;
+  if (identity) {
+    if (!props.info || props.info.id !== id || props.info.parentID) {
+      roots.delete(id);
+      return;
+    }
+    roots.add(id);
+    return send(event.type, id);
   }
+  if (!roots.has(id)) return;
+  if (event.type === 'session.status') {
+    if (!['busy', 'retry'].includes(props.status?.type)) return;
+    failed.delete(id);
+  }
+  const rejected = event.type === 'permission.replied' && props.reply === 'reject';
+  if (event.type === 'permission.replied' && !['once', 'always', 'reject'].includes(props.reply)) return;
+  if (event.type === 'session.error' || rejected) failed.add(id);
+  const type = rejected || (event.type === 'session.idle' && failed.has(id)) ? 'session.error' : event.type;
+  const payload = event.type === 'permission.asked' && typeof props.permission === 'string'
+    ? { message: 'Approval requested: ' + props.permission } : {};
+  return send(type, id, payload);
 }
 
 export const BerthPlugin = async () => ({
-  event: async ({ event }) => {
-    if (!EVENTS.has(event.type)) return;
-    const props = event.properties ?? event.data ?? {};
-    const id = props.sessionID ?? props.info?.id;
-    // Subagent sessions are children of the conversation the user resumes.
-    if (props.info?.parentID) {
-      if (id) children.add(id);
-      return;
-    }
-    if (id && children.has(id)) return;
-    send(event.type, id);
+  event: ({ event }) => {
+    // Native publishers need not await plugin callbacks; keep child processes ordered.
+    pending = pending.then(() => forward(event)).catch(() => {});
+    return pending;
   },
 });
 `;
@@ -186,11 +206,10 @@ export const BerthPlugin = async () => ({
 function opencodeFormat(node: string, cli: string): HookFormat {
   return {
     file(env) {
-      const config = env.XDG_CONFIG_HOME || join(home(env), '.config');
-      return join(config, 'opencode', 'plugins', 'berth.js');
+      return join(agentRoot('opencode', env), 'plugins', 'berth.js');
     },
     install(path, events) {
-      writeText(path, opencodePlugin(node, cli, events));
+      writeConfigFile(path, opencodePlugin(node, cli, events));
     },
     uninstall(path) {
       if (existsSync(path) && readFileSync(path, 'utf8').includes(MARKER)) rmSync(path, { force: true });
@@ -203,17 +222,17 @@ function opencodeFormat(node: string, cli: string): HookFormat {
 export function hookFormat(target: HookTarget, cli = ''): HookFormat {
   switch (target) {
     case 'claude-settings':
-      return nestedJson((env) => join(home(env), '.claude', 'settings.json'));
+      return nestedJson((env) => join(agentRoot('claude', env), 'settings.json'));
     case 'codex-hooks':
-      return nestedJson((env) => join(home(env), '.codex', 'hooks.json'));
+      return nestedJson((env) => join(agentRoot('codex', env), 'hooks.json'));
     case 'gemini-settings':
-      return nestedJson((env) => join(home(env), '.gemini', 'settings.json'));
+      return nestedJson((env) => join(agentRoot('gemini', env), 'settings.json'));
     case 'qoder-settings':
-      return nestedJson((env) => join(env.QODER_CONFIG_DIR || join(home(env), '.qoder'), 'settings.json'));
+      return nestedJson((env) => join(agentRoot('qoder', env), 'settings.json'));
     case 'cursor-hooks':
-      return flatJson((env) => join(home(env), '.cursor', 'hooks.json'), false);
+      return flatJson((env) => join(agentRoot('cursor', env), 'hooks.json'), false);
     case 'copilot-hooks':
-      return flatJson((env) => join(env.COPILOT_HOME || join(home(env), '.copilot'), 'hooks', 'berth.json'), true);
+      return flatJson((env) => join(agentRoot('copilot', env), 'hooks', 'berth.json'), true);
     case 'kimi-config':
       return tomlConfig;
     case 'opencode-plugin':
@@ -221,9 +240,4 @@ export function hookFormat(target: HookTarget, cli = ''): HookFormat {
     default:
       throw new BerthError(`unknown hook target ${String(target)}`, ExitCode.usage);
   }
-}
-
-/** Whether the target file holds Berth's entries. */
-export function containsBerth(file: string): boolean {
-  return existsSync(file) && readFileSync(file, 'utf8').includes(MARKER);
 }

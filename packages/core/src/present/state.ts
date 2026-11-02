@@ -1,3 +1,6 @@
+import type { Context } from '../context.js';
+import { withLock } from '../restore/lock.js';
+import { formatFields, readFields } from '../tmux/fields.js';
 import { appendFileSync } from 'node:fs';
 import type { Tmux } from '../tmux/client.js';
 
@@ -46,15 +49,9 @@ export interface Client {
 }
 
 export function clientsOf(tmux: Tmux, session: string): Client[] {
-  const result = tmux.run(['list-clients', '-t', `=${session}`, '-F', '#{client_tty}\t#{client_termtype}'], true);
+  const result = tmux.run(['list-clients', '-t', `=${session}`, '-F', formatFields(['client_tty', 'client_termtype'])], true);
   if (!result.ok) return [];
-  return result.stdout
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => {
-      const [tty, termtype = ''] = line.split('\t');
-      return { tty, termtype };
-    });
+  return readFields(result.stdout, 2).map(([tty, termtype]) => ({ tty, termtype }));
 }
 
 export interface PresentOptions {
@@ -75,4 +72,12 @@ export function presentState(tmux: Tmux, session: string, state: string, options
     }
   }
   return written;
+}
+
+/** Attachment must not replay an inventory state older than a hook or acknowledgement. */
+export function presentCurrentState(ctx: Context, session: string): void {
+  withLock(ctx.config.stateDir, () => {
+    const live = ctx.tmux.listSessions().find((row) => row.name === session);
+    if (live) presentState(ctx.tmux, session, live.meta.state ?? '', { note: live.meta.note });
+  }, 3000);
 }

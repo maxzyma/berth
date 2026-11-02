@@ -1,0 +1,35 @@
+{
+  "baseline": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a + working-tree changes",
+  "date": "2026-11-02",
+  "scope": "Verified late hook identity for seven non-deferred CLI adapters",
+  "agents": [
+    "claude",
+    "codex",
+    "gemini",
+    "opencode",
+    "copilot",
+    "cursor",
+    "kimi"
+  ],
+  "tests": {
+    "affected": {
+      "passed": 65,
+      "failed": 0
+    },
+    "new_cases": 15,
+    "kind": "synthetic producers in isolated tmux; no native UI acceptance"
+  },
+  "remaining": "Passive first-install adoption without integration is not complete; current Codex shared-daemon mapping remains unresolved. See code-review coverage table.",
+  "installation": {
+    "extension_files_verified": 25,
+    "core_files_verified": {
+      "v24.21.0": 147,
+      "v26.13.0": 147
+    },
+    "editor_reloaded": false
+  },
+  "sha256": {
+    "berth-all-cli.vsix": "8b9bb5bb8462f55482b8a4b3f046f9a04a9eb6c912ecb1a27276623c5f88bf80",
+    "berthdev-berth-0.3.6.tgz": "93bbdcfc024538f1f17c7c93ebede27dd0d1aeefcde2c6b4e143d7e3a9401d41"
+  }
+}

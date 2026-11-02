@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-02T09:58:33.232143+08:00",
+  "sourceHead": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "workingTreeChanges": true,
+  "candidateSha256": "893d5ba21bbae48bf54852c43945bb9a55fa0abd79b29b19a8d76c697b4fb43e",
+  "coreSha256": "210f12f98f76adf01304385dc6d0d5ae6eded9c5f292b94b5368fdd7b5453c1a",
+  "checks": {
+    "affectedTests": {
+      "pass": 94,
+      "fail": 0
+    },
+    "installedFiles": "match"
+  },
+  "verified": [
+    "Verified same-ID event fills missing profile and durably clears verification warning",
+    "Different-ID lifecycle event preserves original identity and protection",
+    "Inventory never prompts to install hooks",
+    "Notification policy chooses one channel and suppresses visible work/completion popups"
+  ],
+  "limitations": [
+    "No native fresh-install or upgrade UI run in this revision",
+    "OS delivery not verified",
+    "Daily editor not reloaded or controlled",
+    "No remote publication"
+  ]
+}

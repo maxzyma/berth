@@ -5,9 +5,12 @@
  * does not enter shadow roots.
  */
 import { LitElement, html, nothing, type TemplateResult } from 'lit';
+import { repeat } from 'lit/directives/repeat.js';
 import type { GroupView, RowView, TreeView } from '../src/model.js';
 import type { FromView, MenuContext, ToView, ViewSettings } from '../src/view/protocol.js';
+import { ClipboardBridge } from './clipboard.js';
 import { HoverCard } from './hover.js';
+import { agentIcon } from './icons.js';
 
 interface VsCodeApi {
   postMessage(message: FromView): void;
@@ -38,12 +41,19 @@ type Item = { id: string; kind: 'group'; group: GroupView | Other } | { id: stri
 type Other = { cwd: string; label: string; rows: RowView[]; other: true };
 
 class BerthSessions extends LitElement {
-  static properties = { model: { state: true }, settings: { state: true }, focusId: { state: true } };
+  static properties = { error: { state: true }, model: { state: true }, settings: { state: true }, focusId: { state: true }, selectedSession: { state: true } };
   declare model: { tree: TreeView; flatten: boolean } | undefined;
   declare settings: ViewSettings | undefined;
+  private selectedSession?: string;
+  private error = '';
   declare focusId: string | undefined;
   private collapsed: Set<string>;
-  private readonly hover = new HoverCard();
+  private readonly clipboard = new ClipboardBridge((message) => vscode.postMessage(message));
+  private readonly hover = new HoverCard(
+    (visible) => vscode.postMessage({ type: 'detailsVisibility', visible }),
+    (value) => this.clipboard.write(value),
+    (session) => vscode.postMessage({ type: 'checkRecovery', session }),
+  );
 
   constructor() {
     super();
@@ -59,7 +69,13 @@ class BerthSessions extends LitElement {
   }
 
   private receive(message: ToView): void {
-    if (message.type === 'model') {
+    if (message.type === 'copyResult') {
+      this.clipboard.complete(message.id, message.success);
+    } else if (message.type === 'error') {
+      this.error = message.message;
+    } else if (message.type === 'dismissDetails') {
+      this.hover.dismiss();
+    } else if (message.type === 'model') {
       const first = !this.model;
       this.model = { tree: message.model, flatten: message.flatten };
       if (first) requestAnimationFrame(() => window.scrollTo(0, vscode.getState()?.scrollTop ?? 0));
@@ -69,6 +85,24 @@ class BerthSessions extends LitElement {
       document.body.dataset.guides = message.settings.indentGuides;
       this.hover.delay = message.settings.hoverDelay;
     }
+  }
+
+  protected updated(): void {
+    const id = this.hover.anchorId;
+    if (!id) return;
+    const item = this.items().find((entry) => entry.id === id);
+    const anchor = document.getElementById(id);
+    if (!item || !anchor || (item.kind === 'group' && 'other' in item.group)) {
+      this.hover.update();
+      return;
+    }
+    const data = item.kind === 'card' ? item.row : item.group as GroupView;
+    this.hover.update({ anchor, lines: data.hover, settings: this.settings, agent: item.kind === 'card' ? item.row.agent : '' });
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.hover.dispose();
   }
 
   private save(): void {
@@ -93,10 +127,23 @@ class BerthSessions extends LitElement {
   render(): TemplateResult {
     const items = this.items();
     const focus = this.focusId && items.some((i) => i.id === this.focusId) ? this.focusId : items[0]?.id;
-    return html`<div class="list" role="tree" aria-label="Agent sessions" @keydown=${(e: KeyboardEvent) => this.key(e, items)}>
-      ${items.map((item) => (item.kind === 'group' ? this.groupRow(item.group, item.id === focus) : this.card(item.row, item.level, item.id === focus)))}
-      ${items.length === 0 && this.model ? html`<p class="empty">No sessions yet. Start one with + above.</p>` : nothing}
-    </div>`;
+    return html`
+      ${this.error ? html`
+        <div class="view-error" role="alert">
+          <p>${this.error}</p>
+          ${this.model ? html`<p>Showing the last available session list.</p>` : nothing}
+          <button class="view-action" @click=${() => vscode.postMessage({ type: 'retry' })}>Retry</button>
+        </div>` : nothing}
+      <div class="list" role="tree" aria-label="Agent sessions" @keydown=${(e: KeyboardEvent) => this.key(e, items)}>
+        ${repeat(items, (item) => item.id, (item) => (item.kind === 'group'
+          ? this.groupRow(item.group, item.id === focus)
+          : this.card(item.row, item.level, item.id === focus)))}
+      </div>
+      ${items.length === 0 && this.model ? html`
+        <div class="empty">
+          <p>No sessions yet.</p>
+          <button class="view-action" @click=${() => vscode.postMessage({ type: 'new' })}>New Session</button>
+        </div>` : nothing}`;
   }
 
   private groupRow(group: GroupView | Other, focused: boolean): TemplateResult {
@@ -115,13 +162,18 @@ class BerthSessions extends LitElement {
       tabindex=${focused ? 0 : -1}
       data-vscode-context=${JSON.stringify(context)}
       @click=${() => this.toggle(group.cwd)}
-      @focus=${() => (this.focusId = `g:${group.cwd}`)}
-      @mouseenter=${(e: MouseEvent) => !other && this.hover.schedule(e.currentTarget as HTMLElement, group.hover, this.settings)}
-      @mouseleave=${() => this.hover.hide()}
+      @focus=${(e: FocusEvent) => {
+        this.focusId = `g:${group.cwd}`;
+        if (!other) this.hover.schedule(e.currentTarget as HTMLElement, group.hover, this.settings);
+      }}
+      @mousemove=${(e: MouseEvent) => !other && this.hover.schedule(e.currentTarget as HTMLElement, group.hover, this.settings, '', e)}
+      @mouseenter=${(e: MouseEvent) => !other && this.hover.schedule(e.currentTarget as HTMLElement, group.hover, this.settings, '', e)}
+      @mouseleave=${(e: MouseEvent) => this.hover.leave(e.currentTarget as HTMLElement)}
     >
       <span class="twistie codicon codicon-chevron-${open ? 'down' : 'right'}"></span>
       <span class="icon codicon codicon-${icon}"></span>
       <span class="name">${group.label}</span>
+      ${'branch' in group && group.branch ? html`<span class="group-branch">${group.branch}</span>` : nothing}
       ${attention ? html`<span class="badge">${attention === 'waiting' ? '!' : '•'}</span>` : nothing}
       ${other
         ? nothing
@@ -140,24 +192,28 @@ class BerthSessions extends LitElement {
 
   private card(row: RowView, level: number, focused: boolean): TemplateResult {
     const context: MenuContext = { webviewSection: 'session', session: row.name, berthItem: row.contextValue };
-    const here = row.contextValue.includes('attached-here');
-    const words = [row.name, row.agent ? `${STATE_WORDS[row.icon]}` : STATE_WORDS.unmanaged, row.subtitle].filter(Boolean).join(', ');
+    const selected = this.selectedSession === row.name;
+    const words = [row.name, row.hover.find(line => line.kind === 'title')?.sub, row.agent ? `${STATE_WORDS[row.icon]}` : STATE_WORDS.unmanaged, row.subtitle].filter(Boolean).join(', ');
     return html`<div
-      class="row card level-${level} state-${row.icon} ${row.attention ? `attention-${row.attention}` : ''} ${here ? 'selected' : ''}"
+      class="row card level-${level} state-${row.icon} ${row.attention ? `attention-${row.attention}` : ''} ${selected ? 'selected' : ''} ${row.active ? 'terminal-active' : ''}"
       id=${`s:${row.name}`}
       role="treeitem"
       aria-level=${level}
-      aria-selected=${here ? 'true' : 'false'}
+      aria-selected=${selected ? 'true' : 'false'}
       aria-label=${words}
       tabindex=${focused ? 0 : -1}
       data-vscode-context=${JSON.stringify(context)}
       @click=${() => this.show(row.name)}
-      @focus=${() => (this.focusId = `s:${row.name}`)}
-      @mouseenter=${(e: MouseEvent) => this.hover.schedule(e.currentTarget as HTMLElement, row.hover, this.settings, row.agent)}
-      @mouseleave=${() => this.hover.hide()}
+      @focus=${(e: FocusEvent) => {
+        this.focusId = `s:${row.name}`;
+        this.hover.schedule(e.currentTarget as HTMLElement, row.hover, this.settings, row.agent);
+      }}
+      @mousemove=${(e: MouseEvent) => this.hover.schedule(e.currentTarget as HTMLElement, row.hover, this.settings, row.agent, e)}
+      @mouseenter=${(e: MouseEvent) => this.hover.schedule(e.currentTarget as HTMLElement, row.hover, this.settings, row.agent, e)}
+      @mouseleave=${(e: MouseEvent) => this.hover.leave(e.currentTarget as HTMLElement)}
     >
       <div class="line title">
-        ${this.agentIcon(row.agent)}
+        ${agentIcon(row.agent, this.settings?.agentIcons)}
         <span class="name">${row.label}</span>
         ${row.badge ? html`<span class="badge">${row.badge}</span>` : nothing}
       </div>
@@ -166,14 +222,8 @@ class BerthSessions extends LitElement {
     </div>`;
   }
 
-  private agentIcon(agent: string): TemplateResult {
-    if (agent && agent !== 'shell' && this.settings?.agentIcons) {
-      return html`<img class="icon agent" alt="" src=${`${this.settings.agentIcons}/${agent}.svg`} />`;
-    }
-    return html`<span class="icon codicon codicon-${agent === 'shell' ? 'terminal' : 'circle-outline'}"></span>`;
-  }
-
   private toggle(cwd: string, open?: boolean): void {
+    this.hover.hide();
     const isOpen = !this.collapsed.has(cwd);
     if (open === isOpen) return;
     if (isOpen) this.collapsed.add(cwd);
@@ -183,11 +233,17 @@ class BerthSessions extends LitElement {
   }
 
   private show(session: string): void {
+    this.selectedSession = session;
     this.hover.hide();
     vscode.postMessage({ type: 'show', session });
   }
 
   private key(e: KeyboardEvent, items: Item[]): void {
+    if (e.key === 'Escape') return;
+    if (e.key === 'Tab' && !e.shiftKey && this.hover.focus()) {
+      e.preventDefault();
+      return;
+    }
     this.hover.hide();
     const index = Math.max(0, items.findIndex((i) => i.id === this.focusId));
     const item = items[index];

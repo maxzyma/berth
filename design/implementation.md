@@ -5,11 +5,30 @@ file fixes the choices code must follow and the acceptance cases that decide
 when a milestone is done. Where the two disagree, the spec wins and this file
 is fixed.
 
+Attachment uses core `presentCurrentState` under the shared lock after bell
+acknowledgement; it does not replay an inventory row. Custom-launch intent belongs
+to the successful terminal PID and is assigned inside the main-action queue.
+The observed attachment carries its PID through settlement so an older sample
+cannot consume a newer launch. `tools.executableOnPath` owns executable lookup
+for diagnostics, recovery preflight and resolved integration commands. Callers
+that launch in a session pass its cwd; relative/empty PATH entries use that cwd.
+Version diagnosis caches resolved executables and limits each run to eight probes.
+Internal placeholder commands use the current runtime path, independent of PATH.
+Editor hook installation uses an asynchronous bounded child process. A host-local
+queue serializes runtime replacement and installer execution; failed requests
+return their cause and release the queue.
+`config/write.ts` stages configuration in the target directory and renames
+it into place. It resolves existing symlinks, preserves POSIX modes and removes
+failed staging files. JSON, TOML, generated plugin and tmux configuration writers share this owner.
+Tmux block parsing validates standalone paired markers before publication; live
+hook updates propagate errors with the persisted-versus-runtime distinction.
+
 ## 1. Stack
 
 | Concern | Choice |
 |---|---|
 | Runtime | Node ≥ 20 |
+| Development toolchain | Node ≥ 22, required by the locked VS Code integration tools |
 | Language | TypeScript, `strict`, ES modules |
 | Repo | npm workspaces: `packages/core`, `packages/vscode` |
 | Build | `tsc -b` to `dist/`; the VS Code extension is bundled with esbuild |
@@ -20,6 +39,16 @@ is fixed.
 | iTerm2 side | Python 3, iTerm2 Python API; no other dependency |
 | Minimum tmux | 3.0 |
 
+The root test launcher enumerates compiled `.test.js` files and passes explicit
+paths to Node. It does not rely on test-runner glob expansion, which is unavailable
+on the supported Node 20 baseline. Normal tests retain serial execution and
+include opt-in native fixtures as skips; the live command selects only the native
+fixture directory and enables its existing environment gate. Editor integration
+`.cjs` files remain outside both commands. PTY fixtures select BSD `script`
+arguments on macOS and util-linux arguments on Linux. A fixture asserting the
+pane process cwd explicitly replaces its launcher shell instead of relying on
+shell-specific last-command execution optimizations.
+
 Scripts at the repo root:
 
 | Script | Runs |
@@ -28,6 +57,28 @@ Scripts at the repo root:
 | `npm test` | every automated test (§5), all isolated |
 | `npm run test:vscode` | VS Code integration tests in a real editor window (§5.3); run deliberately |
 | `npm run test:live` | opt-in tests against real agent CLIs (§5.5); never part of `npm test` |
+
+Agent marks are bundled as unchanged product assets from the recorded sources in
+[third-party notices](../packages/vscode/THIRD_PARTY_NOTICES.md). The shared
+`webview/icons.ts` renderer owns the asset allowlist, terminal fallback and
+Codicon modifier mapping. [Icon review](icon-review.md) records the inventory
+and browser evidence.
+
+Natural session ordering is covered by mixed live/snapshot and unmanaged-row
+unit cases, attention navigation, and browser refresh/reordering cases.
+[Ordering evidence](assets/session-order/evidence.json) and the
+[rendered order](assets/session-order/natural-order.png) record the targeted checks.
+
+[Product review](product-review.md) records the global product and architecture
+assessment, connection/name changes and current validation evidence.
+[Iterations](iterations.md) owns pending implementation tasks and their acceptance conditions.
+
+The editor samples the bundled CLI asynchronously with a 10-second deadline,
+an 8 MiB output limit and one in-flight request. Branch reads run asynchronously
+at concurrency four with individual deadlines. Bounded child-process calls use
+SIGKILL at expiry so signal handlers cannot keep a query pending. Tests separate host responsiveness
+from core sampling duration. Native integration fixtures use an isolated editor
+profile and `berth-test-*` socket; they require an agreed foreground window.
 
 ## 2. Data formats
 
@@ -47,7 +98,8 @@ Scripts at the repo root:
       "argv": "claude --name web-api",
       "conversation": "9f1c…",
       "origin": "vscode",
-      "serverStart": "1793367307-35689"
+      "serverStart": "1793367307-35689",
+      "sessionId": "$0"
     }
   ]
 }
@@ -57,10 +109,72 @@ Scripts at the repo root:
 - `conversation` and `origin` are always present; unknown is `""` / `"none"`.
 - `serverStart` names the tmux server lifetime the session was seen in
   (`#{start_time}-#{pid}`); absent in snapshots from 0.2 and earlier, whose
-  sessions are never carried forward (spec §5.3).
+  sessions are not normally carried forward (spec §5.3). Conflicting or failed
+  records are explicitly retained until recovery or Forget.
+- Optional `sessionId` records the immutable tmux session identity. Together with
+  `serverStart`, it matches normal-closure markers without confusing renames or
+  a reused session name. Without it, matching lifetime, agent and conversation
+  are required before a live row can replace that record.
+- Optional `retained` preserves a stopped record across external name collisions
+  and partial recovery. Renaming or ending the distinct live session preserves it.
+- Live-only `restoreSource` hashes the saved lifetime, session ID, name, agent,
+  folder, conversation and profile. Restore stamps it before launch so the rebuilt session
+  can replace exactly its source record despite its new tmux identity. Normal
+  snapshots then use the rebuilt session's actual lifetime and session ID.
 - A snapshot is written to a temporary directory and renamed into place, so a
   reader never sees a partial one.
+- Snapshot publication and identity mutations share the synchronous reentrant
+  state lock. Publication order cannot regress when a caller supplies an old time.
+- `argvVerified` records launch arguments supplied by Berth, read as an OS
+  argument vector, or explicitly reviewed. Legacy replay options require Review
+  Recovery Options before resume. `process-arguments.ts` reads Linux procfs or
+  uses an inline system-Perl syscall bridge on 64-bit macOS. The bridge follows
+  XNU executable-path alignment, returns argv only and bounds memory/time.
+- Optional `profile` stores the agent directory selectors, never credentials.
+  It participates in recovery-record identity; stale tmux selectors are removed
+  before launching the saved profile.
+- Optional `ownerWorkspace` stores the registered workspace key. Legacy records
+  without it are not automatically claimed by an editor window.
+- Optional `bindingIssue`, `recovery`, `recoveryAt` and `recoveryDetail` preserve
+  conflict and recovery evidence. Pane/process ownership remains live-only.
 - Scrollback files sit beside it as `scrollback/<name>.txt`.
+
+### Native field transport
+
+`tmux/fields.ts` encodes separators and the equals escape prefix inside tmux,
+before records are emitted, and decodes once after printable-tilde framing.
+Session, pane, client and scalar identity/path readers share this contract.
+The format avoids percent directives because `display-message` expands dates. Nested substitutions support tmux 3.0; versions
+without `session_path` use the active pane path. Scalar readers preserve boundary
+whitespace. `process-directory.ts` reads a producer's cwd through Linux procfs or
+the system-Perl Darwin proc-info bridge; discovery and explicit adoption consume
+that same value rather than decoding `lsof` display text.
+Literal paths embedded in hook formats escape `#` before tmux expansion; shell
+quoting remains a separate step. `formatLiteral` is shared by closure markers
+and installed CLI hook commands. Runtime socket/session placeholders remain
+formats. Tests execute every installed hook both immediately and after sourcing
+the generated configuration, and verify last-session closure evidence.
+
+### Process and profile ownership
+
+Recovery compares the saved server identity with the selected tmux endpoint's
+actual `start_time` and PID. Lock tickets and host claims carry a boot/process-birth
+fingerprint; legacy records compare process birth with the record creation time.
+An unverifiable process does not silently authorize takeover. Process birth uses
+`ps lstart` (second resolution); same-second PID reuse remains a limitation.
+
+Agent profile resolution belongs to `agents/roots.ts`. Hook install, status,
+uninstall and title reads consume it. Names are display values, never binding
+authority. `agents/profile.ts` captures only supported directory selectors, stores
+them with exact conversation IDs, and applies them to tmux launch/resume. Unknown
+legacy profiles require explicit selection; title and hook reads never substitute
+the host profile. Producer lifetime remains live-only. Generated OpenCode hooks
+persist Electron's Node-mode requirement when installed under that runtime.
+
+Detach targets observed tmux clients. End kills the requested tmux session.
+Neither command disposes editor terminals using cached session names. A direct
+attach process exits naturally; a shell wrapper may stay open. Polling clears
+host references whose tmux client no longer exists.
 
 ### 2.2 `berth ls --json`
 
@@ -74,6 +188,29 @@ An array; one object per tmux session:
 
 `live: false` rows come from the newest snapshot (stopped sessions). Unmanaged
 rows carry `managed: false` and empty Berth fields.
+
+Connection rows add optional `connections` entries (`pid`, `terminal`, `application`,
+`ancestors`) and `conversationTitle`. Client ancestry is captured once per list
+operation from the OS process table. The VS Code host supplies all live terminal
+PIDs, so manual attachments and client switches use the same matching rule.
+Conversation-title readers accept only an exact bound ID and read agent stores
+without modifying them. Missing stores and unsupported formats return no title.
+`agents/jsonl-titles.ts` walks complete JSONL records backward in 64 KiB chunks,
+retaining at most the current record across chunk boundaries. Claude/Qoder custom
+titles and the batched Codex name index share this reader. It stops once all
+requested names have been found; it does not treat sampled windows as complete.
+
+Inventory supplies a derived cache directory under Berth state. Cache entries
+contain requested IDs/names and a source fingerprint, not message records. An
+unchanged source reuses its result across workers. Any change invalidates it and
+requires a new scan; an in-place rewrite that grows the file is not mistaken for
+an append. Open-file and pathname checks reject a result if the source changes
+during inspection. Atomic cache replacement supports overlapping readers, and
+cache errors fall back to the source without altering recovery or agent stores.
+
+Acceptance covers manual same-window attachment, multiple clients, unknown
+hosts, detached working agents, stale host bookkeeping, exact title lookup,
+renamed titles, missing stores and two conversations in the same directory.
 
 ### 2.3 CLI conventions
 
@@ -94,9 +231,16 @@ rows carry `managed: false` and empty Berth fields.
 
 - Default session name: basename of the cwd, reduced to `[A-Za-z0-9_-]`;
   on collision append `-2`, `-3`, … .
-- `ensure` takes `<state dir>/ensure.lock` (the state dir is per tmux server) (a directory created atomically,
-  holding the owner's PID). A lock whose PID is dead is taken over; otherwise
-  callers wait up to 30 s, then exit 1.
+- Restore uses the choosing/ticket ordering of [Lamport’s bakery algorithm](https://lamport.azurewebsites.net/pubs/bakery.pdf), adapted to local filesystem records (source checked 2026-11-01): publish a unique choosing record,
+  atomically publish its numeric ticket, then wait for choosing contenders and
+  lower (ticket, ID) pairs. Dead owners are ignored. Each caller removes only
+  its UUID record. Legacy live directory locks are respected during migration;
+  simultaneous old/new writers are not supported during an upgrade.
+- Runtime session-closed hooks write closure markers keyed by server lifetime
+  and tmux session ID. Snapshot filtering uses those markers, not empty inventory.
+- Socket identity retains conventional system-directory keys and hashes canonical
+  custom endpoints. Custom basename-only legacy state requires explicit restore.
+
 
 ## 3. Agent adapters
 
@@ -110,15 +254,37 @@ kept on resume.
 
 | Agent | → `working` | → `waiting` | → `done` | Conversation id |
 |---|---|---|---|---|
-| Claude Code | `UserPromptSubmit` | `Notification` with a permission request (not the idle reminder) | `Stop` | `SessionStart` payload |
-| Codex CLI | to verify | to verify | `Stop` | `SessionStart` payload |
-| OpenCode | to verify | to verify | `session.idle` (a turn ending, not the session) | `session.created` |
-| Copilot CLI | to verify | to verify | `Notification` | to verify |
-| Others | to verify | to verify | to verify | to verify |
+| Claude Code | `UserPromptSubmit`, `PostToolBatch` | `PermissionRequest`, permission `Notification` | `Stop` | `SessionStart` |
+| Codex CLI | `UserPromptSubmit`, `PostToolUse` | `PermissionRequest` | `Stop` | `SessionStart` |
+| Gemini CLI | `BeforeAgent`; `BeforeModel` ends an existing wait | `Notification` with `ToolPermission` | `AfterAgent` | `SessionStart` |
+| OpenCode | Busy/retry `session.status`, approved `permission.replied` | `permission.asked` | Successful `session.idle` | `session.created`, `session.updated` |
+| Copilot CLI | `userPromptSubmitted` | Permission `notification` | `agentStop` | `sessionStart` |
+| Cursor CLI | `beforeSubmitPrompt` | Not mapped | `stop` with `status: completed` | `sessionStart` |
+| Kimi CLI | `UserPromptSubmit`, `PermissionResult` | `PermissionRequest` | `Stop` | `SessionStart` |
+| Qoder CLI | `UserPromptSubmit`, `PostToolUse`, non-interrupted `PostToolUseFailure` | `PermissionRequest` | `Stop` | `SessionStart` |
 
-Rows marked "to verify" are filled from the CLI's own hook documentation
-where available, otherwise from cmux's event mapping for that agent (the
-reference commit in spec §8); the source is noted in the adapter module.
+`Interrupt` (Codex and Kimi), `StopFailure` (Claude, Kimi and Qoder), and Qoder
+`PostToolUseFailure` with `is_interrupt: true` clear activity and note without
+marking the turn done. The payload condition only applies to registered events. OpenCode
+errors and rejected permissions also clear activity; a following idle event
+preserves that outcome until busy/retry starts another turn. Its plugin forwards
+root-session events sequentially and ignores status-idle and unknown replies.
+
+This table describes the registered mappings in
+[the adapter registry](../packages/core/src/agents/registry.ts). A mapping does
+not prove delivery on a particular installed version; the agent/version
+acceptance matrix remains separate. Codex CLI 0.166.0 lists newly installed
+non-managed hooks as untrusted. Its native `/hooks` browser owns trust review;
+Berth installation messages and session details expose that next step. The
+[official hook documentation](https://learn.chatgpt.com/docs/hooks) describes
+this requirement (checked 2026-11-01). Berth does not write trust state or inject
+a bypass flag.
+
+Hook health parses JSON or TOML and checks the required event set and command
+targets. The generated OpenCode plugin has its own structural check. A marker
+alone is insufficient. Inventory, setup diagnostics, installation offers and
+bell fallback consume this shared health result. Runtime compatibility remains
+a separate adapter acceptance check.
 
 ### 3.2 Arguments kept on resume
 
@@ -126,14 +292,18 @@ Resume rebuilds the command from the resume template plus the original
 arguments that configure the session (model, profile, sandbox / approval
 mode, added directories). It drops arguments that start new work: an initial
 prompt, `--continue`, a different session id, one-shot / print modes. Each
-adapter lists its keep-set explicitly; anything not listed is dropped.
+adapter lists retained and discarded options with their arity. Retained options
+support flags, required values and variadic values. Discarded selectors may also
+have optional values. Unknown options fail closed into the recovery-options review
+flow; they are not scanned for nested flags. The parser owns missing-value checks
+for both automatic recovery and explicit recovery-option edits.
 
 ## 4. Edge cases every implementation must handle
 
 1. tmux not installed, or installed but no server running (after reboot).
 2. Two `ensure` calls at once (two terminals opening after a reboot).
 3. A recorded cwd that no longer exists: `ensure` skips it, `doctor` reports it.
-4. The agent binary missing at restore: start a shell in the cwd, report.
+4. The agent binary missing at restore: skip with an installation/retry instruction; do not substitute a shell.
 5. A conversation id the agent no longer accepts: the session shows the
    agent's own error. Berth does not silently start a fresh conversation in
    its place.
@@ -160,16 +330,20 @@ configuration, or editor settings.
 
 - Every test uses its own server: `tmux -L berth-test-<random>`. The default
   server is never addressed.
-- The test helper refuses any server-wide command (`kill-server`) unless the
-  socket name starts with `berth-test-`.
-- Teardown kills only the test's own server.
+- The test helper refuses server-wide teardown or abrupt termination unless the
+  effective endpoint starts with `berth-test-`. An explicit socket path takes
+  precedence over a socket name and must pass the guard itself.
+- Teardown kills only the test's own server. Interruption tests signal only the
+  isolated server PID with SIGKILL; orderly `kill-server` can fire close hooks
+  and must not be used as a crash simulation.
 - Waits poll tmux state with a deadline; no fixed sleeps.
 
 ### 5.2 Files and environment
 
 - `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` point into a per-test temporary
   directory. Hook install / uninstall tests run against agent config files
-  created there.
+  created there. Parent Berth configuration, state, socket-path and agent-profile
+  selectors are removed before test-specific values are applied.
 - With `BERTH_KEEP_SANDBOX=1`, tests keep their temporary directory and print
   its path for inspection.
 
@@ -179,12 +353,79 @@ configuration, or editor settings.
   import `vscode`; they talk to the editor through a small host interface.
   `npm test` runs them against a fake host and a test tmux server (§5.1), which
   covers V1–V7 without opening an editor window.
+- Layout uses a local `.code-profile` template containing nested settings JSON
+  and an extension descriptor for the installed Berth version. The profile-file
+  URI opens native import review; VS Code owns creation, collision handling and
+  switching. No global layout settings are updated by the extension. Remote
+  creation is rejected before writing a client-local URI. The native switcher
+  remains available in remote windows. Legacy journals are read-only evidence;
+  no automatic restoration is attempted because earlier records lack target IDs.
+  `layoutProfile.test.ts` checks the portable template boundary. Native tests
+  must verify creation/cancel, switch/return, repeated invocation, source settings
+  preservation and all-profile overrides. OS protocol registration and remote
+  behavior require their own evidence.
+- Find a Session passes an asynchronous session-list promise to native Quick Pick;
+  branch enrichment is separate and only used for sidebar inventory.
+- Connection labels prefer the application declared by a matching live host
+  registration, then process/terminal evidence. The native host fixture checks
+  the bundled CLI's returned application against the editor's own application name.
+- Attach-hook effects run under the shared state lock and require a current
+  client tty in the event session; the current client supplies terminal type.
+  A stale event cannot mark a different pane or consume a hook-install hint.
+- Attachment ownership checks query live core inventory; cached presentation rows
+  do not authorize metadata writes. Controller regressions cover both management
+  transitions between inventory and main/side attachment.
+- Native attachment acceptance keeps an independent tmux control client attached
+  while main, side and manually opened VS Code terminals detach. The remaining
+  client PID must match that independent client; the session must stay alive.
+- `.vscode-test.hosts.mjs` verifies live workspace claims in isolated editor
+  processes. Use one absolute temporary `BERTH_TEST_HOST_ROOT` named `berth-test-*`.
+  Start `BERTH_TEST_HOST_PHASE=leader`; after its `leader-ready` marker, run `other`
+  and `follower` in sequence while the leader remains open. Wait for all three to
+  exit, then run `restart`. The profiles are separate; workspace/session state and
+  the test tmux endpoint are shared. `other` has the same folder basename at a
+  different path. Each invocation uses `vscode-test --config .vscode-test.hosts.mjs`;
+  `BERTH_TEST_VSCODE_PATH` selects a previously verified editor installation.
+- `test/native/layout-profile.mjs` tests the installed candidate in an isolated
+  Linux desktop. It creates/cancels through native Profiles, selects Extensions
+  → Default to retain the installed VSIX offline, switches into Berth and back,
+  and checks original/all-profile settings and legacy journal bytes. Use the
+  clipboard runner's executable, CLI, VSIX and viewport variables; set
+  `BERTH_TEST_SOURCE_PROFILE=Original` for a named-source scenario. The runner
+  bootstraps that profile in a separate editor process before installing into it.
+  Earlier in-place layout fixtures are retired; their failures remain in the
+  [target-boundary receipt](assets/code-review/configuration-target-review.json).
+- `test/native/clipboard.mjs` drives the real editor through Playwright Electron.
+  Use an isolated display, `BERTH_TEST_VSCODE_PATH` and `BERTH_TEST_VIEWPORT`
+  (`1440x900` or `1280x800`), with a separate invocation for each viewport.
+  It creates private user data, extension storage and a test-only tmux server,
+  reads the native clipboard, checks copy-button focus, Escape returning to
+  the row and first pointer re-entry after closing. It also checks native Find
+  cancellation, no-match results, keyboard opening and pasting the copied folder
+  into a scratch file, saving it and reading it back. Set `BERTH_TEST_VSIX` and
+  `BERTH_TEST_VSCODE_CLI_PATH` to absolute candidate/CLI paths to install and test
+  the package without `extensionDevelopmentPath`; otherwise it loads the development extension.
+  This proves interactions, not visual
+  quality or accessibility beyond the stated keyboard checks.
 - `npm run test:vscode` runs a real VS Code instance through `@vscode/test-cli`
   with a temporary `--user-data-dir`, `--extensions-dir`, workspace and test
-  tmux socket, so settings writes stay throwaway. It opens a window, so it is
+  tmux socket, so settings writes stay throwaway. Its child environment clears
+  inherited variables before retaining only basic execution/display settings and
+  assigning temporary HOME/XDG roots; parent credentials, profile selectors and
+  tmux/editor IPC variables do not enter the test editor. It opens a window, so it is
   run deliberately, not as part of `npm test`.
 - Remote-SSH, Dev Containers and WSL are covered by manual acceptance (§6),
   not automated.
+- `npm run test:webview -w berth` runs the production webview bundle in
+  background Chrome through Playwright, using models from `buildTree` and
+  isolated browser contexts. A loopback server serves only fixture HTML and
+  the required assets. Cases use the browser clock for timing, semantic
+  locators and automatic waits; failed cases retain traces. Set
+  `BERTH_REVIEW_OUTPUT` to keep evidence in a chosen directory. The suite
+  covers pointer transit, text selection and clipboard copy, keyboard entry
+  and return, dismissal messages, source updates, scrolling and resizing.
+  Browser automation does not certify native host keybinding dispatch or
+  screen-reader speech. See the [session details review](session-details-review.md).
 
 ### 5.4 Agents in automated tests
 
@@ -205,8 +446,7 @@ event mapping (§3.1) without any process.
 `npm run test:live` runs real agents in an isolated tmux server: launch,
 record the conversation id through the agent's hook, kill the server,
 `ensure`, and check through the agent's own start hook that it resumed that
-conversation. Only Claude Code is covered so far; other agents follow when
-they can take hooks without editing the user's own agent configuration.
+conversation. This provider-backed journey currently covers Claude Code.
 
 Usage is kept low on purpose, to limit cost and avoid tripping provider
 abuse controls: the smallest model, one short prompt (about one request per
@@ -215,6 +455,88 @@ hours unless `BERTH_LIVE_FORCE=1`. Hooks are passed with `--settings`, so the
 user's agent settings are not modified; the agent still records the
 conversation in its own history as it always does. Runs only with
 `BERTH_LIVE=1`.
+
+`BERTH_CLAUDE_LOCAL=1 node --test packages/core/dist/test/live/claude-local.test.js`
+uses a temporary Claude profile, synthetic API key and loopback Messages endpoint.
+Only the empty fixture directory receives trust. The test covers exact-ID resume,
+a failed API turn, a successful subsequent turn and an approved shell command
+with verified output while the next model response is held. It also checks
+cancellation, manual denial with denied-command file absence, idle reconciliation
+and subsequent turns on the same conversation. Inventory queries one recorded
+Claude profile per pass outside the lock, then revalidates ownership and activity
+revision before clearing stale activity; see CR44 in the code review.
+
+`BERTH_CODEX_LOCAL=1 node --test packages/core/dist/test/live/codex-local.test.js`
+runs the installed Codex CLI against a loopback-only model fixture. It verifies
+binding, two working/done turns, server loss, exact-ID `ensure`, a third turn
+and the recovery acknowledgement. It then approves a harmless tool call, checks
+post-tool working state, interrupts the pending model response and submits a
+new turn. It also rejects a second command, verifies that its output file does
+not exist and checks the next prompt on the same conversation. HOME,
+configuration, history and tmux are isolated. The fixture bypasses trust only for its own inspected test hooks; it
+does not certify native trust-review UI or external inference. Codex `Interrupt`
+clears state and note without emitting done.
+Independent title-generation requests receive separate fixture responses.
+
+`BERTH_KIMI_LOCAL=1 node --test packages/core/dist/test/live/kimi-local.test.js`
+uses installed Kimi with an isolated profile and loopback Chat Completions
+fixture. It creates a custom agent, completes a turn, kills the isolated tmux
+server, resumes the exact conversation and verifies the custom agent prompt.
+It then interrupts a pending turn, approves and rejects tool requests, checks
+command side effects, injects a provider failure and completes subsequent turns.
+The fixture skips a native update prompt without installing an update; it does
+not certify external inference. CLI update checks may contact
+the vendor even though model requests stay local.
+
+
+`BERTH_OPENCODE_LOCAL=1 node --test packages/core/dist/test/live/opencode-local.test.js`
+checks native OpenCode initial binding, restored history and exact-ID
+acknowledgement after a subsequent turn. It also checks held model work,
+interruption, injected authentication failure, approval with proof-file contents,
+rejection with file absence, and successful subsequent turns on the same ID. `BERTH_OPENCODE_BIN_DIR` can point to
+an isolated CLI installation's binary directory. Bootstrap may download plugin
+dependencies independently of the loopback model fixture. To isolate that step,
+prepare a separate directory with `npm install --prefix <fixture-dir>
+--ignore-scripts @opencode-ai/plugin@<tested-version>` and set
+`BERTH_OPENCODE_FIXTURE_DEPS` to it; the test copies its manifest, lock and
+installed dependencies into the temporary profile. No daily profile is used.
+
+
+`BERTH_GEMINI_LOCAL=1 node --test packages/core/dist/test/live/gemini-local.test.js`
+checks Gemini custom-home hook installation, binding, successful completion,
+exact-ID/history recovery from a different selected home, tool approval and
+rejection, a second pending approval after the first is accepted, cancellation,
+provider failure in both error verbosity modes, and
+successful next turns. `BERTH_GEMINI_BIN_DIR` selects an isolated binary directory.
+Settings, state, credentials and model traffic use a temporary profile and
+loopback fixture. Input uses bracketed paste and respects Gemini 0.66.0's
+40 ms paste-submit guard before Enter; rendered input alone is not submit readiness.
+`agents/gemini-state.ts` captures a verified hook transcript
+cursor and reads typed native cancellation/error records. A terminal error can
+clear done only after the loop-end hook; it cannot clear ongoing work. `registry/native-state.ts`
+shares profile scheduling and ownership/revision validation with Claude native
+observations. The cursor is live-only; it cannot authorize recovery or binding.
+
+`BERTH_COPILOT_LOCAL=1 node --test packages/core/dist/test/live/copilot-local.test.js`
+checks native Copilot binding, completion, profile preservation and exact-ID/history
+recovery, provider failure, cancellation and successful next turns with an offline
+loopback provider. `BERTH_COPILOT_BIN_DIR` selects the
+binary directory. Only the generated temporary folder receives one-process trust.
+Copilot 1.0.105 acknowledges resumed identity on the first submitted prompt;
+opening its history alone is not confirmation. Tool cases cover approval, denial
+with feedback, proof of non-execution, two pending approvals and model continuation
+after all decisions. The fixture reads the command inside the active approval card before submitting
+a decision. Concurrent tools can present their cards in either order; transcript
+text does not identify the current decision target.
+
+`agents/transcript-cursor.ts` owns bounded append-only reads, header identity,
+profile-root containment, inode and prefix validation for native JSONL readers.
+The Copilot reader recognizes the native 1.0.105 root turn-end/session-error
+or user-initiated abort sequence; error hooks during retries are not terminal evidence.
+Approval requests and completions match by request/tool IDs. Only a subsequent
+model turn with no observed pending approvals can change waiting to working.
+Native observations carry their intended state through the existing ownership
+and revision checks. Unknown approval shapes do not produce a transition.
 
 ### 5.6 iTerm2
 
@@ -243,8 +565,8 @@ manual cases are recorded as checked, and the de-identification check passes.
   session with its resume template and conversation id (stand-in argv checked).
 - **C8** `ensure --origin vscode` rebuilds only `vscode` sessions.
 - **C9** Two concurrent `ensure` calls rebuild each session once.
-- **C10** A session without a conversation id is rebuilt with its launch
-  template and reported as unbound.
+- **C10** An unbound agent is skipped with explicit recovery guidance. Shell
+  sessions reopen without a conversation ID.
 - **C11** `hooks install` / `uninstall` per agent are idempotent and leave
   unrelated hook entries intact, for every hook format (nested JSON, flat
   JSON, Copilot's own file, Kimi's TOML block, the OpenCode plugin).
@@ -259,10 +581,12 @@ manual cases are recorded as checked, and the de-identification check passes.
   back; a pane running no agent is left alone; `BERTH_AUTO_ADOPT=0` turns it off.
 - **C14** With `berth tmux install`, a bell in a session whose agent has no
   installed hooks sets `waiting` / `bell`; one whose installed hooks report
-  waiting is left alone; showing the session clears a bell-raised `waiting`.
+  waiting is left alone unless native hook trust is independent of file configuration.
+  Existing explicit waiting details survive a bell; showing the session clears
+  only a bell-raised `waiting`.
 - **C15** Starting or adopting a session for an agent whose hooks are missing
   prints the install command on stderr; session rows report `hooks`
-  (`installed`, `missing`, `none`); a non-VS Code client attaching is told
+  (`installed`, `missing`, `broken`, `unknown`, `none`); a non-VS Code client attaching is told
   once per agent per tmux server.
 - **C13** Every baseline adapter passes its unit tests (§5.4) and its spec §8
   row records its source (help-checked, official docs, or cmux).
@@ -288,10 +612,13 @@ manual cases are recorded as checked, and the de-identification check passes.
 - **V4** On startup, missing `vscode`-origin sessions are rebuilt and one is
   shown in the session terminal; sessions of other origins are not.
 - **V5** Native tabs show state through `${progress}` and `${sequence}`.
-- **V6** Waiting and done produce an in-editor notification.
-- **V7** Apply / revert layout writes and restores only the listed settings in
-  the test instance's user settings, adding to the user's own object values
-  rather than writing the defaults.
+- **V6** Waiting and done produce an in-editor notification. Native helper launch
+  failures are contained by `notifications.ts`; missing executables and denied
+  launches cannot interrupt the host or the in-editor action. macOS helper
+  discovery uses PATH inspection rather than a synchronous `which` subprocess.
+- **V7** Native layout profile import and switching preserve original profile
+  settings, all-profile values and legacy journals. Cancellation changes nothing;
+  switching back selects the original profile without restoring cached settings.
 - **V10** *Go to Next Session Needing You* shows waiting sessions first, then
   unread ones, in name order, wrapping around.
 - **V12** A plain shell never goes through the custom launcher; a launcher
@@ -301,9 +628,9 @@ manual cases are recorded as checked, and the de-identification check passes.
 - **V13** Groups carry their place relative to the workspace (workspace,
   inside, outside) and are ordered by it; only the workspace folder's group is
   flattened; *New Session* lists agents in `berth.newSession.order` first.
-- **V11** An agent whose hooks are missing is offered hooks once per window;
-  agents Berth has no hooks for are not; its rows say why they are unbound and
-  offer *Install Agent Hooks*.
+- **V11** Missing hooks never prompt during inventory refresh or window reload;
+  session details explain missing bindings. Explicit setup/readiness checks offer
+  hook installation only for supported agents with an identified profile.
 - **V8** (manual) The same flows work in Remote-SSH, a Dev Container and WSL.
 - **V9** (manual) OS notifications appear and focus the session when clicked.
 - **V14** (visual) The sessions view, rendered from a model built by the
@@ -355,7 +682,9 @@ Cases marked (human) need the maintainer's decision or accounts.
   and the manifest; `vsce package` of `packages/vscode` succeeds.
 - **R5** Releases go through `.github/workflows/release.yml`: pushing a tag
   `vX.Y.Z` (or `vX.Y.Z-pre`, published under `next` as a prerelease) checks the
-  tag against both package versions, runs `npm test` on macOS, publishes
+  tag against both package versions, runs `npm test` on macOS, builds both
+  distributable archives and extracts the matching changelog entry before any
+  registry write, then publishes
   `@berthdev/berth` through npm trusted publishing (no stored token,
   provenance attached; a version already on npm is skipped), and creates the
   GitHub release with the npm tarball and the `.vsix`; a release that is not
@@ -375,3 +704,26 @@ reference commit in spec §8) and AI Terminal Sessions (MIT), checked against
 each CLI where installed. Agents not checked follow cmux's logic for that
 agent. No code is copied from either; facts about third-party CLIs are
 restated in Berth's own words, and each adapter module notes its source.
+
+### Passive Codex binding
+
+Discovery probes at most two eligible processes per inventory, rotating the probe
+window; each `lsof` invocation has a 750 ms deadline and a 256 KiB output cap.
+Only numeric writable descriptors owned by the exact producer are considered.
+A single top-level CLI rollout must have a matching session-meta ID, inode and
+filename; the metadata read is capped at 1 MiB. Recheck descriptor ownership,
+process lifetime, single-producer ownership and tmux generation before publishing.
+The profile comes from the observed rollout root, never directory recency.
+Unsupported/shared-daemon clients stay unknown. `codex-binding.test.ts` exercises
+first-install binding without hooks, malformed/foreign records, conflicting IDs,
+multiple writers and reused process lifetimes. These are synthetic producer tests,
+not a claim that every native Codex build exposes the required descriptor.
+
+### Late binding across CLI adapters
+
+`late-binding.ts` owns the allowlist of root-turn events. `handleHook` accepts
+first identity only after producer ancestry and pane ownership checks, rejects
+child-agent fields and differing aliases, and keeps recovery acknowledgement on
+the start-event path. Persist newly bound IDs and their profiles before returning.
+Test each non-deferred adapter through a synthetic producer and real tmux, plus
+foreign IDs, subagent payloads, unrelated hook callers and pending recovery.

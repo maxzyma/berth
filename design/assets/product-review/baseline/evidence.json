@@ -1,0 +1,77 @@
+{
+  "observed_at": "2026-11-01T00:19:05.544656+08:00",
+  "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "candidate": "Working tree; local installation, no release",
+  "verification": {
+    "unit": {
+      "passed": 92,
+      "skipped": 1,
+      "failed": 0,
+      "duration_seconds": 28.664096875,
+      "skip": "Opt-in real-agent live resume"
+    },
+    "browser": {
+      "passed": 62,
+      "failed": 0,
+      "duration_seconds": 44.8,
+      "outer_viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1280,
+          800
+        ]
+      ],
+      "themes": [
+        "dark",
+        "light",
+        "high contrast dark",
+        "high contrast light"
+      ],
+      "command": "npm run test:webview -w berth"
+    },
+    "build": "Type checks and bundles passed; duration not separately measured",
+    "visual": "Five linked current-run journey screenshots inspected at actual size; theme and width coverage in browser run",
+    "installation": "Extension, bundled CLI, webview JS/CSS and notices match reviewed hashes; global core package checked against five build artifacts; persistent hook runtime updated; editor not reloaded"
+  },
+  "hashes": {
+    "packages/core/src/tmux/connections.ts": "1962a474417a826d4514d5966f78f56536e32d14e50ee8e2100cffed2627e680",
+    "packages/core/src/agents/titles.ts": "9b4d57f9d4203c7ac0a0ea24a4ec341df3694910035e3d70b9fc6a257803d621",
+    "packages/core/src/registry/sessions.ts": "c373e48491a63e2e43f01be45f8b6299f02c135dc0457b74f605688f3e691430",
+    "packages/core/src/snapshot/take.ts": "f3c9a1f1b14a63437f16c5ba1042b91a7c152d8b37785a6b7de245eb88edb4fe",
+    "packages/core/src/agents/hooks.ts": "9b8c4f10503e092d8078d6270c199ab9feed07f93b7cc70fcc29c21aab122c0a",
+    "packages/vscode/src/model.ts": "b12dd924317274da9d4afdfec2bbfb4baeb07fce56f52a2f117e36b9fd5a658c",
+    "packages/vscode/src/controller.ts": "0665d9d11e4fac63245c0c2a3389159bf9ec301f5caaddc6405f3890c7046b5f",
+    "packages/vscode/src/extension.ts": "904f4f9d8107852cef43982f14ab371531b9a396989683ac502d1b8c9e28edb1",
+    "packages/vscode/src/view/protocol.ts": "ce3976ad3ac92c84e531c10ced1740f4e044a76f616aa2243a9b96bf1bce0d04",
+    "packages/vscode/src/view/sessionsView.ts": "7888986e612b2ba2685b3d5a7ec9d609bd513a68c44bf58124294ba7327d5efc",
+    "packages/vscode/webview/main.ts": "1124823cbb9e450b3cbb994709beb508a28040c06f7bb6b4538c343c6ac89bd4",
+    "packages/vscode/webview/main.css": "8499c11a0c32ba62cedb3d639e0fa3617b96206d4165183e42148f0d43f39ba0"
+  },
+  "installed_hashes": {
+    "dist/extension.cjs": "3c3af5efc1a5a549d0dbde80c55f0ca1906972d694ab496e6ae72a2ebb7c3c26",
+    "dist/cli.mjs": "6206cdb9e565e814d17a7f2a109e9eecb95191e6523ac98d76cd452f1090c4e8",
+    "dist/webview/main.js": "56bb089e73c841676517cebb68c6c6f3d39639c0d91ead62e9a96d6595c8b896",
+    "dist/webview/main.css": "8499c11a0c32ba62cedb3d639e0fa3617b96206d4165183e42148f0d43f39ba0",
+    "THIRD_PARTY_NOTICES.md": "e8eec026e565ece4e6702780014fe8fb8a778e150263fc2edb99978f86f7db58",
+    "media/agents/sources.json": "66cd86d07257b13bc588f57b329e73b4a455c51fc43ef71193727f6dd3a37f9c"
+  },
+  "screenshots": {
+    "01-list.png": "39591e3c72ef26acb121341512ac07eceffc9fb2d206ac825d4153f4cc758114",
+    "02-identity.png": "2ac90e0d656436e6daa99ec21f3708050c1b8548483a8b95c37fcf798b238cc1",
+    "03-empty.png": "01c3d8d3df1c047d86c858096887357023925ded4e1e500d88e0f3a67302e469",
+    "05-stopped.png": "4a718fb4cdfda0a6a5f99712e793ce5775d10389666e58e5f68e63ec2407a2a1",
+    "04-recovery.png": "78abedb8fe847159d368d6cfa825c279169dbd2fbaf1983e29f132ea0bab3147"
+  },
+  "pending": [
+    "Native editor restart and reboot",
+    "iTerm2 native layout",
+    "Native menu and keybinding dispatch",
+    "Screen reader speech and host zoom",
+    "Remote host",
+    "Live binding/resume across adapter versions",
+    "Agent acknowledgement of resume success"
+  ]
+}

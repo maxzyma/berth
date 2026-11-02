@@ -1,5 +1,6 @@
 /** C11 for every hook format: install is idempotent, keeps the user's entries, uninstall leaves no trace. */
 import { test } from 'node:test';
+import { parse as parseToml } from 'smol-toml';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -28,8 +29,8 @@ function seed(file: string, text: string) {
 }
 
 const JSON_TARGETS = [
-  { agent: 'gemini', file: '.gemini/settings.json', events: ['SessionStart', 'BeforeAgent', 'Notification', 'AfterAgent'], nested: true },
-  { agent: 'qoder', file: '.qoder/settings.json', events: ['SessionStart', 'UserPromptSubmit', 'PermissionRequest', 'Stop'], nested: true },
+  { agent: 'gemini', file: '.gemini/settings.json', events: ['SessionStart', 'BeforeAgent', 'BeforeModel', 'Notification', 'AfterAgent'], nested: true },
+  { agent: 'qoder', file: '.qoder/settings.json', events: ['SessionStart', 'UserPromptSubmit', 'PostToolUse', 'PostToolUseFailure', 'PermissionRequest', 'Stop', 'StopFailure'], nested: true },
   { agent: 'cursor', file: '.cursor/hooks.json', events: ['sessionStart', 'beforeSubmitPrompt', 'stop'], nested: false },
 ];
 
@@ -76,7 +77,9 @@ test('C11 Kimi hooks are a removable block at the end of config.toml', async (t)
   hooks(sb, 'install', 'kimi');
   const text = readFileSync(path, 'utf8');
   assert.ok(text.startsWith(original), 'user content untouched and first');
-  assert.equal(count(text, '[[hooks]]'), 5, 'the user hook plus four Berth hooks');
+  const entries = parseToml(text).hooks as { event: string; command: string }[];
+  assert.deepEqual(entries.filter((entry) => entry.command.startsWith('BERTH_HOOK=1 ')).map((entry) => entry.event).sort(),
+    ['Interrupt', 'PermissionRequest', 'PermissionResult', 'SessionStart', 'Stop', 'StopFailure', 'UserPromptSubmit']);
   assert.match(text, /event = "PermissionRequest"\ncommand = "BERTH_HOOK=1 .* hook kimi PermissionRequest"/);
   hooks(sb, 'uninstall', 'kimi');
   assert.equal(readFileSync(path, 'utf8'), original);
@@ -106,6 +109,32 @@ test('C11 the OpenCode plugin forwards a top-level session id from inside a pane
   assert.equal(existsSync(plugin), false);
 });
 
+test('CR41 OpenCode updates confirm recovery and reject previously unseen child sessions', async (t) => {
+  const sb = sandbox(t);
+  sb.cli('new', 'opencode', '--cwd', sb.makeDir('oc'));
+  assert.equal(hooks(sb, 'install', 'opencode').status, 0);
+  const plugin = join(sb.env.XDG_CONFIG_HOME, 'opencode', 'plugins', 'berth.js');
+  const socketPath = sb.tmux('display-message', '-p', '-t', '=oc:', '#{socket_path}').trim();
+  const pane = sb.tmux('display-message', '-p', '-t', '=oc:', '#{pane_id}').trim();
+  sb.ctx().tmux.setMeta('oc', { conversation: 'ses_main', recovery: 'requested', recoveryAt: String(Date.now()) });
+  const driver = `
+    const { BerthPlugin } = await import(${JSON.stringify(pathToFileURL(plugin).href)});
+    const { event } = await BerthPlugin({});
+    await event({ event: { type: 'session.updated', properties: { info: { id: 'ses_child', parentID: 'ses_main' } } } });
+    await event({ event: { type: 'session.updated', properties: { sessionID: 'ses_main', info: { id: 'ses_main' } } } });
+    await event({ event: { type: 'session.idle', properties: { sessionID: 'ses_child' } } });`;
+  const run = spawnSync(process.execPath, ['--input-type=module', '-e', driver], {
+    env: { ...sb.env, TMUX: `${socketPath},1,0`, TMUX_PANE: pane },
+    encoding: 'utf8',
+  });
+  assert.equal(run.status, 0, run.stderr);
+  const meta = () => sb.tmux('display-message', '-p', '-t', '=oc:', '#{@berth_conversation}|#{@berth_state}').trim();
+  await waitFor(() => meta() === 'ses_main|', 'main session id stamped; child events ignored', 10_000);
+  assert.equal(sb.ctx().tmux.listSessions()[0].meta.recovery, 'confirmed');
+  hooks(sb, 'uninstall', 'opencode');
+  assert.equal(existsSync(plugin), false);
+});
+
 test('C15 an agent started without hooks is pointed at `berth hooks install`', async (t) => {
   const sb = sandbox(t);
   const env = cleanEnv(sb);
@@ -115,10 +144,10 @@ test('C15 an agent started without hooks is pointed at `berth hooks install`', a
   const row = JSON.parse(run('ls', '--json').stdout).find((r: { name: string }) => r.name === 'k');
   assert.equal(row.hooks, 'missing');
 
-  // A terminal attaching (not VS Code) is told once per agent per server.
-  const flag = () => sb.tmux('show-option', '-gqv', '@berth_hinted_kimi').trim();
+  // An event without a currently attached client cannot consume the per-profile hint.
+  const flags = () => sb.tmux('show-options', '-g').split('\n').filter((line) => line.startsWith('@berth_hinted_kimi_'));
   run('attached', '--session', 'k', '--tty', '/dev/null', '--termtype', 'xterm-256color');
-  assert.equal(flag(), '1');
+  assert.equal(flags().length, 0);
 
   run('hooks', 'install', 'kimi');
   assert.equal(run('new', 'kimi', '--cwd', sb.makeDir('k2')).stderr, '');

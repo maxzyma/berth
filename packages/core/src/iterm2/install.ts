@@ -33,6 +33,8 @@ export interface Tools {
   cli: string;
   tmux: string;
   socket?: string;
+  socketPath?: string;
+  env?: Record<string, string>;
   /** PATH at install time: AutoLaunch scripts get a minimal one, without tmux or the agents. */
   path?: string;
 }
@@ -41,7 +43,7 @@ export interface Tools {
 export function attachCommand(ctx: Context, tools: Tools, session: string): string {
   const template = ctx.config.iterm2Attach;
   if (template) return renderTemplate(template, { session });
-  const socket = tools.socket ? ` -L ${shellQuote(tools.socket)}` : '';
+  const socket = tools.socketPath ? ` -S ${shellQuote(tools.socketPath)}` : tools.socket ? ` -L ${shellQuote(tools.socket)}` : '';
   return `${shellQuote(tools.tmux)}${socket} attach-session -t ${shellQuote(`=${session}`)}`;
 }
 
@@ -53,7 +55,7 @@ export function reattach(ctx: Context, tools: Tools, session: string): string {
 }
 
 export function autoLaunchScript(tools: Tools): string {
-  const berth = JSON.stringify([tools.node, tools.cli, ...(tools.socket ? ['--socket', tools.socket] : [])]);
+  const berth = JSON.stringify([tools.node, tools.cli, ...(tools.socketPath ? ['--socket-path', tools.socketPath] : tools.socket ? ['--socket', tools.socket] : [])]);
   return `#!/usr/bin/env python3
 """Berth for iTerm2: put each pane iTerm2 restored back in its agent session.
 
@@ -72,7 +74,8 @@ import iterm2
 BERTH = ${berth}
 VARIABLE = "user.${PANE_VARIABLE}"
 # Recorded at install: iTerm2's PATH for AutoLaunch has neither tmux nor the agent CLIs.
-ENV = dict(os.environ, PATH=${JSON.stringify(tools.path ?? '')} or os.environ.get("PATH", ""))
+ENV = dict(os.environ, **${JSON.stringify(tools.env ?? {})})
+ENV["PATH"] = ${JSON.stringify(tools.path ?? '')} or os.environ.get("PATH", "")
 
 
 def attach_command(session_name):
@@ -91,6 +94,38 @@ async def panes(app):
                 yield session
 
 
+async def ready_prompt(connection, session, name):
+    if await session.async_get_variable(VARIABLE) != name:
+        return None
+    job = await session.async_get_variable("jobName")
+    if os.path.basename(job or "").lstrip("-") not in {"sh", "bash", "zsh", "fish", "tcsh", "xonsh"}:
+        return None
+    prompt = await iterm2.async_get_last_prompt(connection, session.session_id)
+    if prompt and prompt.state == iterm2.PromptState.EDITING and prompt.command == "":
+        return prompt.unique_id
+    return None
+
+
+async def restore_pane(connection, session, name):
+    try:
+        async with iterm2.Transaction(connection):
+            prompt_id = await ready_prompt(connection, session, name)
+        if not prompt_id:
+            print("Berth: reattach deferred for %s; use berth iterm2 reattach from a ready shell." % name)
+            return
+        command = await asyncio.get_running_loop().run_in_executor(None, attach_command, name)
+        if not command:
+            print("Berth: could not restore %s; inspect berth doctor." % name)
+            return
+        async with iterm2.Transaction(connection):
+            if await ready_prompt(connection, session, name) == prompt_id:
+                await session.async_send_text(command + "\\n")
+            else:
+                print("Berth: pane changed while restoring %s; automatic attachment deferred." % name)
+    except (AttributeError, iterm2.RPCException) as error:
+        print("Berth: cannot verify shell readiness for %s: %s" % (name, error))
+
+
 async def main(connection):
     app = await iterm2.async_get_app(connection)
     # Window restoration may still be running when AutoLaunch starts.
@@ -103,15 +138,7 @@ async def main(connection):
         name = await session.async_get_variable(VARIABLE)
         if not name:
             continue
-        job = await session.async_get_variable("jobName")
-        if job == "tmux":
-            continue  # still attached (iTerm2 kept the process alive)
-        command = await asyncio.get_running_loop().run_in_executor(None, attach_command, name)
-        if command:
-            await session.async_send_text(command + "\\n")
-        else:
-            # Shown on the screen only, never run by the shell.
-            await session.async_inject(("berth: could not restore session %s\\r\\n" % name).encode())
+        await restore_pane(connection, session, name)
 
 
 iterm2.run_until_complete(main)

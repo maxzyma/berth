@@ -1,0 +1,112 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T13:48:32.707854+00:00"
+  },
+  "finding": "CR79",
+  "status": "repaired",
+  "cause": "Delayed attach payload was trusted without checking current client membership and terminal type.",
+  "repair": "Serialize effects and verify current client tty in the event session before any attachment effects.",
+  "checks": {
+    "baseline": {
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "real_client_and_departed_event": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "macos": {
+      "tests": 260,
+      "pass": 253,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 7
+    },
+    "linux_node20": {
+      "tests": 260,
+      "pass": 252,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 8
+    },
+    "installed_clis": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "native_editor": {
+    "editor": "VS Code 1.144.0 Linux arm64",
+    "passing": 7,
+    "pending": 3,
+    "exit_code": 0
+  },
+  "installed_comparison": {
+    "extension": 25,
+    "core": 141
+  },
+  "artifacts": [
+    {
+      "name": "berth-cr79.vsix",
+      "sha256": "a58bb1a2dce5c21a14dec0165c6c972d03c1131586e18d585ab3b188e127f9b3"
+    },
+    {
+      "name": "berth-cr79-artifacts/berthdev-berth-0.3.6.tgz",
+      "sha256": "da3d8f44915e7c8c9657f5a7df95d296b973a4c765c82866a1b72d6dc72e176d"
+    }
+  ],
+  "logs": [
+    {
+      "name": "berth-cr79-baseline.log",
+      "sha256": "afae83ac6327ca620b670afda2a0e5670722e1a2714870c28e60bdacc3817a15"
+    },
+    {
+      "name": "berth-cr79-live-client.log",
+      "sha256": "aa9330c81aef6f4a0f20ed0a3d76185566ee3a7e69e41b9e326a48bbab013a97"
+    },
+    {
+      "name": "berth-cr79-macos.log",
+      "sha256": "a0e26b862c57c03e548368f1f9c7b04ff7fae95006f198fe8929b0523a280dae"
+    },
+    {
+      "name": "berth-cr79-linux.log",
+      "sha256": "226e84ef7eca87c35b82de81764fe438c6b95f8003fba7f7cd678112f058eed9"
+    },
+    {
+      "name": "berth-cr79-installed-tests.log",
+      "sha256": "ca54e5c364b9842d46d5e386b342c085d8f1c17e1c53bc04f38dae920eea634f"
+    },
+    {
+      "name": "berth-cr79-native.log",
+      "sha256": "110130a89fed4e0f8e37080ae296cbf4147d693b66f14bffe2e481464c568a0f"
+    },
+    {
+      "name": "berth-cr79-install-check.json",
+      "sha256": "2966687ade3d22ce90be5eb243d4985dae582a1cd7e0b9244fd1c6f6c9a0def5"
+    }
+  ],
+  "host_inventory": {
+    "cursor_cli": "2025.09.12-4852336",
+    "qoder_cli": "1.0.48",
+    "iterm_running": true,
+    "iterm_api_enabled": true,
+    "iterm_existing_api_credentials": false,
+    "native_iterm_connection_attempted": false
+  },
+  "limitations": [
+    "CR74 and CR75 remain open.",
+    "No native iTerm2 or new agent-version acceptance claimed.",
+    "Current membership observation cannot prevent a subsequent independent client switch.",
+    "Daily editor unchanged; no publication."
+  ]
+}

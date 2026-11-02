@@ -1,0 +1,90 @@
+{
+  "checked_at": "2026-10-31",
+  "assets": [
+    {
+      "file": "gemini.png",
+      "product": "Gemini CLI",
+      "channel": "official",
+      "source": "https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/vscode-ide-companion/assets/icon.png",
+      "license": "Apache-2.0",
+      "sha256": "351e9f5b1bf863d738cd7be4ed040a625a1419450ae7fc490143e4042b7c2438"
+    },
+    {
+      "file": "kimi.png",
+      "product": "Kimi CLI",
+      "channel": "official",
+      "source": "https://github.com/MoonshotAI/kimi-cli/blob/9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82/web/public/logo.png",
+      "license": "Apache-2.0",
+      "sha256": "dbd00e2ad61ea8832ef0b024662a4a8a5d1b66f0599d5d42e1c9688b9d4cfdf6"
+    },
+    {
+      "file": "qoder.svg",
+      "product": "Qoder (shared product mark for CLI)",
+      "channel": "official",
+      "source": "https://qoder.com/favIcon.svg",
+      "license": "Qoder trademark / website asset",
+      "sha256": "5e1843cb50c4613855024453e76d5c06d2ca5562efebc12b4fcd80cf9ece1dd0"
+    },
+    {
+      "file": "opencode.svg",
+      "product": "OpenCode",
+      "channel": "official",
+      "source": "https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/console/app/src/asset/brand/opencode-logo-dark.svg",
+      "license": "MIT",
+      "sha256": "5dd4abb4de60204510edf140bbe74b3580d07ebdda79fdb0081cd45acb53d44b"
+    },
+    {
+      "file": "opencode-light.svg",
+      "product": "OpenCode (light theme)",
+      "channel": "official",
+      "source": "https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/console/app/src/asset/brand/opencode-logo-light.svg",
+      "license": "MIT",
+      "sha256": "b47a4fecc77599382e238868e74064bbe92307b0e253a32f0b1a026517a2d2a6"
+    },
+    {
+      "file": "claude.svg",
+      "product": "Claude Code (Clawd mascot)",
+      "channel": "third-party",
+      "source": "https://github.com/lobehub/lobe-icons/blob/8b7bbc433d38437fa2b0cca58ae896917162b812/packages/static-svg/icons/claudecode.svg",
+      "license": "MIT",
+      "sha256": "d7eb2d876b49e51cc16291a42b681d7cf4906e60e0150776dbfb353ec4ca3746"
+    },
+    {
+      "file": "codex.svg",
+      "product": "Codex (terminal product mark)",
+      "channel": "third-party",
+      "source": "https://github.com/lobehub/lobe-icons/blob/8b7bbc433d38437fa2b0cca58ae896917162b812/packages/static-svg/icons/codex.svg",
+      "license": "MIT",
+      "sha256": "d08b4e824cd6727e89617f59e4737273ff53e44c1da849d016dd64dfd08b33e1"
+    },
+    {
+      "file": "cursor.svg",
+      "product": "Cursor (shared product mark for CLI)",
+      "channel": "official",
+      "source": "https://ptht05hbb1ssoooe.public.blob.vercel-storage.com/assets/brand/cursor-brand-assets.zip",
+      "archive_member": "General Logos/Cube/SVG/CUBE_2D_DARK.svg",
+      "archive_sha256": "97488a7751914e60f9ff532bc33810cdeaebdddc017548abe6ca2bc29bbc3928",
+      "license": "Cursor brand assets / trademark",
+      "sha256": "cd0e3e5d8991a4cdd4577f8896cd063105207665165c73e25a1ff918dd367eb7"
+    },
+    {
+      "file": "cursor-light.svg",
+      "product": "Cursor (shared product mark for CLI)",
+      "channel": "official",
+      "source": "https://ptht05hbb1ssoooe.public.blob.vercel-storage.com/assets/brand/cursor-brand-assets.zip",
+      "archive_member": "General Logos/Cube/SVG/CUBE_2D_LIGHT.svg",
+      "archive_sha256": "97488a7751914e60f9ff532bc33810cdeaebdddc017548abe6ca2bc29bbc3928",
+      "license": "Cursor brand assets / trademark",
+      "sha256": "c483c02f78eb2619778fdd959e72a9adfac4844854472cd2653d4cbfd60e4d71"
+    },
+    {
+      "file": "copilot.png",
+      "product": "GitHub Copilot (shared product mark for CLI)",
+      "channel": "official",
+      "source": "https://GitHub.gallerycdn.vsassets.io/extensions/github/copilot/1.388.0/1761326434179/Microsoft.VisualStudio.Services.Icons.Default",
+      "version": "1.388.0",
+      "license": "GitHub Copilot product trademark / official extension icon",
+      "sha256": "10812cc1baceeb1d932232e69e1121f290faedca3f400289c24293f1e8d57d0b"
+    }
+  ]
+}

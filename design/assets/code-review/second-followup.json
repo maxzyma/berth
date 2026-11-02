@@ -1,0 +1,92 @@
+{
+  "observed_at": "2026-11-01T03:24:33.858366+00:00",
+  "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "candidate": "Unchanged CR9–CR14 repair working tree; review only",
+  "baseline": "followup-repairs.json",
+  "baseline_source_hashes_reverified": true,
+  "source_manifest_sha256": "1d6fa40978c088f15b83f484747b3acd42613a9e495530e0688b18c425a2122a",
+  "probe_log_sha256": "0bb71e73f19b502cae98ad7dedf9e5ad77fdcc834d8c7476d80fee08ea8eccd9",
+  "findings": [
+    {
+      "id": "CR15",
+      "priority": "P1",
+      "probe": "At the Forget transaction write boundary, run a background snapshot against the still-current record, then finish Forget. Both use real isolated tmux and SnapshotStore.",
+      "observed": {
+        "forget_returned": true,
+        "latest_record_names": [
+          "saved"
+        ]
+      },
+      "boundary": "Deterministic interleaving injected with a store proxy, not a measured production race rate."
+    },
+    {
+      "id": "CR16",
+      "priority": "P1",
+      "probe": "Synthetic existing Claude transcript has title reuse and ID historic-id; create a fresh managed Claude session named reuse before its start hook.",
+      "observed": {
+        "new_session_conversation": "historic-id"
+      },
+      "boundary": "Stand-in producer; no real model conversation opened."
+    },
+    {
+      "id": "CR17",
+      "priority": "P1",
+      "probe": "Adopt a managed Claude session as Codex with no bindingIssue flag after stamping claude-id and confirmed recovery.",
+      "observed": {
+        "agent": "codex",
+        "conversation": "claude-id",
+        "argv_agent": "claude",
+        "recovery": "confirmed"
+      },
+      "boundary": "Public core adopt API with real isolated metadata; no native picker used."
+    },
+    {
+      "id": "CR18",
+      "priority": "P1",
+      "probe": "Start a tmux server without CODEX_HOME, then create a Codex session using a Context with CODEX_HOME set to a synthetic selected profile. A child script records its environment.",
+      "observed": {
+        "context_profile": "selected-profile",
+        "child_profile": "missing"
+      },
+      "boundary": "Real tmux child environment; selected profile is synthetic. No credentials copied."
+    },
+    {
+      "id": "CR19",
+      "priority": "P2",
+      "probe": "Create Context with a custom socket path; generate iTerm attach command and AutoLaunch script through toolsFor.",
+      "observed": {
+        "attach_uses_socket_path": false,
+        "autolaunch_contains_socket_path": false,
+        "attach_uses_named_socket": true
+      },
+      "boundary": "Generated commands inspected; no default or user tmux server contacted."
+    },
+    {
+      "id": "CR20",
+      "priority": "P2",
+      "probe": "Execute generated AutoLaunch script against a fake iTerm API reporting a saved Berth variable and jobName vim; replace attach_command with a deterministic command.",
+      "observed": {
+        "job": "vim",
+        "sent_text": "tmux attach-session -t =old-session\\n"
+      },
+      "boundary": "Generated Python executed with fake API; no native typing or GUI interaction. Readiness sleep replaced by no-op for the fixture."
+    }
+  ],
+  "coverage": [
+    "discovery and producer ownership",
+    "binding fallback and re-adoption",
+    "snapshot lifecycle, atomic file writes and transaction interleavings",
+    "restore and environment propagation",
+    "tmux endpoint selection",
+    "VS Code inventory, controller and webview transport",
+    "iTerm AutoLaunch generation and input routing"
+  ],
+  "verification_reuse": "Unchanged runtime hashes: prior 137 passing unit tests, one skipped real-agent test and 8 browser checks remain baseline evidence; they do not exercise these six new cases.",
+  "not_claimed": [
+    "native editor or iTerm reproduction",
+    "real agent version acceptance",
+    "new visual defect",
+    "product code repair",
+    "production race frequency"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "baseline": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "checkedAt": "2026-11-01T08:43:51.323919+00:00",
+  "workingTree": true,
+  "resolved": [
+    "CR56"
+  ],
+  "previousEvidence": "relative-command-repairs.json",
+  "sourceHashes": {
+    "packages/vscode/src/hookRuntime.ts": "f62e75b43fda420cb3260468a1299458c647b6a5f1430f32fc77b4aa62a61e3d",
+    "packages/vscode/src/extension.ts": "8f19c48d2356edc92e84625996297e8e080f474f7eae29bc12886d4105077385",
+    "packages/vscode/test/hookRuntime.test.ts": "2dea76824f2ea3cca86f86c60e819a59e518fcdccf693d73f8a0874838c5ca83",
+    "design/spec.md": "e56d2544b63c62e5a437b1c61e76d8866b3328bc04b01d9f54e0e0b2d45ab648",
+    "design/implementation.md": "d16dfb27d2715ce007acd5148ddfd0d3b73dc52dcca8397196379dbb57dd021d"
+  },
+  "verification": {
+    "negativeProbe": {
+      "installerDelayMs": 300,
+      "observedBlockingMs": 339,
+      "hostTimerRanDuringInstall": false
+    },
+    "focusedTestsPassed": 6,
+    "completeExtensionTestsPassed": 59,
+    "unchangedCoreSourcesVerified": 41,
+    "coreAndNativeEvidence": "Reused from relative-command-repairs.json after direct core source hash comparison",
+    "packagedExtensionFilesMatched": 25,
+    "artifacts": {
+      "berth-cr56.vsix": "95ced0e3819be912b91a7251d080faba7d37c5b8728356c6f77050dae7d1f6e2"
+    },
+    "logs": {
+      "berth-cr56-build.log": "03af139f96db001460fa01524dc690c7f27805f078a2a748dd22b76b522b0301",
+      "berth-cr56-focused.log": "78a4a39833937b887985e64555bfd02f48cca1c81b3369d061bf499726a1aeff",
+      "berth-cr56-vscode.log": "586f467b9a066edb5e7ad973b58fe7af088c751165a6f7dd1a8e25a21a1c45b6",
+      "berth-cr56-install.log": "f9ada2cb8e7207ec8a1e2b3d3836e716d70e3e447508c990f8cdb8e03f35c660"
+    }
+  },
+  "limits": [
+    "No native editor activation or foreground timing check in this turn",
+    "Linux Docker CLI is installed but docker info fails; no podman, limactl or qemu-system-aarch64 command found",
+    "Installer queue coordinates this host only; no cross-process coordination claimed",
+    "No daily editor replacement or publication"
+  ]
+}

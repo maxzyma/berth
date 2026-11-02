@@ -34,15 +34,15 @@ test('C12.3 a missing working directory is skipped and reported', async (t) => {
   assert.match(sb.cli('doctor').stdout, /e3: working directory missing/);
 });
 
-test('C12.4 an agent binary missing at restore gets a shell in its cwd', async (t) => {
+test('C12.4 a missing agent executable is reported without substituting a shell', async (t) => {
   const sb = sandbox(t, { claude: { resume: '/nonexistent/claude --resume {conversation}' } });
   const dir = sb.makeDir('e4');
   sb.cli('new', 'claude', '--cwd', dir);
   sb.cli('stamp', '--session', 'e4', 'conversation=x');
   sb.cli('snapshot');
   killServer(sb);
-  assert.match(sb.cli('ensure').stdout, /e4\tshell\t\/nonexistent\/claude not found/);
-  assert.equal(sb.tmux('display-message', '-p', '-t', '=e4:', '#{pane_current_path}').trim(), realpathSync(dir));
+  assert.match(sb.cli('ensure').stdout, /e4\tskipped-missing-binary/);
+  assert.equal(sb.ctx().tmux.hasSession('e4'), false);
 });
 
 test('C12.5 a recorded conversation is always resumed, never silently replaced', async (t) => {
@@ -89,10 +89,10 @@ test('C12.10 a snapshot with no managed sessions is written, empty and valid', a
 
 test('C12.11 a stale lock from a crashed ensure is taken over', async (t) => {
   const sb = sandbox(t);
-  sb.cli('new', 'claude', '--cwd', sb.makeDir('e11'));
+  sb.cli('new', 'shell', '--cwd', sb.makeDir('e11'));
   sb.cli('snapshot');
   killServer(sb);
-  const lock = join(sb.env.XDG_STATE_HOME, 'berth', 'servers', sb.socket, 'ensure.lock');
+  const lock = join(sb.ctx().config.stateDir, 'ensure.lock');
   mkdirSync(lock, { recursive: true });
   writeFileSync(join(lock, 'pid'), '999999');
   const started = Date.now();

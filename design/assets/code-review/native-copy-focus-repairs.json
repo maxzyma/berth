@@ -1,0 +1,87 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T13:34:33.531534+00:00"
+  },
+  "finding": "CR77",
+  "status": "repaired",
+  "cause": "Native disabled copy button loses focus while awaiting asynchronous host acknowledgement.",
+  "repair": "Keep focus with aria-disabled and guard duplicate activation.",
+  "checks": {
+    "browser_copy_and_hover": {
+      "passed": 48,
+      "failed": 0
+    },
+    "deferred_acknowledgement": {
+      "passed": 2,
+      "failed": 0
+    },
+    "native_editor": "VS Code 1.144.0, Linux arm64, isolated Xvfb",
+    "native_viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "clipboard": true,
+        "keyboardCopy": true,
+        "escapeFocus": true
+      },
+      {
+        "width": 1280,
+        "height": 800,
+        "clipboard": true,
+        "keyboardCopy": true,
+        "escapeFocus": true
+      }
+    ],
+    "installed_comparison": {
+      "extension": 25,
+      "core": 141
+    },
+    "unchanged_bundles": [
+      "extension/dist/cli.mjs",
+      "extension/dist/extension.cjs"
+    ],
+    "core_regression_reused": "scrollback-key-repairs.json"
+  },
+  "candidate": {
+    "name": "berth-cr77.vsix",
+    "sha256": "5e4930af8c94abcd9f6b492e1f485e23f2658e2df2e39ff70da98deae1cfbcf8"
+  },
+  "logs": [
+    {
+      "name": "berth-native-ui-probe.log",
+      "sha256": "c45aff1cf86dfd2d42e73d6ec0922b0a6b60676e30ee65e7825455f19dd0a18a"
+    },
+    {
+      "name": "berth-native-ui-focus-trace.log",
+      "sha256": "c67c33561e3c6be8479ad8f815109e361938a232dbb51ebf96ba907c35422330"
+    },
+    {
+      "name": "berth-cr77-browser-focused-final.log",
+      "sha256": "a66236f81e19527c4fb6f1b43ce2cd12b1406e851fcd6756a8537a1889e75ed5"
+    },
+    {
+      "name": "berth-cr77-webview.log",
+      "sha256": "0aa043b8a5692b93143d9c86d89a04b43a9ec9eb7b9b7fa8f65d28bb38ef84b9"
+    },
+    {
+      "name": "berth-cr77-native-final.log",
+      "sha256": "8eaabb499ef9a7a29fd629781eeeef7c329da833b829c4068cab617a309c5e38"
+    },
+    {
+      "name": "berth-cr77-native-matrix.log",
+      "sha256": "dddf3352e74973ddd42635be023ef082af6bb18114cd1801562bbe828436c6be"
+    },
+    {
+      "name": "berth-cr77-install-check.json",
+      "sha256": "2966687ade3d22ce90be5eb243d4985dae582a1cd7e0b9244fd1c6f6c9a0def5"
+    }
+  ],
+  "limitations": [
+    "Sequential Escape/reopen with viewport change failed; investigate separately.",
+    "No native visual-quality or full accessibility verdict.",
+    "CR74 and CR75 remain open.",
+    "Daily editor unchanged; no publication."
+  ]
+}

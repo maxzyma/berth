@@ -14,13 +14,13 @@ function rows(sb: ReturnType<typeof sandbox>): SessionRow[] {
 test('C1 ls lists managed, unmanaged and stopped sessions', async (t) => {
   const sb = sandbox(t);
   const web = sb.makeDir('web');
-  assert.equal(sb.cli('new', 'claude', '--cwd', web, '--origin', 'vscode').status, 0);
-  sb.tmux('new-session', '-d', '-s', 'plain', 'sleep 3600');
-  sb.cli('snapshot');
   sb.tmux('new-session', '-d', '-s', 'gone', '-c', web, 'sleep 3600');
   sb.cli('adopt', 'gone', '--agent', 'codex');
   sb.cli('snapshot');
-  sb.tmux('kill-session', '-t', '=gone');
+  killServer(sb);
+  assert.equal(sb.cli('new', 'claude', '--cwd', web, '--origin', 'vscode').status, 0);
+  sb.tmux('new-session', '-d', '-s', 'plain', 'sleep 3600');
+  sb.cli('snapshot');
 
   const all = rows(sb);
   const web1 = all.find((r) => r.name === 'web');
@@ -98,8 +98,11 @@ test('C6 snapshot writes the v1 format atomically and keeps the newest K', async
   const data = JSON.parse(readFileSync(join(kept[0], 'sessions.json'), 'utf8'));
   assert.equal(data.version, 1);
   assert.deepEqual(data.sessions, [
-    { name: 'c6', cwd: sb.makeDir('c6'), agent: 'codex', argv: data.sessions[0].argv, conversation: 'abc', origin: 'iterm2', serverStart: data.sessions[0].serverStart },
+    { profile: data.sessions[0].profile, name: 'c6', cwd: sb.makeDir('c6'), agent: 'codex', argv: data.sessions[0].argv, argvVerified: true, conversation: 'abc', origin: 'iterm2', serverStart: data.sessions[0].serverStart, sessionId: data.sessions[0].sessionId },
   ]);
+  assert.equal(data.sessions[0].profile.environment.HOME, sb.env.HOME);
+  assert.equal(data.sessions[0].profile.environment.XDG_CONFIG_HOME, sb.env.XDG_CONFIG_HOME);
+  assert.match(data.sessions[0].sessionId, /^\$\d+$/);
   assert.match(data.sessions[0].serverStart, /^\d+-\d+$/, 'server start time and pid');
   assert.ok(existsSync(join(kept[0], 'scrollback', 'c6.txt')));
   assert.ok(!ctx.store.list().some((d) => d.includes('.tmp-')));
@@ -114,7 +117,7 @@ test('C7 after the server dies, ensure rebuilds each managed session with its re
   killServer(sb);
   const r = sb.cli('ensure');
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /c7\tresumed/);
+  assert.match(r.stdout, /c7\tresume-requested/);
   const argv = await waitFor(() => sb.argv('c7')?.includes('resume') && sb.argv('c7'), 'resume argv');
   assert.deepEqual(argv, ['claude', 'resume', 'conv-1', '--model', 'opus']);
   const row = rows(sb).find((x) => x.name === 'c7');
@@ -125,6 +128,8 @@ test('C8 ensure --origin rebuilds only that origin', async (t) => {
   const sb = sandbox(t);
   sb.cli('new', 'claude', '--cwd', sb.makeDir('a'), '--origin', 'vscode');
   sb.cli('new', 'claude', '--cwd', sb.makeDir('b'), '--origin', 'iterm2');
+  sb.cli('stamp', '--session', 'a', 'conversation=conv-a');
+  sb.cli('stamp', '--session', 'b', 'conversation=conv-b');
   sb.cli('snapshot');
   killServer(sb);
   sb.cli('ensure', '--origin', 'vscode');
@@ -134,7 +139,10 @@ test('C8 ensure --origin rebuilds only that origin', async (t) => {
 
 test('C9 (C12.2) two concurrent ensure calls rebuild each session once', async (t) => {
   const sb = sandbox(t);
-  for (const name of ['p', 'q', 'r']) sb.cli('new', 'claude', '--cwd', sb.makeDir(name));
+  for (const name of ['p', 'q', 'r']) {
+    sb.cli('new', 'claude', '--cwd', sb.makeDir(name));
+    sb.cli('stamp', '--session', name, `conversation=conv-${name}`);
+  }
   sb.cli('snapshot');
   killServer(sb);
   const [one, two] = await Promise.all([sb.cliAsync('ensure'), sb.cliAsync('ensure')]);
@@ -147,13 +155,12 @@ test('C9 (C12.2) two concurrent ensure calls rebuild each session once', async (
   }
 });
 
-test('C10 a session without a conversation is relaunched and reported unbound', async (t) => {
+test('C10 an unbound session is skipped without silently starting a new conversation', async (t) => {
   const sb = sandbox(t);
   sb.cli('new', 'claude', '--cwd', sb.makeDir('c10'));
   sb.cli('snapshot');
   killServer(sb);
-  assert.match(sb.cli('ensure').stdout, /c10\tlaunched/);
-  const argv = await waitFor(() => sb.argv('c10'), 'launch argv');
-  assert.equal(argv[1], 'launch');
+  assert.match(sb.cli('ensure').stdout, /c10\tskipped-unbound/);
+  assert.equal(sb.ctx().tmux.hasSession('c10'), false);
   assert.match(sb.cli('doctor').stdout, /c10: conversation not bound/);
 });

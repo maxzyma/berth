@@ -1,0 +1,182 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T11:56:42Z"
+  },
+  "status": "passed-after-repairs",
+  "environment": {
+    "os": "Ubuntu 24.04 arm64",
+    "vscode": "1.144.0",
+    "vscode_archive_sha256": "c1758f2144c68b295fb2a3543e93bc03ab99f8ea715cfd0560377092aba0f198",
+    "node": "22.23.4",
+    "tmux": "3.4",
+    "display": "isolated Xvfb"
+  },
+  "logs": [
+    {
+      "name": "berth-cr70-native-full.log",
+      "sha256": "43992b4d738486ec6419b07f826c4a283440dc9f1d9039e14cc8c4f0cb3a5b48"
+    },
+    {
+      "name": "berth-cr70-state-probe.log",
+      "sha256": "bebe51b6cfdead9ea20067c4e6495c9fd20e4091ff42c57e6e356ac6f0de02a9"
+    },
+    {
+      "name": "berth-cr70-stale-inventory-probe.log",
+      "sha256": "4534f8a8144eba1a82554daf49eb73d256c4ec6dbe807b0953b1fb61b5b0f6c2"
+    },
+    {
+      "name": "berth-cr71-focused.log",
+      "sha256": "54dc54ceb576587a9cae39308178674a14ea11b381a5e0f339047b49e394efea"
+    },
+    {
+      "name": "berth-cr71-controller.log",
+      "sha256": "19787a54b76d54ee121628a50bb913d126de52ec9db3bec60855f188ecf715cc"
+    },
+    {
+      "name": "berth-cr71-linux-attachment.log",
+      "sha256": "8469481d8bf2193e07966cdb99ac9cd412ca762d63d0eb5f7b8cc0a95f3b8142"
+    },
+    {
+      "name": "berth-cr70-memento-isolation.log",
+      "sha256": "acda20039d434848d18fb1a18b2b74bcc73e102340abf6d731411ab85b9ebff4"
+    },
+    {
+      "name": "berth-cr70-memento-config-probe.log",
+      "sha256": "7fe21b572a2ffef445d095999745d98753ef325b0452cf55cba15aa868622b80"
+    },
+    {
+      "name": "berth-cr70-journal-focused.log",
+      "sha256": "2d4e487e6691dadab4215c8d35715ba2c31bef8312756555d744ad1cbf40c63f"
+    },
+    {
+      "name": "berth-cr70-lock-focused.log",
+      "sha256": "cd41b6fe14c6c570aa20a5bbf6faf523bf87656718e14abbbbb6f3977186763a"
+    },
+    {
+      "name": "berth-cr70-journal-native-full.log",
+      "sha256": "772e5876cde1d2fae6fe9e44daebcebca3c44ef155d7ce3345078c8048510839"
+    },
+    {
+      "name": "berth-cr70-journal-native-restart.log",
+      "sha256": "577fae25c2e1ea76daa9bb138ec7d4be4cea3f76608106a816f20b46e9d45554"
+    },
+    {
+      "name": "berth-cr70-final-macos.log",
+      "sha256": "84c7594ba97d652a3e1e4d32acea9d5c8e439af63054708d1c023ee64825c21d"
+    },
+    {
+      "name": "berth-cr70-final-linux.log",
+      "sha256": "e647cab8b22ffaf2f6128470f3c66817fa527445f1675a29e147afc92e582c7f"
+    },
+    {
+      "name": "berth-cr70-install.log",
+      "sha256": "2870d44cc60d7611eed6411fa5fe6178eb4ca68e4acc1f1b51f637041eeb817e"
+    },
+    {
+      "name": "berth-cr70-installed-tests.log",
+      "sha256": "e19452696f2540539aab762eda6091127953f5b809339de6aafb79b989ffdb2d"
+    }
+  ],
+  "limitations": [
+    "Native multi-window, visual, accessibility, macOS editor and iTerm acceptance remain open.",
+    "The prior CR69 deadline-test observation remains unexplained; this final regression has no cancellations.",
+    "Daily editor unchanged."
+  ],
+  "repair_status": {
+    "CR70": "repaired",
+    "CR71": "repaired"
+  },
+  "followup_results": {
+    "metadata_transitions": {
+      "pass": 4,
+      "fail": 0
+    },
+    "macos_controller": {
+      "pass": 47,
+      "fail": 0
+    },
+    "linux_controller": {
+      "pass": 47,
+      "fail": 0
+    },
+    "linux_native_attachment": {
+      "pass": 1,
+      "fail": 0
+    },
+    "memento_only": {
+      "keys_written": 12,
+      "keys_retained": 12
+    },
+    "memento_with_config_updates": {
+      "keys_written": 12,
+      "keys_retained": 10
+    }
+  },
+  "verified_at": "2026-11-01T12:11:25.755624+00:00",
+  "initial_results": {
+    "native_suite": {
+      "pass": 5,
+      "fail": 2
+    },
+    "layout_state_probe": {
+      "pass": 0,
+      "fail": 1,
+      "observed": "Backup absent and applied values incomplete at Apply completion; Revert leaves title changed."
+    },
+    "cached_inventory_probe": {
+      "pass": 0,
+      "fail": 1,
+      "observed": "Agent metadata added after inventory; show attaches but origin remains empty."
+    }
+  },
+  "final_results": {
+    "targeted_lock_state_layout": {
+      "pass": 13,
+      "fail": 0
+    },
+    "native_editor": {
+      "pass": 7,
+      "fail": 0
+    },
+    "native_restart": {
+      "editor_processes": 2,
+      "pass": 2,
+      "fail": 0
+    },
+    "macos": {
+      "total": 254,
+      "pass": 247,
+      "skip": 7,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "linux": {
+      "total": 254,
+      "pass": 246,
+      "skip": 8,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "installed_cli": {
+      "pass": 4,
+      "fail": 0
+    },
+    "package_comparison": {
+      "extension_files": 25,
+      "core_files": 141,
+      "unexpected_development_entries": 0
+    }
+  },
+  "artifacts": [
+    {
+      "name": "berth-cr70.vsix",
+      "sha256": "8867817de2a6d047cbea864b64ca79e8e3c858e4e9c5622369c7761fa11a1a73"
+    },
+    {
+      "name": "berthdev-berth-0.3.6.tgz",
+      "sha256": "d2f4d3cc3b99f89c0e4659221f8edef17defef01119bca4683a25c874ffae1a0"
+    }
+  ]
+}

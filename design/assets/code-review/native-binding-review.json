@@ -1,0 +1,41 @@
+{
+  "baseline": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a + working-tree changes",
+  "date": "2026-11-02",
+  "scope": "Passive direct-rollout-writer binding and live-details diagnostic removal",
+  "tests": {
+    "affected": {
+      "passed": 96,
+      "failed": 0
+    },
+    "browser": {
+      "passed": 14,
+      "viewports": [
+        "1440x900",
+        "1280x800"
+      ],
+      "visual_review": "Rendered live details inspected"
+    },
+    "binding_probe": {
+      "passed": 5,
+      "kind": "synthetic process and tmux fixture; not native Codex acceptance"
+    }
+  },
+  "native_codex": {
+    "version": "0.166.0",
+    "mode": "shared daemon",
+    "current_conversation": "unbound",
+    "remaining": "No authoritative TUI-to-thread mapping established; first-install adoption is not complete"
+  },
+  "installation": {
+    "vscode_files_verified": 25,
+    "core_files_verified": {
+      "v24.21.0": 144,
+      "v26.13.0": 144
+    },
+    "editor_reloaded": false
+  },
+  "artifacts": {
+    "berth-native-binding.vsix": "f9c3e17bf9b93ab81f7d79ba717ed3ef6d7ae172c40b792d2ef709859da1bb69",
+    "berthdev-berth-0.3.6.tgz": "452bc3a2596a249e810a6d436f54d947cac8af486e0c3be073cf704b1461dee8"
+  }
+}

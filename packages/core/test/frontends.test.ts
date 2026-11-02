@@ -1,3 +1,4 @@
+import { clientAttached } from '../src/present/attach.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
@@ -7,6 +8,7 @@ import { killServer, sandbox, waitFor } from './helpers.js';
 import { presentState, sequencesFor } from '../src/present/state.js';
 import { iterm2Paths } from '../src/iterm2/install.js';
 import { clearBell } from '../src/registry/sessions.js';
+import { shellQuote } from '../src/shell.js';
 import { Tmux } from '../src/tmux/client.js';
 
 test('I1 iterm2 install writes only the AutoLaunch script; uninstall removes it', async (t) => {
@@ -19,7 +21,8 @@ test('I1 iterm2 install writes only the AutoLaunch script; uninstall removes it'
   const script = readFileSync(paths.script, 'utf8');
   assert.ok(statSync(paths.script).mode & 0o100, 'script is executable');
   assert.ok(script.includes(process.execPath), 'absolute node path');
-  assert.match(script, /"--socket","berth-test-/);
+  assert.match(script, /"--socket-path",/);
+  assert.ok(script.includes(sb.socket));
   assert.match(script, /user\.berthSession/);
   assert.ok(!existsSync(paths.legacyProfiles), 'profiles from earlier versions are removed');
   const compiled = spawnSync('python3', ['-c', 'import ast,sys; ast.parse(open(sys.argv[1]).read())', paths.script], { encoding: 'utf8' });
@@ -37,14 +40,24 @@ test('I2 an iTerm2 client attaching marks its pane and moves origin; other clien
     writeFileSync(file, '');
     return file;
   };
+  const attach = (name: string, tty: string, termtype: string) => {
+    const ctx = sb.ctx();
+    const tmux = new Proxy(ctx.tmux, { get(target, key) {
+      if (key === 'run') return (args: string[], allowFailure?: boolean) => args[0] === 'list-clients'
+        ? { ok: true, stdout: `${tty}~${termtype}\n`, stderr: '' } : target.run(args, allowFailure);
+      const value = Reflect.get(target, key);
+      return typeof value === 'function' ? value.bind(target) : value;
+    } });
+    clientAttached({ ...ctx, tmux }, { session: name, tty, termtype: 'untrusted-event-type' });
+  };
   const vscodeTty = tty('vscode-tty');
-  sb.cli('attached', '--session', 'm', '--tty', vscodeTty, '--termtype', 'xterm.js(6.1.0)');
+  attach('m', vscodeTty, 'xterm.js(6.1.0)');
   assert.ok(!readFileSync(vscodeTty, 'utf8').includes('SetUserVar'));
   assert.ok(readFileSync(vscodeTty, 'utf8').includes('9;4;4;0'), 'VS Code client is shown the state');
   assert.equal(sb.tmux('display-message', '-p', '-t', '=m:', '#{@berth_origin}').trim(), 'vscode');
 
   const itermTty = tty('iterm-tty');
-  sb.cli('attached', '--session', 'm', '--tty', itermTty, '--termtype', 'iTerm2 3.7.0');
+  attach('m', itermTty, 'iTerm2 3.7.0');
   const written = readFileSync(itermTty, 'utf8');
   assert.ok(written.includes(`1337;SetUserVar=berthSession=${Buffer.from('m').toString('base64')}`), 'pane marked');
   assert.ok(written.includes('21337;indicator=#ebaa28;status=approve rm'), 'iTerm2 tab status');
@@ -52,7 +65,7 @@ test('I2 an iTerm2 client attaching marks its pane and moves origin; other clien
 
   sb.tmux('new-session', '-d', '-s', 'plain', 'sleep 3600');
   const plainTty = tty('plain-tty');
-  sb.cli('attached', '--session', 'plain', '--tty', plainTty, '--termtype', 'iTerm2 3.7.0');
+  attach('plain', plainTty, 'iTerm2 3.7.0');
   assert.equal(readFileSync(plainTty, 'utf8'), '', 'unmanaged sessions are not marked');
 });
 
@@ -62,7 +75,7 @@ test('I3 reattach rebuilds a missing session and prints the attach command', asy
   sb.cli('stamp', '--session', 'r', 'conversation=r1');
   sb.cli('snapshot');
   const live = sb.cli('iterm2', 'reattach', 'r');
-  assert.match(live.stdout.trim(), new RegExp(`tmux -L ${sb.socket} attach-session -t '?=r'?$`));
+  assert.match(live.stdout.trim(), new RegExp(`tmux -S .*${sb.socket} attach-session -t '?=r'?$`));
   killServer(sb);
   const healed = sb.cli('iterm2', 'reattach', 'r');
   assert.equal(healed.status, 0, healed.stderr);
@@ -148,9 +161,12 @@ test('C14 a terminal bell marks agents without hooks as waiting; hooked agents a
   const sb = sandbox(t);
   sb.tmux('new-session', '-d', '-s', 'boot', 'sleep 3600');
   assert.equal(sb.cli('tmux', 'install').status, 0);
-  const ring = (name: string, agent: string) => {
-    sb.tmux('new-session', '-d', '-s', name, '-c', sb.makeDir(name), "sh -c 'sleep 1; printf \"\\a\"; sleep 3600'");
+  const ring = (name: string, agent: string, automatic = true) => {
+    const gate = join(sb.root, `${name}.ring`);
+    const script = `while [ ! -f ${shellQuote(gate)} ]; do sleep 0.02; done; printf '\\a'; sleep 3600`;
+    sb.tmux('new-session', '-d', '-s', name, '-c', sb.makeDir(name), automatic ? `sh -c ${shellQuote(script)}` : 'sleep 3600');
     assert.equal(sb.cli('adopt', name, '--agent', agent).status, 0);
+    if (automatic) writeFileSync(gate, 'ready');
   };
   const meta = (name: string) => sb.tmux('display-message', '-p', '-t', `=${name}:`, '#{@berth_state}|#{@berth_note}').trim();
 
@@ -158,10 +174,39 @@ test('C14 a terminal bell marks agents without hooks as waiting; hooked agents a
   await waitFor(() => meta('quiet') === 'waiting|bell', 'bell marks kimi waiting', 10_000);
 
   assert.equal(sb.cli('hooks', 'install', 'claude').status, 0);
-  ring('hooked', 'claude');
-  await new Promise((r) => setTimeout(r, 2500));
+  // Issue the hooked bell synchronously after binding; a timed bell can win the setup race.
+  ring('hooked', 'claude', false);
+  assert.equal(sb.cli('stamp', '--session', 'hooked', 'conversation=hooked-id').status, 0, 'explicit binding records the selected profile');
+  assert.equal(sb.cli('bell', '--session', 'hooked').status, 0);
   assert.equal(meta('hooked'), '|', 'an agent with hooks keeps its hook-driven state');
 
   clearBell(sb.ctx(), 'quiet');
   assert.equal(meta('quiet'), '|', 'seeing the session clears a bell-raised waiting');
+});
+
+
+test('CR79 stale attachment events do not mark a departed client or change origin', (t) => {
+  const sb = sandbox(t);
+  sb.cli('new', 'shell', '--name', 'old', '--cwd', sb.root, '--origin', 'vscode');
+  const tty = join(sb.root, 'departed-tty');
+  writeFileSync(tty, 'unchanged');
+  sb.cli('attached', '--session', 'old', '--tty', tty, '--termtype', 'iTerm2 3.7.0');
+  assert.equal(readFileSync(tty, 'utf8'), 'unchanged');
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=old:', '#{@berth_origin}').trim(), 'vscode');
+});
+
+test('CR79 a delayed event cannot reclaim origin after a real client switches sessions', async (t) => {
+  const sb = sandbox(t), ctx = sb.ctx();
+  for (const name of ['old', 'current']) sb.cli('new', 'shell', '--name', name, '--cwd', sb.root, '--origin', 'vscode');
+  const client = spawn('tmux', ['-L', sb.socket, '-C', 'attach-session', '-t', '=old'], {
+    env: sb.env, stdio: ['pipe', 'ignore', 'ignore'],
+  });
+  t.after(() => client.kill());
+  const connected = () => sb.tmux('list-clients', '-t', '=old', '-F', '#{client_name}').trim();
+  const name = await waitFor(connected, 'control client attachment');
+  const tty = sb.tmux('list-clients', '-t', '=old', '-F', '#{client_tty}').trim();
+  sb.tmux('switch-client', '-c', name, '-t', '=current');
+  await waitFor(() => !connected(), 'client switch');
+  clientAttached(ctx, { session: 'old', tty, termtype: 'iTerm2 3.7.0' });
+  assert.equal(sb.tmux('display-message', '-p', '-t', '=old:', '#{@berth_origin}').trim(), 'vscode');
 });

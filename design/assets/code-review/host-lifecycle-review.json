@@ -1,0 +1,78 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T12:22:35.374560+00:00"
+  },
+  "status": "passed",
+  "environment": {
+    "editor": "VS Code 1.144.0",
+    "os": "Ubuntu 24.04 arm64",
+    "node": "22.23.4",
+    "tmux": "3.4",
+    "display": "isolated Xvfb",
+    "editor_profiles": "separate",
+    "workspace_session_state": "shared"
+  },
+  "native_phases": {
+    "leader": "passed; attaches, detaches and retains startup claim",
+    "other": "passed; same basename at different path owns a distinct claim and leaves the original session detached",
+    "follower": "passed; same workspace does not acquire another claim or attach",
+    "restart": "passed; new process reopens owned session after prior hosts exit"
+  },
+  "additional_tests": {
+    "client_name_macos": "1 passed",
+    "client_name_linux": "1 passed"
+  },
+  "candidate": {
+    "name": "berth-cr70.vsix",
+    "sha256": "8867817de2a6d047cbea864b64ca79e8e3c858e4e9c5622369c7761fa11a1a73",
+    "runtime_bundles_match_current_build": true,
+    "rebuilt_or_reinstalled": false
+  },
+  "fixtures": [
+    {
+      "path": "packages/vscode/.vscode-test.hosts.mjs",
+      "sha256": "c2c33c0d03988ed2681bfff8d365c24b237b28927e2f7aafa6360e3a8f18dcff"
+    },
+    {
+      "path": "packages/vscode/test/integration/hosts.test.cjs",
+      "sha256": "902f1a9660ccdbedb7f1a983a841e50ab957de4f58b3f34991fdcc974065d6cd"
+    },
+    {
+      "path": "packages/vscode/test/controller.test.ts",
+      "sha256": "fa85ff7b4e9d30b982acfbb28d25a9a3a49f796e621207754c4257e7e1053103"
+    }
+  ],
+  "logs": [
+    {
+      "name": "berth-host-final-leader.log",
+      "sha256": "ecc2fc80030cb2e33e70d9d06f4b49c420236a5512c985eb5e2e10f306958049"
+    },
+    {
+      "name": "berth-host-final-other.log",
+      "sha256": "266c9a54e5ca607d59902a249dece4acd21374776e1921e1a419866391345275"
+    },
+    {
+      "name": "berth-host-final-follower.log",
+      "sha256": "75106dadd6d2508d35a9b38a0d9008e6ac08f3900280778c3b9c4cb1623bf252"
+    },
+    {
+      "name": "berth-host-final-restart.log",
+      "sha256": "c7d56d116144a9bfcd8738b8eba9f910fd22711809dd88669f269e2be0da88b4"
+    },
+    {
+      "name": "berth-client-name-probe.log",
+      "sha256": "8b80711bfaf58daaa339a829d447414120608eac1d1f85082463ea045a2f4c7f"
+    },
+    {
+      "name": "berth-client-name-linux.log",
+      "sha256": "174c7f540dcce66a1872526c8e45ebb88d1902d86fbc66d0f72b923a04aa6660"
+    }
+  ],
+  "limitations": [
+    "No same-profile layout concurrency verdict.",
+    "No native clipboard/focus, accessibility, iTerm2 or remote-host verdict.",
+    "No daily editor replacement or publication."
+  ]
+}

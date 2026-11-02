@@ -1,7 +1,9 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { shellQuote } from '../shell.js';
+import { formatLiteral } from './fields.js';
+import { writeConfigFile } from '../config/write.js';
 import type { Tmux } from './client.js';
 
 /**
@@ -19,7 +21,7 @@ function hookArgs(cliPath: string): string[][] {
   // Hooks are global in the user's tmux config and run in whichever server
   // fires them: pass that server's socket so state stays per server. #{q:}
   // quotes values for the shell (session names may contain quotes).
-  const berth = `${shellQuote(process.execPath)} ${shellQuote(cliPath)} --socket-path #{q:socket_path}`;
+  const berth = `${formatLiteral(shellQuote(process.execPath))} ${formatLiteral(shellQuote(cliPath))} --socket-path #{q:socket_path}`;
   // `|| true`: tmux prints a failed run-shell into the pane; a hook must never disturb it.
   const quiet = '>/dev/null 2>&1 || true';
   const snapshot = `${berth} snapshot ${quiet}`;
@@ -39,11 +41,23 @@ export function tmuxConfPath(env = process.env): string {
   return join(env.HOME || homedir(), '.tmux.conf');
 }
 
-function withoutBlock(text: string): string {
-  const start = text.indexOf(BEGIN);
-  const end = text.indexOf(END);
-  if (start < 0 || end < start) return text;
-  return (text.slice(0, start) + text.slice(end + END.length)).replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '');
+function replaceBlock(text: string, replacement: string): string {
+  const starts = [...text.matchAll(/^[\t ]*# >>> berth >>>[\t ]*\r?$/gm)];
+  const ends = [...text.matchAll(/^[\t ]*# <<< berth <<<[\t ]*\r?$/gm)];
+  if (!starts.length && !ends.length) return `${text}${replacement && text && !text.endsWith('\n') ? '\n' : ''}${replacement}`;
+  if (starts.length !== 1 || ends.length !== 1 || starts[0].index! >= ends[0].index!) {
+    throw new Error('Invalid Berth managed block in tmux configuration; repair its markers before retrying.');
+  }
+  const end = ends[0].index! + ends[0][0].length;
+  return text.slice(0, starts[0].index) + replacement + text.slice(text[end] === '\n' ? end + 1 : end);
+}
+
+function applyHooks(tmux: Tmux, commands: string[][], file: string): void {
+  try {
+    if (tmux.serverRunning()) for (const args of commands) tmux.run(args);
+  } catch (error) {
+    throw new Error(`Configuration-file changes are complete (${file}), but running tmux hooks could not be updated: ${error instanceof Error ? error.message : String(error)}. Retry the command to finish the live update.`);
+  }
 }
 
 export function installTmux(tmux: Tmux, cliPath: string, env = process.env): string {
@@ -51,18 +65,18 @@ export function installTmux(tmux: Tmux, cliPath: string, env = process.env): str
   const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
   const lines = hookArgs(cliPath).map((args) => args.map((a, i) => (i === 3 ? `'${a.replace(/'/g, `'\\''`)}'` : a)).join(' '));
   const block = [BEGIN, '# Managed by berth; remove with `berth tmux uninstall`.', ...lines, END].join('\n');
-  const base = withoutBlock(current).replace(/\s*$/, '');
-  writeFileSync(file, `${base ? `${base}\n\n` : ''}${block}\n`);
-  if (tmux.serverRunning()) for (const args of hookArgs(cliPath)) tmux.run(args, true);
+  writeConfigFile(file, replaceBlock(current, `${block}\n`));
+  applyHooks(tmux, hookArgs(cliPath), file);
   return file;
 }
 
 export function uninstallTmux(tmux: Tmux, env = process.env): string {
   const file = tmuxConfPath(env);
   if (existsSync(file)) {
-    const rest = withoutBlock(readFileSync(file, 'utf8')).replace(/\s*$/, '');
-    writeFileSync(file, rest ? `${rest}\n` : '');
+    const current = readFileSync(file, 'utf8');
+    const rest = replaceBlock(current, '');
+    if (rest !== current) writeConfigFile(file, rest);
   }
-  if (tmux.serverRunning()) for (const event of [...EVENTS, 'alert-bell', ...ATTACH_EVENTS]) tmux.run(['set-hook', '-gu', `${event}[${INDEX}]`], true);
+  applyHooks(tmux, [...EVENTS, 'alert-bell', ...ATTACH_EVENTS].map((event) => ['set-hook', '-gu', `${event}[${INDEX}]`]), file);
   return file;
 }

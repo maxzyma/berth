@@ -1,0 +1,152 @@
+{
+  "observed_at": "2026-11-01T02:55:03.631193+00:00",
+  "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+  "candidate": "CR9–CR14 repaired working tree; daily editor unchanged; not released",
+  "diagnostic_baseline": "followup.json",
+  "resolved": [
+    "CR9",
+    "CR10",
+    "CR11",
+    "CR12",
+    "CR13",
+    "CR14"
+  ],
+  "verification": {
+    "build": "Passed",
+    "full_unit": {
+      "tests": 138,
+      "pass": 137,
+      "fail": 0,
+      "skipped": 1,
+      "duration_seconds": 61.45568525,
+      "log_sha256": "323d25710d4de9db9975fd0eba212467bcfa809ff8f7a77d310a50f20f0bc634"
+    },
+    "initial_full_unit": {
+      "tests": 138,
+      "pass": 136,
+      "fail": 1,
+      "skipped": 1,
+      "duration_seconds": 82.071089417,
+      "log_sha256": "1b887b72615db8a336c9c92b991630a8f86452c773e683cbf006b9c683104e3d"
+    },
+    "title_timeout_observation": "Initial full run returned no optional Codex title at the 1-second subprocess timeout. The isolated probe and final serial full run passed; scheduling/first-execution cause remains unlocated. This intermittent timeout is not claimed fixed. Exact conversation IDs are unaffected.",
+    "browser": {
+      "passed": 8,
+      "viewports": [
+        "1440x900",
+        "1280x800"
+      ],
+      "scope": [
+        "identity dark/light",
+        "long content and narrow resize",
+        "list/empty/recovery/stopped journey"
+      ],
+      "duration_seconds": 12.4,
+      "log_sha256": "9a7a16254db5333efaf634dbf5868364f6df89c9f5aaed1a7fcdf76d9db59eda",
+      "visual_review": [
+        "1440x900 light identity details",
+        "1280x800 dark long-content details"
+      ],
+      "native": false
+    },
+    "packaging": {
+      "vsix_installed_files": 25,
+      "core_dist_files": 105,
+      "package_hashes": {
+        "berth-followup-fixes.vsix": "0c740c16f4bef251583202e73072fe9555004d83f73118db3673324478950fc2",
+        "berth-followup-fixes-core.tgz": "14f8f09dd9259787d64f9a0be6b8389fc2b8a54d4d26a4e73cb4ebe15db9c348"
+      },
+      "daily_editor_modified": false
+    },
+    "core_install_smoke": "Offline isolated npm installation and CLI --help passed",
+    "public_boundary": "Worktree leak guard passed"
+  },
+  "source_hashes": {
+    "packages/core/src/agents/commands.ts": "42481fea37f97f5b30a33d3e5bb0e81b6267be57073b85a117ae1d58e2fad74f",
+    "packages/core/src/agents/hook-files.ts": "dcb3f143db4462712f455d7b7566831a5ded0f8c2a3f59f4f80a4a5a5d851cf1",
+    "packages/core/src/agents/hooks.ts": "1977a76d0787666ac8b3997614e0ec4edf031f7d970192bc7433fea4b13d7fb7",
+    "packages/core/src/agents/name-key.ts": "a928fb330698fff16929b77abdb116ca96d0f9acdf2ff59646caf187fb4e412e",
+    "packages/core/src/agents/registry.ts": "5cbfe39655a40b0edbb5035edcd3a148cbbef5e826ffb8f969b6fbf03b3cf0ac",
+    "packages/core/src/agents/roots.ts": "5b558619293f1e087de699f93ae9cbac33b72fddccb05f767b7ff77ae19598e6",
+    "packages/core/src/agents/titles.ts": "db5af76f7ad1e260e51f23038237a720b27cd92a612e10f1371aaf63a2419518",
+    "packages/core/src/cli/main.ts": "3e2bab364c906c368bfa8828416f735d931ef33257059970c5010f17d6cf612a",
+    "packages/core/src/config/index.ts": "324e8cd2b965a1bad84f9713120bb7aa779766d5b6b893728d0c03eddf790e3e",
+    "packages/core/src/context.ts": "214f7ad3572fa9f04a410dd569e665ca60977904b0c1ae2f748d2720b5dfd24d",
+    "packages/core/src/errors.ts": "6fd21f53fb27cd2853d9c9caa021c0d811b077b8067ab348d85559775a4f6a50",
+    "packages/core/src/index.ts": "6c599eda8fc99d572961918fede21c3e5741de6615ea75420b5fe0ccdf4765a7",
+    "packages/core/src/iterm2/install.ts": "b1775b470a8094b4e886a66900d0fa6e5abc28602bddaba0c30e976a125527a2",
+    "packages/core/src/present/attach.ts": "66ead0ee2a06830ea6d98145ea3a7eaeb1b2437210bb14bafd08ecb3e5df7e68",
+    "packages/core/src/present/state.ts": "f8ed7ae1cda793379ec9a6096d697e26f2be6b42d827b33124097b223e22763e",
+    "packages/core/src/process-owner.ts": "ab669d581c8e6e9f65b5ccb3e882f9c445b26187a2d92aa1a46fcbc5babb99f2",
+    "packages/core/src/registry/directory.ts": "20334df01c99b68d89dcaad140905c7410587fd67524e6737dae586206ad6f23",
+    "packages/core/src/registry/discover.ts": "c3c0e0215716bcfeb37a3af6831724547b0299125665eed501e231368fa7b934",
+    "packages/core/src/registry/doctor.ts": "32ba24f4f551b236d759fbe5ae33c5a134e6afaa1056fdd5580121b582654fba",
+    "packages/core/src/registry/hosts.ts": "7815fd9200a44b2c0d9ffb328b1be3c917fefeb818f82a0d04ed4e02e1c36a11",
+    "packages/core/src/registry/launch.ts": "bc3b4fb141919de87c122d6dd9c73a5653a9cc149a6167cecf0b6a6e01554b3f",
+    "packages/core/src/registry/sessions.ts": "4af7fc355b6860b88cbed6648a5ec7d73eaa5d57c1e2f64bd900713fecb10b0f",
+    "packages/core/src/restore/ensure.ts": "3feb0661c51e95389b97cd5af238fc114bb3ad4e59535046e7f8872453920cee",
+    "packages/core/src/restore/lock.ts": "904f38516d341fb1e7b2873d2a07f81f8656b1970a33685d8bcb5e00e151516d",
+    "packages/core/src/restore/status.ts": "116dc036d37e05bccc5cecf4d428e7c09726904bd54713d2661800c573a02cff",
+    "packages/core/src/shell.ts": "f4b4064d0b38bfc1b947d970d5c1fce4702b815ef527c22255767bd474987de4",
+    "packages/core/src/snapshot/identity.ts": "7356d2d409436510bbc4003558c23be297011f1d3d758c77a51e73349606650a",
+    "packages/core/src/snapshot/lifecycle.ts": "c0b5fb7145d14bb00a00fc48031079d261608ceb2eeb6eaba980213b2259e2e0",
+    "packages/core/src/snapshot/store.ts": "a7cbf51395ae678420ae3934619c5cb51d5139446acff27091b8fd67128873bd",
+    "packages/core/src/snapshot/take.ts": "54950aad41ed5838dec34c4ace5f84afd1c12ff324802fbb9b315ff7ddece21e",
+    "packages/core/src/tmux/client.ts": "997efa734686df742420ea6fa6dc923d9895a449d328300c26d9c1a63f271ee1",
+    "packages/core/src/tmux/connections.ts": "cca5a8a67bcd30182d9cfd0784122a0e3adb7c4ad58faf094e2865d64ae5aa6f",
+    "packages/core/src/tmux/install.ts": "ae51c41f35e39e27783a13e68f8a640cc5497ff6f0ce64c17e89b693f50352b5",
+    "packages/core/src/tools.ts": "20b2bca191e85ae301d2f1667ce1e0766a6fe6931d3ffe81580042d8be9c3e71",
+    "packages/core/test/adapters.test.ts": "d29ecd23780e33030f4314d62780240382f618a435c201071fc4e2eeae9718d9",
+    "packages/core/test/attachment.test.ts": "528b464a0b0564a8c372c7d0a6b0aca289b6fd0dacbfd70c53c2d62e21890ad9",
+    "packages/core/test/binding.test.ts": "5a0906109d61003dd6b650aadf330fae6b7763533aa33200113d7228da33cc3b",
+    "packages/core/test/core.test.ts": "e443e536d1edd74062e99642fb625645b9af19e3484d57170bf2bfb36a9bb8c7",
+    "packages/core/test/discover.test.ts": "f5ecd3d10b599feaecd20a44fc447c5df7cd0327da50c04cada35538da2d3025",
+    "packages/core/test/edge.test.ts": "def3cb3d784bacc5681f61e62983b5ee7c29b49c57bfaba9929e26411663ef22",
+    "packages/core/test/followup-regressions.test.ts": "133459687a843d8ba434bd18a5331157e97caf212ea3e3d1e8ed0e15b78f87cb",
+    "packages/core/test/frontends.test.ts": "1f39e1f8bc82200f3e819610fa8981fc6d59843adc04b7c5212821f0e3fcbaf8",
+    "packages/core/test/helpers.ts": "5e5ef8d72f36266165061d250c52625a02e57d9c41678a350b6fcd91f6304b06",
+    "packages/core/test/hook-targets.test.ts": "81608f557a16d2697dbc470831204c7ec07b19a30bf67e8aca8278adf1337c21",
+    "packages/core/test/hooks.test.ts": "146a820259680f700a3ab0a47f0dad49f0b07c3baf02caf26b8ab21787f6ce58",
+    "packages/core/test/hosts.test.ts": "e90ea5af29ac5069d676fd7a0cb68b84b036f773bcfa55e7e1f3622afe1f6b28",
+    "packages/core/test/identity.test.ts": "cafe35eed738ca59c9437456c5367d8abae55fe88ae3758b6dcd687cb9a6cb99",
+    "packages/core/test/live/claude.test.ts": "bb2b85d4a97cea79d281004a987f15b28b286e7f514db5dc2c8e13f4f876f2dc",
+    "packages/core/test/recovery.test.ts": "5a02ecc8779a833fb90364e3098f8f825949029ba64d6d394132fb8b5e711c93",
+    "packages/core/test/regressions.test.ts": "705e89b9ab665433f484728ee468bc04e0827f966edaebaa92f2a82410429164",
+    "packages/core/test/review-regressions.test.ts": "5eb45030720793b45f5ed0e21777f75932ac902f9298dfdcd083119acd46bf9e",
+    "packages/vscode/src/controller.ts": "66ba5f43e8ee56b18627174cbea6e4bf8489e0133510c5adb8370e5caf293a39",
+    "packages/vscode/src/extension.ts": "0a2fb6975a0b7d607df170df4b47329f29e994e0ef5928cb846c949deda6a672",
+    "packages/vscode/src/hookRuntime.ts": "0a607dfcbe9e533f6713fc07e08bd957e84f883b118f06cdcda3996bcd0ef522",
+    "packages/vscode/src/inventory.ts": "6e107cf02047fe7a0f370b398a3a6002deeb5986cfece47c727cdb7f56aab465",
+    "packages/vscode/src/model.ts": "ef30d7b4fc986968c40c18b573f03b8edc2e3d38e29d36655de1eef03aa9df51",
+    "packages/vscode/src/view/protocol.ts": "d4e5b7594bffd0a3a156397df844d90380da52507c72cec3d522938587778622",
+    "packages/vscode/src/view/sessionsView.ts": "d0122ccff17adae65eb0cc0ddf665756c684d9eea781be7022cf1c246c7a934c",
+    "packages/vscode/test/browser/copy.spec.mjs": "62ce5b9eba39bfae6f830a909a3f9ae71f0db540dd5abbb5ae80792dbb9e007d",
+    "packages/vscode/test/browser/fixture.mjs": "1d0c710fa42620d8ed0e657ffdec73453c3cd2a1eba1e35c4e3666d8039ae1b5",
+    "packages/vscode/test/browser/hover.spec.mjs": "25a405f004e7823478f227cc864575f5943ab6cb19731e25c12db3556525199b",
+    "packages/vscode/test/browser/icons.spec.mjs": "849499ec8efdd913cfd83bd1481337798f0eb4b2b81bc9cf19e46e572792779b",
+    "packages/vscode/test/browser/identity.spec.mjs": "069642485fa741f2affa82048bf6098c3b8f695929162e513a56194445ff199c",
+    "packages/vscode/test/browser/review.spec.mjs": "2dbbffae527822b52904a49627a5218d060bddbe6694cd2fa1b75b269db58668",
+    "packages/vscode/test/controller.test.ts": "c7fd7959a29a729bc413efec90e47fb5f79d38083b3df4bbc21f8fae20da77dd",
+    "packages/vscode/test/hookRuntime.test.ts": "91c3f318f617961da00dcd2135b9eea1b35d1fe4d7d40eff5d1ddd16386cd019",
+    "packages/vscode/test/identity.test.ts": "cdacca0d3126ef37f111ea03ad7d9b8c3af46ab5ff5a022433bbb411c7777096",
+    "packages/vscode/test/inventory.test.ts": "38fcbfac76e80cd0f1f6673adc4b38c90ec95c45e09fb74e87b916a47c968a03",
+    "packages/vscode/webview/clipboard.ts": "de4813fc4f611592b4729783003c75629210e2bbee0007c2aa1a43254a928d47",
+    "packages/vscode/webview/hover.ts": "f5632996440b46e82ecdfd8d567e413f42dfcd0329a11a87f1a821b233fa60f8",
+    "packages/vscode/webview/hoverPosition.ts": "6c8c3f12e837c8861335911e757f057fea5c427f2c96123a978a223dbe8410c9",
+    "packages/vscode/webview/icons.ts": "c9b7f7a35bb2386650bbe5022091d24582f4919c859801f7bda63ba32f39446d",
+    "packages/vscode/webview/main.css": "399c6d9911329144fbe6b5a544edd5bec0d14cf87e5a9f4342d92030ce147557",
+    "packages/vscode/webview/main.ts": "8bce6c71d2862df9a39fedbafd50987d54bad0a4c1eca76c5a0c2e9440770a3d"
+  },
+  "build_hashes": {
+    "packages/vscode/dist/extension.cjs": "cf8b1d09e8b818550fcc7dc8dcf07035b9cbdaf51eb8df72bcf050fdf20c45f7",
+    "packages/vscode/dist/cli.mjs": "2dafab0b4a3e33942f1279c2faf32149bf04c5c0bea955bfe6749d2bd41f5165"
+  },
+  "pending": [
+    "Native editor lifecycle, reference refresh and terminal behavior acceptance",
+    "Real-agent hook/resume version matrix (opt-in test skipped)",
+    "OS clipboard, menus/picker, multi-window, iTerm2 and restart acceptance",
+    "Investigate intermittent optional-title subprocess timeout",
+    "Process lifetime fingerprint uses second-resolution ps birth time; same-second PID reuse remains indistinguishable",
+    "Daily editor installation and publication not performed"
+  ]
+}

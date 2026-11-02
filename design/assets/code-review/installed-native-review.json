@@ -1,0 +1,50 @@
+{
+  "baseline": {
+    "head": "dfb47bf8c321121b263cfc71016ffc0cc21b6a8a",
+    "working_tree": true,
+    "observed_at": "2026-11-01T14:04:14.203859+00:00"
+  },
+  "candidate": {
+    "name": "berth-cr80.vsix",
+    "sha256": "e73abc5c3d9fb252302523dee5b30772d5bc1e487639629130fdbcd5564f7311"
+  },
+  "environment": "VS Code 1.144.0 Linux arm64; isolated Xvfb, user data, extension directory and tmux server",
+  "mode": "Installed VSIX; no extensionDevelopmentPath",
+  "checks": [
+    {
+      "width": 1440,
+      "height": 900,
+      "clipboard": true,
+      "keyboardCopy": true,
+      "escapeFocus": true,
+      "pointerReentry": true,
+      "findCancel": true,
+      "findNoMatch": true,
+      "findOpen": true,
+      "pasteAndSave": true,
+      "installed": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "clipboard": true,
+      "keyboardCopy": true,
+      "escapeFocus": true,
+      "pointerReentry": true,
+      "findCancel": true,
+      "findNoMatch": true,
+      "findOpen": true,
+      "pasteAndSave": true,
+      "installed": true
+    }
+  ],
+  "log": {
+    "name": "berth-installed-native-acceptance.log",
+    "sha256": "4cc8b70a56e602ba090d5bb2d1c30b4ec680374ab22b38d94fffb18fd7a9d298"
+  },
+  "limitations": [
+    "No full visual or accessibility verdict.",
+    "CR74 and CR75 remain open.",
+    "Daily editor unchanged; no publication."
+  ]
+}

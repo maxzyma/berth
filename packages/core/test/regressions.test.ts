@@ -20,7 +20,7 @@ test('R-locale metadata survives a missing locale and newlines in notes', async 
   sb.cli('stamp', '--session', 'café', 'note=line1\nline2');
   const noLocale = { ...sb.env, LANG: '', LC_ALL: '', LC_CTYPE: '' };
   const listed = rows(sb, noLocale);
-  assert.deepEqual(listed.map((r) => [r.name, r.managed, r.note]), [['café', true, 'line1 line2']]);
+  assert.deepEqual(listed.map((r) => [r.name, r.managed, r.note]), [['café', true, 'line1\nline2']]);
 });
 
 test('R-zsh the iTerm2 attach command survives zsh (no =word expansion)', async (t) => {
@@ -40,7 +40,7 @@ test('R-hooks session names with quotes reach the hooks intact; state stays per 
   sb.tmux('new-session', '-d', '-s', name, '-c', sb.makeDir('q'), "sh -c 'sleep 1; printf \"\\a\"; sleep 3600'");
   sb.cli('adopt', name, '--agent', 'kimi');
   await waitFor(() => sb.tmux('display-message', '-p', '-t', `=${name}:`, '#{@berth_state}').trim() === 'waiting', 'bell hook ran', 10_000);
-  const store = join(sb.env.XDG_STATE_HOME, 'berth', 'servers', sb.socket, 'snapshots');
+  const store = sb.ctx().config.snapshotRoot;
   await waitFor(() => sb.ctx().store.newest()?.sessions.some((s) => s.name === name), 'snapshot in this server state', 10_000);
   assert.ok(sb.ctx().store.root === store);
 });
@@ -50,10 +50,10 @@ test('R-snapshot new sessions and new conversation ids are snapshotted at once',
   sb.cli('new', 'claude', '--cwd', sb.makeDir('fresh'));
   sb.cli('stamp', '--session', 'fresh', 'conversation=c-1');
   killServer(sb);
-  assert.match(sb.cli('ensure').stdout, /fresh\tresumed/, 'restorable without a manual snapshot');
+  assert.match(sb.cli('ensure').stdout, /fresh\tresume-requested/, 'restorable without a manual snapshot');
 });
 
-test('R-name-key a Claude session without a hook-reported id is bound through its transcript title', async (t) => {
+test('R-binding Claude transcript titles cannot establish a conversation identity', async (t) => {
   const sb = sandbox(t);
   const dir = sb.makeDir('named.proj');
   sb.cli('new', 'claude', '--cwd', dir, '--name', 'titled');
@@ -65,7 +65,7 @@ test('R-name-key a Claude session without a hook-reported id is bound through it
   writeFileSync(join(project, 'other.jsonl'), `${JSON.stringify({ type: 'custom-title', customTitle: 'someone-else' })}\n`);
   const dirOut = sb.cli('snapshot').stdout.trim();
   const data = JSON.parse(readFileSync(join(dirOut, 'sessions.json'), 'utf8'));
-  assert.equal(data.sessions[0].conversation, 'new-id', 'newest transcript with the title');
+  assert.equal(data.sessions[0].conversation, '', 'a matching title is not producer evidence');
 });
 
 test('R-scrollback session names with a slash do not break snapshots', async (t) => {
@@ -88,7 +88,7 @@ test('R-lock a lock left without a pid by a crashed owner is taken over', (t) =>
   assert.equal(withLock(state, () => 'ran', 2_000), 'ran');
 });
 
-test('R-name-key Qoder sessions are bound through the same transcript title', async (t) => {
+test('R-binding Qoder transcript titles cannot establish a conversation identity', async (t) => {
   const sb = sandbox(t);
   const dir = sb.makeDir('qoder.proj');
   sb.cli('new', 'qoder', '--cwd', dir, '--name', 'qtitled');
@@ -99,7 +99,7 @@ test('R-name-key Qoder sessions are bound through the same transcript title', as
   delete env.QODER_CONFIG_DIR;
   const out = spawnSync(process.execPath, [CLI, 'snapshot'], { env, encoding: 'utf8' }).stdout.trim();
   const data = JSON.parse(readFileSync(join(out, 'sessions.json'), 'utf8'));
-  assert.equal(data.sessions[0].conversation, 'q-id');
+  assert.equal(data.sessions[0].conversation, '');
 });
 
 test('R-termtype a client reporting no terminal type does not make the attach hook fail', async (t) => {
@@ -118,6 +118,8 @@ test('R-reboot a session started after a reboot does not erase the sessions wait
   const sb = sandbox(t);
   sb.cli('new', 'claude', '--cwd', sb.makeDir('a'));
   sb.cli('new', 'codex', '--cwd', sb.makeDir('b'));
+  sb.cli('stamp', '--session', 'a', 'conversation=conv-a');
+  sb.cli('stamp', '--session', 'b', 'conversation=conv-b');
   sb.cli('snapshot');
   killServer(sb); // the reboot: no session-closed hook fires
   sb.cli('new', 'kimi', '--cwd', sb.makeDir('c')); // the user starts something first; its hook snapshots

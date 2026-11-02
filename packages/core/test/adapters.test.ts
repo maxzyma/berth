@@ -43,7 +43,7 @@ test('C13 launch and resume commands match spec §8', () => {
 test('C13 resume keeps configuring options and drops prompts and session selectors', () => {
   const claude = getAdapter('claude')!;
   assert.deepEqual(
-    keptArgs(claude, "claude --name x --model opus --continue --add-dir /a 'fix the bug' --dangerously-skip-permissions"),
+    keptArgs(claude, "claude --name x --model opus --continue 'fix the bug' --add-dir /a --dangerously-skip-permissions"),
     ['--model', 'opus', '--add-dir', '/a', '--dangerously-skip-permissions'],
   );
   const codex = getAdapter('codex')!;
@@ -67,10 +67,13 @@ test('C13 config overrides replace templates', () => {
 test('C13 hook events map to state and conversation id', () => {
   const opencode = getAdapter('opencode')!;
   assert.deepEqual(metaForEvent(opencode, 'session.created', { sessionID: 'oc1' }), { conversation: 'oc1' });
+  assert.deepEqual(metaForEvent(opencode, 'session.updated', { sessionID: 'oc1' }), { conversation: 'oc1' });
   assert.deepEqual(metaForEvent(opencode, 'session.idle', {}), { state: 'done', note: '' });
   const codex = getAdapter('codex')!;
   assert.deepEqual(metaForEvent(codex, 'SessionStart', { session_id: 'cx' }), { conversation: 'cx' });
   assert.deepEqual(metaForEvent(codex, 'Stop', {}), { state: 'done', note: '' });
+  assert.deepEqual(metaForEvent(codex, 'UserPromptSubmit', { session_id: 'cx', prompt: 'Next turn' }), { state: 'working', note: '', topic: 'Next turn' });
+  assert.deepEqual(metaForEvent(codex, 'PermissionRequest', { session_id: 'cx' }), { state: 'waiting', note: '' });
   assert.deepEqual(metaForEvent(getAdapter('gemini')!, 'Anything', {}), {});
 });
 
@@ -78,6 +81,8 @@ test('C13 each agent reports its conversation id and asks for attention only on 
   const meta = (id: string, event: string, payload: Record<string, unknown>) => metaForEvent(getAdapter(id)!, event, payload);
   assert.deepEqual(meta('gemini', 'SessionStart', { session_id: 'g1' }), { conversation: 'g1' });
   assert.deepEqual(meta('gemini', 'BeforeAgent', {}), { state: 'working', note: '' });
+  assert.deepEqual(meta('gemini', 'BeforeModel', {}), { state: 'working', note: '' });
+  assert.deepEqual(meta('gemini', 'AfterTool', {}), {});
   assert.deepEqual(meta('gemini', 'Notification', { notification_type: 'ToolPermission', message: 'Allow?' }), { state: 'waiting', note: 'Allow?' });
   assert.deepEqual(meta('gemini', 'Notification', { notification_type: 'Other' }), {});
   assert.deepEqual(meta('gemini', 'AfterAgent', {}), { state: 'done', note: '' });
@@ -92,4 +97,67 @@ test('C13 each agent reports its conversation id and asks for attention only on 
     assert.deepEqual(meta(id, 'Stop', {}), { state: 'done', note: '' });
   }
   for (const id of BASELINE) assert.ok(getAdapter(id)!.hookTarget, `${id} has a conversation id source (spec G8)`);
+});
+
+
+test('Codex interruption clears activity and tool completion clears approval waiting', () => {
+  const codex = getAdapter('codex')!;
+  assert.deepEqual(metaForEvent(codex, 'Interrupt', { session_id: 'cx' }), { state: '', note: '' });
+  assert.deepEqual(metaForEvent(codex, 'PostToolUse', { session_id: 'cx' }), { state: 'working', note: '' });
+  assert.deepEqual(metaForEvent(codex, 'PermissionRequest', { tool_name: 'Bash', tool_input: { description: 'Run verification?' } }), { state: 'waiting', note: 'Run verification?' });
+  assert.deepEqual(metaForEvent(codex, 'PermissionRequest', { tool_name: 'Bash' }), { state: 'waiting', note: 'Approval requested: Bash' });
+});
+
+
+test('CR38 Kimi interruption clears activity without declaring successful completion', () => {
+  assert.deepEqual(metaForEvent(getAdapter('kimi')!, 'Interrupt', { session_id: 'session_fixture', reason: 'user' }), { state: '', note: '' });
+});
+
+
+test('CR39 Kimi approval decisions resume activity and failed turns clear it', () => {
+  const kimi = getAdapter('kimi')!;
+  for (const decision of ['approve', 'reject']) {
+    assert.deepEqual(metaForEvent(kimi, 'PermissionResult', { decision }), { state: 'working', note: '' });
+  }
+  for (const event of ['StopFailure', 'Interrupt']) {
+    assert.deepEqual(metaForEvent(kimi, event, { message: 'Earlier notification' }), { state: '', note: '' });
+  }
+});
+
+
+test('CR40 Qoder tool outcomes clear approval waiting and failures do not imply success', () => {
+  const qoder = getAdapter('qoder')!;
+  const waiting = { conversation: 'qoder_fixture', ...metaForEvent(qoder, 'PermissionRequest', { message: 'Allow fixture?' }) };
+  for (const event of ['PostToolUse', 'PostToolUseFailure']) {
+    assert.deepEqual({ ...waiting, ...metaForEvent(qoder, event, {}) }, { conversation: 'qoder_fixture', state: 'working', note: '' });
+  }
+  for (const event of ['PostToolUseFailure', 'StopFailure']) {
+    assert.deepEqual({ ...waiting, ...metaForEvent(qoder, event, { is_interrupt: true, message: 'Stale request' }) }, { conversation: 'qoder_fixture', state: '', note: '' });
+  }
+  assert.equal(metaForEvent(qoder, 'PostToolUseFailure', { is_interrupt: 'true' }).state, 'working');
+  assert.deepEqual(metaForEvent(qoder, 'UnregisteredEvent', { is_interrupt: true }), {});
+});
+
+
+test('CR43 Claude waits on explicit permission and resumes only after the whole batch', () => {
+  const claude = getAdapter('claude')!;
+  assert.equal(metaForEvent(claude, 'PermissionRequest', { tool_name: 'Bash' }).state, 'waiting');
+  assert.equal(metaForEvent(claude, 'Notification', { notification_type: 'permission_prompt', message: '请批准' }).state, 'waiting');
+  assert.deepEqual(metaForEvent(claude, 'Notification', { notification_type: 'idle_prompt', message: 'permission' }), {});
+  assert.equal(metaForEvent(claude, 'Notification', { message: 'Claude needs permission' }).state, 'waiting');
+  const waiting = { conversation: 'fixture', state: 'waiting', note: 'Allow?' };
+  assert.deepEqual({ ...waiting, ...metaForEvent(claude, 'PostToolUse', {}) }, waiting);
+  assert.deepEqual({ ...waiting, ...metaForEvent(claude, 'PostToolBatch', {}) }, { conversation: 'fixture', state: 'working', note: '' });
+  assert.deepEqual({ ...waiting, ...metaForEvent(claude, 'StopFailure', { error: 'invalid_request' }) }, { conversation: 'fixture', state: '', note: '' });
+});
+
+
+test('CR50 Cursor stop reports success only for an explicit completed outcome', () => {
+  const cursor = getAdapter('cursor')!;
+  assert.deepEqual(metaForEvent(cursor, 'stop', { status: 'completed' }), { state: 'done', note: '' });
+  for (const status of ['aborted', 'error', 'unknown', undefined, null, false]) {
+    assert.deepEqual(metaForEvent(cursor, 'stop', { status, message: 'old request' }), { state: '', note: '' });
+  }
+  assert.deepEqual(metaForEvent(cursor, 'beforeSubmitPrompt', { prompt: 'Next task', status: 'error' }), { state: 'working', note: '', topic: 'Next task' });
+  assert.deepEqual(metaForEvent(cursor, 'unregistered', { status: 'error' }), {});
 });
