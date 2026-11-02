@@ -1,4 +1,4 @@
-# Release preparation: 0.4.0
+# Release: 0.4.1
 
 Status: approved for publication with the limitations below. Native acceptance is still unverified.
 
@@ -9,13 +9,20 @@ icon and quiet-upgrade repairs. User-facing changes and limits are in the
 
 ## Verification
 
-The isolated Node 24 candidate installed from the lockfile and completed the
+The original 0.4.0 isolated Node 24 candidate installed from the lockfile and completed the
 full default suite: 279 passed, 7 skipped, 0 failed (146.6 seconds). The CLI
 archive contains 144 files; the VSIX contains 28. Package versions, archive
 contents, isolated CLI installation, installed-file comparison, both CLI help
 entry points and npm publish dry-run passed. Workflow lint, changelog extraction
 and the public-information check passed. See the
 [candidate receipt](assets/code-review/release-0.4.0.json).
+
+The 0.4.0 tag's CI run stopped before publication: tmux 3.8 rejected a Tab in
+an attachment fixture's session name. The 0.4.1 fixture uses spaces, tilde and
+equals; control-character codec coverage remains in the existing field/path
+tests. Runtime source is unchanged. The failed tag is retained without a
+GitHub Release or registry publication. Local focused attachment verification
+passed on tmux 3.6a; the 0.4.1 CI run must verify tmux 3.8.
 
 The workflow now packages both archives and extracts release notes before
 publishing npm. It publishes the inspected tarball, then creates the GitHub

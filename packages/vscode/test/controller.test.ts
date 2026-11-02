@@ -702,7 +702,7 @@ for (const role of ['main', 'side'] as const) {
 test('main attachment preserves externally supplied session names through the client transport', async (t) => {
   const { sb, host, controller } = setup(t);
   const ctx = sb.ctx();
-  ctx.tmux.newSession(' external\tname~=value ', sb.makeDir('external'), 'sleep 3600');
+  ctx.tmux.newSession(' external name~=value ', sb.makeDir('external'), 'sleep 3600');
   const name = ctx.tmux.listSessions()[0].name;
   const [bin, ...args] = sb.ctx().tmux.attachArgv(name);
   const client = spawn(bin, ['-C', ...args], { env: sb.ctx().env, stdio: ['pipe', 'ignore', 'ignore'] });

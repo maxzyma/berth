@@ -727,3 +727,11 @@ child-agent fields and differing aliases, and keeps recovery acknowledgement on
 the start-event path. Persist newly bound IDs and their profiles before returning.
 Test each non-deferred adapter through a synthetic producer and real tmux, plus
 foreign IDs, subagent payloads, unrelated hook callers and pending recovery.
+
+### tmux name compatibility in attachment tests
+
+Native attachment fixtures must use names accepted across supported tmux
+versions. tmux 3.8 rejects Tab in session names while 3.6a accepts it. Use
+spaces, tilde and equals in native session names; retain control-character
+coverage in the field codec and directory-path tests. This keeps attachment
+transport coverage independent of upstream name validation.
