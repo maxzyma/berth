@@ -11,9 +11,13 @@ Local full regression: 301 passed, 8 opt-in live tests skipped, 0 failed.
 The CLI package file allowlist, VSIX packaging and public-content scan passed.
 Browser regression: 94 passed across 1440×900 and 1280×800. Prior visual
 review evidence is retained; this automated run is not native manual acceptance.
-Publication is in progress. The release uses the
-repository release workflow and publishes the same candidate through npm,
-GitHub Releases and the VS Code Marketplace.
+The [release workflow](https://github.com/maxzyma/berth/actions/runs/41664635558)
+completed successfully. npm `latest`, the
+[GitHub release](https://github.com/maxzyma/berth/releases/tag/v0.4.3) and the
+VS Code Marketplace report 0.4.3. The downloaded npm/GitHub CLI archives are
+byte-identical; Marketplace/GitHub extension payloads match. The official VSIX
+is installed locally. Hashes and accepted limits are in the
+[release receipt](assets/code-review/release-0.4.3.json).
 
 ## Accepted limits
 

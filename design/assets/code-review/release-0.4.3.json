@@ -1,0 +1,27 @@
+{
+  "version": "0.4.3",
+  "source_commit": "a698f355e2e73df6a615c5f6b382fe07addc2ad9",
+  "workflow": "https://github.com/maxzyma/berth/actions/runs/41664635558",
+  "channels": {
+    "npm_latest": "0.4.3",
+    "github": "https://github.com/maxzyma/berth/releases/tag/v0.4.3",
+    "marketplace_version": "0.4.3"
+  },
+  "validation": {
+    "local_passed": 301,
+    "local_skipped": 8,
+    "browser_passed": 94,
+    "ci": "success",
+    "npm_github_archive_equal": true,
+    "marketplace_github_extension_payload_equal": true
+  },
+  "sha256": {
+    "berthdev-berth-0.4.3.tgz": "cf0b2d6c34a49769599b056959d03b302eef9aeced09b08272818dcdb978b8a2",
+    "berth-vscode-0.4.3.vsix": "63620ff023a6ce6a02d5d8d27e4a81af9558296ffb77372ebb2c28c5ef5014d8"
+  },
+  "limits": [
+    "Native manual acceptance remains unverified.",
+    "Passive binding for already-running unbound Codex shared-daemon conversations remains unresolved.",
+    "Qoder missed-start binding remains deferred."
+  ]
+}
