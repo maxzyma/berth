@@ -123,3 +123,28 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Host product icons
+
+Native fallback artwork is read from installed application bundles on macOS
+and cached locally. These extracted assets are not included in Berth source
+or release packages.
+The bundle's identifier and `CFBundleIconFile` identify the original product
+asset; iTerm2 and Apple Terminal retain their separate application identities.
+Vendor ownership of these assets remains unchanged. Missing or unsupported
+artwork uses Berth's existing Codicons terminal fallback.
+
+`media/hosts/vscode.svg` is the unmodified blue Visual Studio Code product mark
+from Microsoft's [official icon archive](https://code.visualstudio.com/assets/branding/visual-studio-code-icons.zip),
+retrieved 2026-11-03. It identifies the connected host, not Berth or an endorsement.
+Microsoft owns the mark; [brand usage guidelines](https://code.visualstudio.com/brand)
+apply separately from Berth's MIT license. The transparent product mark replaces
+the macOS application tile and is shared across themes and platforms.
+
+## Berth-owned interface artwork
+
+`media/berth-brand-c.svg` is a project-authored vector interpretation of the selected
+AI-generated folded-b concept. `media/new-session.svg` is the separate creation
+action. Theme variants and the extension icon derive from these sources.
+These assets are covered by Berth's project license; they are not Codicons or
+vendor product marks.

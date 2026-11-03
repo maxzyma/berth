@@ -1,8 +1,9 @@
 /** Berth for VS Code: glue between the editor API and the controller (spec §6). */
+import { resolveHostIcons } from './hostIcons.js';
 import { notificationChannel, notifySystem } from './notifications.js';
 import * as vscode from 'vscode';
-import { hookInstallNotice, ADAPTERS, shellSplit, captureProfile, profileAtRoot, profileEnvironment, type AgentProfile, connections, HostRegistration, workspaceIdentity, createContext, waitForAttachment, type Context, type SessionRow } from '@berthdev/berth';
-import { sampleDoctor, sampleInventory, sampleSessions } from './inventory.js';
+import { hookInstallNotice, ADAPTERS, shellSplit, captureProfile, profileAtRoot, profileEnvironment, type AgentProfile, connections, handoffTerminalClients, HostRegistration, workspaceIdentity, createContext, waitForAttachment, type Context, type SessionRow } from '@berthdev/berth';
+import { resolveTerminalPids, sampleDoctor, sampleInventory, sampleSessions } from './inventory.js';
 import { createLayoutQueue } from './layoutRuntime.js';
 import { layoutProfileTemplate } from './layoutProfile.js';
 import { createHash, randomUUID } from 'node:crypto';
@@ -41,11 +42,12 @@ class TerminalHost implements Host {
     this.registration.update([...this.pids]);
   }
   claimStartup(): boolean { return this.registration.claimStartup(); }
-  /** The one session terminal that follows the selection, and the session it shows. */
+  /** Most recently selected terminal; older terminals retain their attachments. */
   private main?: { terminal: vscode.Terminal; session: string };
   /** Extra terminals opened beside it. */
   private readonly side = new Map<vscode.Terminal, string>();
   private pids = new Set<number>();
+  private pidsReady = false;
   private terminalIds = new Map<vscode.Terminal, number>();
   private sessionsByPid = new Map<number, string>();
 
@@ -57,11 +59,13 @@ class TerminalHost implements Host {
   }
 
   terminalPids(): ReadonlySet<number> { return this.pids; }
+  terminalPidsReady(): boolean { return this.pidsReady; }
 
   async updateTerminalPids(): Promise<void> {
     this.syncWorkspace();
     const terminals = [...vscode.window.terminals];
-    const pids = await Promise.all(terminals.map((terminal) => terminal.processId));
+    const { pids, ready } = await resolveTerminalPids(terminals.map(terminal => terminal.processId));
+    this.pidsReady = ready && terminals.length === vscode.window.terminals.length && terminals.every(terminal => vscode.window.terminals.includes(terminal));
     this.pids = new Set(pids.filter((pid, i): pid is number => pid !== undefined && !terminals[i].exitStatus && vscode.window.terminals.includes(terminals[i])));
     this.terminalIds = new Map(terminals.flatMap((terminal, i) => this.pids.has(pids[i]!) ? [[terminal, pids[i]!] as const] : []));
     const clients = [...connections(this.ctx.tmux).entries()];
@@ -87,6 +91,7 @@ class TerminalHost implements Host {
   }
 
   async openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string): Promise<void> {
+    const sources = role === 'main' && session ? await this.unownedClients(session) : [];
     const [shellPath, ...shellArgs] = argv;
     // No `name`: VS Code then follows the title the session sets (`${sequence}`).
     const terminal = vscode.window.createTerminal({
@@ -113,25 +118,53 @@ class TerminalHost implements Host {
       throw error;
     }
     if (role === 'main') {
-      this.main?.terminal.dispose();
+      if (this.main) this.side.set(this.main.terminal, this.main.session);
       this.main = { terminal, session };
     } else {
       this.side.set(terminal, session);
     }
     terminal.show();
+    if (sources.length) {
+      const pid = await terminal.processId;
+      if (!pid) throw new Error('Editor terminal identity is unavailable; original connections were preserved.');
+      handoffTerminalClients(this.ctx.tmux, session, pid, sources);
+    }
     // The session terminal's group is locked so files open beside it.
     if (role === 'main') void vscode.commands.executeCommand('workbench.action.lockEditorGroup');
   }
 
   async mainTerminalPid(): Promise<number | undefined> {
     if (!this.main || this.main.terminal.exitStatus) return undefined;
-    return this.main.terminal.processId;
+    return (await resolveTerminalPids([this.main.terminal.processId])).pids[0];
   }
 
-  showMain(session: string): void {
-    if (!this.main) return;
-    this.main.session = session;
-    this.main.terminal.show();
+  async focusExisting(session: string): Promise<boolean> {
+    await this.updateTerminalPids();
+    // Reuse owned Editor views; unowned local clients are handed off after confirmation.
+    const owned = new Set([...(this.main ? [this.main.terminal] : []), ...this.side.keys()]);
+    const candidates = vscode.window.terminals.filter(terminal => {
+      const pid = this.terminalIds.get(terminal);
+      return owned.has(terminal) && !terminal.exitStatus && pid !== undefined && this.sessionsByPid.get(pid) === session;
+    });
+    const terminal = candidates.find(candidate => candidate === vscode.window.activeTerminal) ?? candidates[0];
+    if (!terminal) return false;
+    if (this.main && this.main.terminal !== terminal) this.side.set(this.main.terminal, this.main.session);
+    this.side.delete(terminal);
+    this.main = { terminal, session };
+    terminal.show(false);
+    const sources = await this.unownedClients(session);
+    const pid = this.terminalIds.get(terminal);
+    if (sources.length && pid) handoffTerminalClients(this.ctx.tmux, session, pid, sources);
+    return true;
+  }
+
+  private async unownedClients(session: string) {
+    await this.updateTerminalPids();
+    if (!this.pidsReady) throw new Error('Terminal identification is still in progress. Try opening the session again.');
+    const owned = new Set([...(this.main ? [this.main.terminal] : []), ...this.side.keys()]);
+    const unownedPids = new Set([...this.terminalIds].filter(([terminal]) => !owned.has(terminal)).map(([, pid]) => pid));
+    return (connections(this.ctx.tmux, [], true).get(session) ?? []).filter(client =>
+      client.ancestors.some(pid => unownedPids.has(pid)));
   }
 
   mainSession(): string | undefined {
@@ -223,7 +256,8 @@ export function activate(context: vscode.ExtensionContext): void {
     if (message.type === 'new') void vscode.commands.executeCommand('berth.new');
     if (message.type === 'newIn') void startSession(message.cwd);
     if (message.type === 'detailsVisibility') void vscode.commands.executeCommand('setContext', 'berth.detailsVisible', message.visible);
-  });
+  }, vscode.Uri.joinPath(context.globalStorageUri, 'host-icons'));
+  void resolveHostIcons(context.globalStorageUri.fsPath).then(icons => view.setHostIcons(icons));
   context.subscriptions.push(view, vscode.window.registerWebviewViewProvider(VIEW_ID, view));
   host.focusSession = (name) => void controller.show(name).catch((error: Error) => vscode.window.showErrorMessage(`Berth: ${error.message}`));
   // Follow the shown session in the explorer when its folder is in the workspace.
@@ -272,6 +306,7 @@ export function activate(context: vscode.ExtensionContext): void {
             }
           }
           const sample = await sampleInventory(context.asAbsolutePath('dist/cli.mjs'), ctx.env);
+          await host.updateTerminalPids();
           const { tree: model } = controller.acceptInventory(sample.rows, sample.branches);
           view.update(model);
           view.message = undefined;
@@ -299,6 +334,7 @@ export function activate(context: vscode.ExtensionContext): void {
   command('berth.refresh', () => refresh());
   command('berth.dismissDetails', () => view.dismissDetails());
   command('berth.focus', guarded((name) => controller.show(name)));
+  command('berth.openHere', guarded((name) => controller.show(name)));
   command('berth.openToSide', guarded((name) => controller.openToSide(name)));
   command('berth.checkRecovery', guarded(async (name) => {
     const cli = context.asAbsolutePath('dist/cli.mjs');
@@ -325,7 +361,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       const chosen = await vscode.window.showQuickPick(findings.map((finding) => ({
         label: finding.session ?? 'Setup', detail: finding.problem, finding,
-      })), { title: 'Berth: Check Setup', matchOnDetail: true, placeHolder: 'Select a hook finding to install, or a live session to inspect' });
+      })), { title: 'Berth: Diagnose Problems', matchOnDetail: true, placeHolder: 'Select a hook finding to install, or a live session to inspect' });
       if (chosen?.finding.installHooksFor) await installHooks(chosen.finding.installHooksFor, chosen.finding.profile);
       else if (chosen?.finding.session && ctx.tmux.hasSession(chosen.finding.session)) await controller.show(chosen.finding.session);
       await refresh();
@@ -443,13 +479,18 @@ export function activate(context: vscode.ExtensionContext): void {
     const chosen = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, canSelectMany: false });
     return chosen?.[0]?.fsPath;
   };
+  const chooseSession = async (cwd: string | undefined) => {
+    if (!cwd) return undefined;
+    const custom = launcher();
+    const agent = launcherPicksAgent(custom) ? undefined : await pickAgent(true);
+    if (agent === undefined && !launcherPicksAgent(custom)) return undefined;
+    return { agent, cwd, custom, workspaceFolders: folders() };
+  };
   const startSession = async (cwd: string | undefined) => {
-    if (!cwd) return;
-    // A launcher without {agent} asks for the agent in the terminal itself.
-    const agent = launcherPicksAgent(launcher()) ? undefined : await pickAgent(true);
-    if (agent === undefined && !launcherPicksAgent(launcher())) return;
+    const chosen = await chooseSession(cwd);
+    if (!chosen) return;
     try {
-      await controller.newSession(agent, cwd, launcher(), folders());
+      await controller.newSession(chosen.agent, chosen.cwd, chosen.custom, chosen.workspaceFolders);
     } catch (error) {
       void vscode.window.showErrorMessage(`Berth: ${(error as Error).message}`);
     }
@@ -509,7 +550,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     view,
-    vscode.window.onDidCloseTerminal((t) => host.forget(t)),
+    vscode.window.onDidOpenTerminal(() => { void refresh(); }),
+    vscode.window.onDidCloseTerminal((t) => { host.forget(t); void refresh(); }),
     { dispose: (() => { const timer = setInterval(() => void refresh(false), REFRESH_MS); return () => clearInterval(timer); })() },
   );
   controller.startup().catch((error: Error) => {

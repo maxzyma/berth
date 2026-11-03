@@ -17,7 +17,7 @@ export { installIterm2, uninstallIterm2, reattach, attachCommand, autoLaunchScri
 export { clientAttached, PANE_VARIABLE } from './present/attach.js';
 export { toolsFor, resolveBinary } from './tools.js';
 
-export { connections, detachTerminalClients, waitForAttachment, processAncestry, type ConnectionInfo } from './tmux/connections.js';
+export { connections, detachTerminalClients, handoffTerminalClients, waitForAttachment, processAncestry, type ConnectionInfo } from './tmux/connections.js';
 
 export { HostRegistration, workspaceIdentity, registeredHosts, type WorkspaceIdentity } from './registry/hosts.js';
 

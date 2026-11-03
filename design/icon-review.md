@@ -1,7 +1,7 @@
 # Icon review
 
 Berth uses product marks to identify agents, Codicons to explain actions and
-state, and its own terminal-and-wave symbol for the extension. A session's
+state, and its own folded lowercase-b symbol for the extension. A session's
 accessible name includes the agent name; details also show that name as text.
 Unknown agents and shells use the terminal symbol.
 
@@ -20,13 +20,12 @@ local details-card changes. Exact candidate hashes are in
 | All eight agents used invented coloured letters; Codex was a green X. | Replace letters with sourced product marks; prefer official assets and document third-party fallbacks. |
 | Row and details rendered agent images separately. Unknown IDs could request nonexistent SVGs. | Use one allowlisted renderer, with a terminal fallback for unknown agents, shells and unmanaged sessions. |
 | Agent identity was absent from the row's accessible name. | Include the model's agent display name. Keep decorative marks hidden from assistive technology. |
-| `sync~spin` was passed directly into a web-font class, producing no glyph. | Split the glyph and modifier into `codicon-sync codicon-modifier-spin`; respect reduced motion. |
+| Activity and refresh shared arrow glyphs, and modifiers need separate font classes. | Share `loading~spin` between list and hover; separate modifier classes and respect editor/OS reduced motion. |
 | Outside-workspace folders had different symbols in the picker and sidebar. | Use `folder-library` in both. |
 
 The remaining functional glyphs retain their existing meanings and Codicons
 source. Waiting and unread indicators retain their text and state colours.
-Berth's terminal-and-wave mark is consistent between the sidebar and extension
-icon and remains unchanged.
+Berth's folded lowercase-b mark is shared by the sidebar and extension icon.
 
 ## Agent assets
 
@@ -95,3 +94,69 @@ behaviour in VS Code. The local package is installed without reloading the
 user's editor; installation hashes are recorded with the evidence.
 
 [Return to development](../README.md#development)
+
+## Host application icons
+
+Host icons prefer reviewed official transparent product marks, shared by list and
+hover rendering. VS Code uses its official blue SVG on light and dark backgrounds;
+other hosts retain original installed artwork without cropping or recoloring.
+Host slots remain 16px; VS Code is centered at 14px. The 4px membership dot
+plus its 1px border stays inside the slot; the border follows row hover,
+selection and detail backgrounds. Optical checks compare the combined mark,
+not just image dimensions.
+macOS bundle IDs are resolved through Spotlight and verified
+against the bundle metadata; `CFBundleIconFile` selects the original asset.
+The VS Code product mark is bundled with attribution; native app images are not distributed. The local PNG cache
+is invalidated by source path, size and modification time. Unsupported systems,
+unknown applications, unavailable assets and image load failures use the generic
+terminal glyph. This-window membership adds a small corner dot to the same
+host icon; it does not replace the host identity. Selection, active terminal
+and unread activity keep their independent markers.
+
+Sources: [iTerm2](https://iterm2.com/) and
+[Apple Terminal](https://support.apple.com/guide/terminal/welcome/mac) application
+bundles. Product names and full connection information remain in hover details
+and accessible labels; the list stays icon-only.
+
+Working uses a 12px arrowless Codicons loading ring in both list and hover,
+centered in the list's 16px activity slot. Editor
+and OS reduced-motion settings disable rotation; refresh actions retain arrows.
+
+Validation on 2026-11-03: eight identity/native-asset checks and 64 browser checks
+passed. The browser matrix covers two viewport sizes, light/dark host marks,
+functional icons in high-contrast themes, list/hover consistency, failed assets,
+and editor/OS reduced motion. Real rendered host views use the bundled VS Code
+SVG and locally extracted iTerm2/Terminal PNGs. Native editor reload remains manual.
+
+Optical-size follow-up: four host-icon browser cases and two shared-hover
+regressions passed. Rendered normal and selected marks were inspected on light
+and dark backgrounds at both configured viewport sizes. Local installation is
+ready for manual editor reload.
+
+### Size hierarchy
+
+| Role | Rendered size | Layout or target |
+|---|---|---|
+| Agent and folder identity | 16px | 16px slot |
+| Host identity | VS Code 14px; native assets 16px with their original padding | 16px slot |
+| Working / hover state glyph | 12px | List activity slot 16px |
+| Connection fallback / branch metadata | 12px | Fixed metadata alignment |
+| Hover copy | 13px | 22px control |
+| Hover close | 16px | 24px control |
+
+Native editor toolbar controls retain VS Code's own metrics. Readability,
+combined silhouette and hit targets are checked separately; original product
+artwork is not redrawn to force matching pixel coverage.
+
+Size-hierarchy follow-up: 22 icon/host browser checks passed, covering the full
+agent catalog, functional glyphs, dark/light/high-contrast themes, shared 12px
+Working glyphs, fixed slots, animation and both reduced-motion controls.
+
+### Berth brand and creation action
+
+The brand mark is a folded lowercase b, vectorized from the selected C concept.
+It identifies Berth in the sidebar and extension icon. The Editor creation
+button uses a separate session-bubble-plus glyph: brand identity and creation
+are not the same symbol. Both render at native toolbar size with explicit
+light/dark variants, and are distinct from neighboring split/layout controls.
+`media/berth-brand-c.svg` and `media/new-session.svg` are the vector sources.

@@ -133,34 +133,40 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Lines two and three are secondary: smaller and in the description colour. */
-.subtitle,
-.details {
-  min-height: 0;
-  margin-top: -4px;
-  padding: 0 0 2px 22px;
+/* Stable title markers; the supporting line contains only task text. */
+.supporting {
+  margin-top: 3px;
+  min-height: 18px;
+  padding-left: 22px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11.5px;
+  line-height: 18px;
+  gap: 8px;
+}
+.subtitle {
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  display: block;
-  color: var(--vscode-descriptionForeground);
-  font-size: 11.5px;
-  line-height: 16px;
 }
-
+.subtitle { flex: 1; }
 .details {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  flex: none;
+  gap: 4px;
   font-size: 11px;
-  opacity: 0.8;
+  color: var(--vscode-descriptionForeground);
 }
-
-.card:has(.details) .subtitle,
-.card:has(.subtitle) .details {
-  padding-bottom: 0;
-}
+.connection-count { flex: none; }
+.activity-slot { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 16px; }
+.details .codicon { flex: none; font-size: 12px; }
 
 .card .line:last-child {
   padding-bottom: 4px;
 }
+.card .supporting:last-child { padding-bottom: 5px; }
 
 /* Selected: text takes the selection colour, the secondary lines stay dimmer. */
 .list:focus-within .row.selected .subtitle,
@@ -211,6 +217,9 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
 .attention-unread .badge {
   color: var(--vscode-charts-blue);
 }
+
+/* Secondary activity glyphs share the hover chip's optical size. */
+.activity-slot .badge .codicon { font-size: 12px; width: 12px; height: 12px; }
 
 .state-working .badge {
   color: var(--vscode-descriptionForeground);
@@ -478,6 +487,10 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
 .hover-copy-status { padding: 0 12px 8px; font-size: 12px; overflow-wrap: anywhere; }
 
 .group-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
   color: var(--vscode-descriptionForeground);
   font-size: 11px;
   max-width: 42%;
@@ -487,7 +500,30 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   margin-left: 6px;
 }
 
+.group-branch .codicon { flex: none; font-size: 12px; }
+.branch-name { overflow: hidden; text-overflow: ellipsis; }
+
 .row.terminal-active { box-shadow: inset 2px 0 var(--vscode-focusBorder); }
 
 .hover-recovery { color: var(--vscode-textLink-foreground); background: none; border: 1px solid var(--vscode-button-border, transparent); padding: 4px; cursor: pointer; }
 .hover-recovery:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+
+.host-icon { width: 16px; height: 16px; object-fit: contain; flex: none; }
+
+.host-vscode { width: 14px; height: 14px; }
+
+.host-mark { display: inline-flex; position: relative; align-items: center; justify-content: center; width: 16px; height: 16px; flex: none; }
+.host-mark.current-window::after {
+  content: ''; position: absolute; right: 0; bottom: 0;
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--vscode-foreground);
+  border: 1px solid var(--vscode-sideBar-background);
+}
+.row:hover .host-mark.current-window::after { border-color: var(--vscode-list-hoverBackground); }
+.row.selected .host-mark.current-window::after { border-color: var(--vscode-list-inactiveSelectionBackground); }
+.list:focus-within .row.selected .host-mark.current-window::after { border-color: var(--vscode-list-activeSelectionBackground); }
+.hover .host-mark.current-window::after { border-color: var(--vscode-editorHoverWidget-background); }
+
+@media (prefers-reduced-motion: reduce) {
+  .codicon.codicon-modifier-spin { animation: none; }
+}

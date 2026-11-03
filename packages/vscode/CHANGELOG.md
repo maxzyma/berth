@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.3
+
+### Terminal navigation
+
+- Open sessions in dedicated Berth Editor terminals without switching another session.
+- Hand off existing connections in this VS Code window only after the Editor attachment is confirmed; preserve other sessions and external clients.
+- Open external sessions directly in the Editor without an extra confirmation dialog. Repeated selection reuses the existing Berth view.
+- Share current-folder and choose-folder creation through one Editor toolbar entry and the sidebar.
+
+### Interface and discovery
+
+- Keep connection icons and activity on the first row; show optional conversation context on the second row with more spacing.
+- Use distinct terminal-host artwork, a transparent VS Code mark, a smaller working indicator and reduced-motion support.
+- Replace the Berth brand mark and separate it from the new-session action icon.
+- Improve connection counts, process identity compatibility and native waiting-state reconciliation.
+- Rename the setup diagnostic entry to Diagnose Problems.
+
+### Upgrade notes and limits
+
+- Reload VS Code after updating. Selecting an existing local session transfers its unowned local connections into the Berth Editor; explicit side views and external connections remain.
+- Already-running, unbound Codex shared-daemon conversations still lack verified passive terminal-to-thread mapping. Live tmux attachment works; exact recovery after process loss requires a verified conversation binding.
+- Qoder missed-start binding remains deferred. Native editor, onboarding/upgrade and OS-notification manual acceptance remains incomplete; this release proceeds with the maintainer’s authorization.
+
 ## 0.4.2
 
 ### Session management

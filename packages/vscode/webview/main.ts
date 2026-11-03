@@ -1,3 +1,4 @@
+import { WORKING_ICON } from '../src/view/iconSemantics.js';
 /**
  * The sessions view in the webview (spec §6). Renders the model the
  * extension sends; reports clicks. Rendered into light DOM: VS Code's native
@@ -10,7 +11,7 @@ import type { GroupView, RowView, TreeView } from '../src/model.js';
 import type { FromView, MenuContext, ToView, ViewSettings } from '../src/view/protocol.js';
 import { ClipboardBridge } from './clipboard.js';
 import { HoverCard } from './hover.js';
-import { agentIcon } from './icons.js';
+import { agentIcon, codicon, hostIcon } from './icons.js';
 
 interface VsCodeApi {
   postMessage(message: FromView): void;
@@ -173,7 +174,9 @@ class BerthSessions extends LitElement {
       <span class="twistie codicon codicon-chevron-${open ? 'down' : 'right'}"></span>
       <span class="icon codicon codicon-${icon}"></span>
       <span class="name">${group.label}</span>
-      ${'branch' in group && group.branch ? html`<span class="group-branch">${group.branch}</span>` : nothing}
+      ${'branch' in group && group.branch ? html`<span class="group-branch" role="img" aria-label=${`Current worktree branch: ${group.branch}`}>
+        <i class="codicon codicon-git-branch" aria-hidden="true"></i><span class="branch-name">${group.branch}</span>
+      </span>` : nothing}
       ${attention ? html`<span class="badge">${attention === 'waiting' ? '!' : '•'}</span>` : nothing}
       ${other
         ? nothing
@@ -193,7 +196,7 @@ class BerthSessions extends LitElement {
   private card(row: RowView, level: number, focused: boolean): TemplateResult {
     const context: MenuContext = { webviewSection: 'session', session: row.name, berthItem: row.contextValue };
     const selected = this.selectedSession === row.name;
-    const words = [row.name, row.hover.find(line => line.kind === 'title')?.sub, row.agent ? `${STATE_WORDS[row.icon]}` : STATE_WORDS.unmanaged, row.subtitle].filter(Boolean).join(', ');
+    const words = [row.name, row.hover.find(line => line.kind === 'title')?.sub, row.agent ? `${STATE_WORDS[row.icon]}` : STATE_WORDS.unmanaged, row.subtitle, row.details, row.active ? 'Active terminal' : ''].filter(Boolean).join(', ');
     return html`<div
       class="row card level-${level} state-${row.icon} ${row.attention ? `attention-${row.attention}` : ''} ${selected ? 'selected' : ''} ${row.active ? 'terminal-active' : ''}"
       id=${`s:${row.name}`}
@@ -215,10 +218,15 @@ class BerthSessions extends LitElement {
       <div class="line title">
         ${agentIcon(row.agent, this.settings?.agentIcons)}
         <span class="name">${row.label}</span>
-        ${row.badge ? html`<span class="badge">${row.badge}</span>` : nothing}
+        ${this.settings?.details && row.details ? html`
+          <span class="details" role="img" aria-label=${row.details}>
+            ${hostIcon(row.location.icon, row.location.hostApplication, this.settings?.hostIcons, row.location.currentWindow)}
+            ${row.location.additional ? html`<span class="connection-count">+${row.location.additional}</span>` : nothing}
+          </span>` : nothing}
+        <span class="activity-slot">${row.badge ? html`<span class="badge" role="img" aria-label=${STATE_WORDS[row.icon]}>${row.icon === 'working' ? codicon(WORKING_ICON) : row.badge}</span>` : nothing}</span>
       </div>
-      ${row.subtitle ? html`<div class="line subtitle ${row.subtitleKind}">${row.subtitle}</div>` : nothing}
-      ${this.settings?.details && row.details ? html`<div class="line details">${row.details}</div>` : nothing}
+      ${row.subtitle ? html`
+        <div class="line supporting"><span class="subtitle ${row.subtitleKind}">${row.subtitle}</span></div>` : nothing}
     </div>`;
   }
 

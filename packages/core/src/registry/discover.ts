@@ -4,7 +4,7 @@ import { formatFields, readFields } from '../tmux/fields.js';
 import { processDirectory } from '../process-directory.js';
 import { processArguments } from '../process-arguments.js';
 import { shellQuote, shellSplit } from '../shell.js';
-import { processLifetime } from '../process-owner.js';
+import { processLifetime, processOwnerAlive } from '../process-owner.js';
 import { withLock } from '../restore/lock.js';
 import { spawnSync } from 'node:child_process';
 import type { Context } from '../context.js';
@@ -164,8 +164,15 @@ function discoverLocked(ctx: Context): string[] {
           ctx.tmux.setMeta(s.name, { bindingIssue: '', argv: found.argv, argvVerified: '1' });
           stamped.push(s.name);
         }
+        const sameLifetime = !!s.meta.producerLifetime && processOwnerAlive(found.pid, s.meta.producerLifetime, Date.now());
+        if (sameLifetime && s.meta.agent === found.agent && s.meta.producerPane === found.pane
+          && (!s.meta.bindingIssue || s.meta.bindingIssue === PRODUCER_CHANGED)
+          && (s.meta.producerLifetime !== lifetime || s.meta.bindingIssue === PRODUCER_CHANGED)) {
+          ctx.tmux.setMeta(s.name, { producerLifetime: lifetime, bindingIssue: '' });
+          stamped.push(s.name);
+        }
         if (s.meta.agent !== found.agent || (s.meta.producerPane && s.meta.producerPane !== found.pane)
-          || (s.meta.producerLifetime && s.meta.producerLifetime !== lifetime)) {
+          || (s.meta.producerLifetime && !sameLifetime)) {
           const issue = PRODUCER_CHANGED;
           if (s.meta.bindingIssue !== issue) {
             ctx.tmux.setMeta(s.name, { bindingIssue: issue });

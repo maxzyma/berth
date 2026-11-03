@@ -9,10 +9,11 @@ export interface ViewSettings {
   indentGuides: 'none' | 'onHover' | 'always';
   /** `berth.hover.delay`, ms. */
   hoverDelay: number;
-  /** `berth.view.details`: the optional third line. */
+  /** `berth.view.details`: compact connection markers. */
   details: boolean;
   /** Base URI of media/agents, for agent icons. */
   agentIcons: string;
+  hostIcons?: Record<string, string>;
 }
 
 export type ToView =

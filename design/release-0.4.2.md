@@ -41,8 +41,9 @@ findings were verified evidence hashes. Forty evidence images received OCR
 checks, with a flagged fixture reviewed visually. The subsequent 77-commit
 publication scan retained only those same hash false positives.
 
-Historical public attribution remains unchanged; new release commits and tags
-use GitHub noreply. No historical rewrite or old-version withdrawal was indicated
+Historical public attribution remains unchanged. Author email addresses are
+public attribution, not credentials; subsequent commits use the maintainer’s
+chosen personal email. No historical rewrite or old-version withdrawal was indicated
 by the observed findings. See the [audit receipt](assets/code-review/open-source-audit.json)
 for scope and limits.
 

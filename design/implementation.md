@@ -23,6 +23,13 @@ failed staging files. JSON, TOML, generated plugin and tmux configuration writer
 Tmux block parsing validates standalone paired markers before publication; live
 hook updates propagate errors with the persisted-versus-runtime distinction.
 
+Connection inventory derives counts and client identities from one successful
+`list-clients` result. Strict inventory sampling rejects client query failures;
+window PID readiness remains separate from connection presence. Refresh bounds
+PID collection and resamples it after inventory acquisition. Regression cases
+cover zero stale counts with live clients, pending PIDs, failed client queries,
+and stable marker placement with working/waiting/unread states.
+
 ## 1. Stack
 
 | Concern | Choice |
@@ -597,13 +604,25 @@ manual cases are recorded as checked, and the de-identification check passes.
 
 - **V1** The session view shows the cards of spec §6, grouped by cwd: line
   one the agent's icon, name and state badge; line two the notification while
-  waiting or done, else the topic; line three branch and connection when
-  `berth.view.details` is on; the hover card's lines each with an icon; the
+  waiting or done, else the topic. Connection markers stay on line one's right,
+  before state/unread markers, when `berth.view.details` is on. No third or empty
+  reserved line; connection and activity metadata remain icon-only at every width, with numeric
+  client counts and a fixed activity slot. Full text belongs to hover details. Window membership, active
+  terminal and selection are independent; hover retains full connection values.
+  The hover card's lines each have an icon; the
   waiting-count badge.
-- **V2** Selecting a row switches the one session terminal to that session
-  (rebuilding a stopped one first), or opens it when there is none; open to
-  the side adds a second terminal; the explorer follows only folders inside
-  the workspace.
+- **V2** Selecting a row focuses its matching Berth Editor terminal or opens
+  one without switching/disconnecting another session. For unowned connections
+  in this window, confirm the Editor attachment before detaching captured source
+  clients; revalidate source PID/TTY and destination session before each detach.
+  Failed attachment preserves original connections; switched/disappeared sources
+  are skipped. Do not dispose source terminals or kill their shells or sessions.
+  External connections open directly in a local Editor without a confirmation
+  prompt, preserving external clients. Repeated selection reuses the owned view;
+  handoff must not leave an incidental +1. Genuine external or explicit side-view
+  connections remain counted. Unknown PIDs defer attachment. Stopped sessions
+  rebuild first; open to the side explicitly adds a view. Agent identity does
+  not change these rules. Explorer follows only local folders.
 - **V3** New / attach / detach / rename / kill / adopt act on the test server;
   a custom launcher runs in the session terminal in the chosen folder with its
   placeholders filled; the terminal then learns its session from tmux, and a

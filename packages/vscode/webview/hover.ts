@@ -1,5 +1,5 @@
 /** A single owner for details visibility, pointer transit, focus and source updates. */
-import { agentIcon, codicon } from './icons.js';
+import { agentIcon, codicon, hostIcon } from './icons.js';
 import type { HoverLine } from '../src/model.js';
 import type { ViewSettings } from '../src/view/protocol.js';
 import { horizontalPosition, verticalPosition, inBridge, inside, type Point } from './hoverPosition.js';
@@ -123,7 +123,7 @@ export class HoverCard {
     if (this.pending) this.pending = request;
     if (!this.active) return;
     this.active = request;
-    const signature = JSON.stringify([request.lines, request.settings?.agentIcons, request.agent]);
+    const signature = JSON.stringify([request.lines, request.settings?.agentIcons, request.settings?.hostIcons, request.agent]);
     if (signature !== this.signature) this.render(request, true);
     this.position();
   }
@@ -141,7 +141,7 @@ export class HoverCard {
   }
 
   private render(request: Request, preserve = false): void {
-    this.signature = JSON.stringify([request.lines, request.settings?.agentIcons, request.agent]);
+    this.signature = JSON.stringify([request.lines, request.settings?.agentIcons, request.settings?.hostIcons, request.agent]);
     const focused = preserve && this.content.contains(document.activeElement) ? document.activeElement : undefined;
     const label = focused?.getAttribute('aria-label');
     const value = focused instanceof HTMLElement ? focused.dataset.copyValue : undefined;
@@ -264,7 +264,7 @@ export class HoverCard {
         if (section.childElementCount) out.push(section);
         section = this.div('hover-meta');
       } else {
-        section.append(this.line(line));
+        section.append(this.line(line, settings));
         if (line.checkRecoveryFor) {
           const button = document.createElement('button');
           button.type = 'button';
@@ -304,9 +304,9 @@ export class HoverCard {
     return head;
   }
 
-  private line(line: HoverLine): HTMLElement {
+  private line(line: HoverLine, settings?: ViewSettings): HTMLElement {
     const row = this.div(`hover-line ${line.kind ?? ''}`);
-    if (line.icon) row.append(this.icon(line.icon));
+    if (line.icon) row.append(hostIcon(line.icon, line.hostApplication, settings?.hostIcons, line.currentWindow));
     const text = this.span('text', line.full ?? line.text);
     row.append(text);
     if (line.copyValue !== undefined) row.append(this.copyButton(line.copyValue, line.copyLabel ?? 'value'));

@@ -23,7 +23,7 @@ code --install-extension berthdev.berth   # VS Code Marketplace; the .vsix is al
 Then, once per machine:
 
 ```sh
-berth hooks install claude    # once per agent you use; Check Setup reports missing hooks
+berth hooks install claude    # once per agent you use; Diagnose Problems reports missing hooks
 berth tmux install            # snapshot, bell and attach hooks
 berth iterm2 install          # optional: Berth for iTerm2
 ```
@@ -38,7 +38,7 @@ Agent recovery requires a bound conversation ID and its profile. A resume reques
 only when the agent acknowledges that ID; unavailable confirmation is shown.
 
 In VS Code, **Find a Session** searches names, conversation titles and folders.
-**Check Setup** explains missing prerequisites and recovery limits. Details let
+**Diagnose Problems** explains missing prerequisites and recovery limits. Details let
 you copy full values. Failed or unconfirmed recovery offers **Retry Recovery**;
 a stopped record can use **Choose Recovery Folder** after its folder moves.
 Legacy records without a profile offer **Choose Recovery Profile**, or use
@@ -134,8 +134,8 @@ session journey, architecture and remaining host acceptance limits.
 
 ## Releasing
 
-See the [0.4.2 release notes](packages/vscode/CHANGELOG.md) and
-[release preparation](design/release-0.4.2.md) for scope and outstanding gates.
+See the [0.4.3 release notes](packages/vscode/CHANGELOG.md) and
+[release preparation](design/release-0.4.3.md) for scope and outstanding gates.
 
 Set the same version in `packages/core` and `packages/vscode`, commit, then
 push a tag `vX.Y.Z` (or `vX.Y.Z-rc.N` for a prerelease under npm's `next`).

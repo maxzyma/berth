@@ -8,9 +8,10 @@ function bootIdentity(): string {
   if (boot) return boot;
   if (process.platform === 'linux') boot = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
   else {
-    const result = spawnSync('sysctl', ['-n', 'kern.boottime'], { encoding: 'utf8', timeout: 1000, killSignal: 'SIGKILL' });
+    const result = spawnSync('sysctl', ['-n', 'kern.bootsessionuuid'], { encoding: 'utf8', timeout: 1000, killSignal: 'SIGKILL' });
     if (result.status !== 0) throw new Error('Cannot verify machine boot identity.');
     boot = result.stdout.trim();
+    if (!/^[0-9a-f-]{36}$/i.test(boot)) throw new Error('Invalid machine boot identity.');
   }
   return boot;
 }
@@ -38,5 +39,18 @@ export function processLifetime(pid: number): ProcessLifetime | undefined {
 export function processOwnerAlive(pid: number, lifetime: string | undefined, recordedAt: number): boolean {
   const current = processLifetime(pid);
   if (!current) return false;
-  return lifetime ? current.key === lifetime : current.bornAt <= recordedAt;
+  if (!lifetime) return current.bornAt <= recordedAt;
+  if (current.key === lifetime) return true;
+  return legacyMacOwnerMatches(pid, lifetime, current.bornAt);
+}
+
+/** Compatibility for already-running hosts and lock owners written before boot UUIDs. */
+function legacyMacOwnerMatches(pid: number, lifetime: string, bornAt: number): boolean {
+  if (process.platform !== 'darwin') return false;
+  const legacy = /^\{ sec = (\d+), usec = \d+ \} .*:(\d+):(\d+)$/.exec(lifetime);
+  if (!legacy || Number(legacy[2]) !== pid || Number(legacy[3]) !== bornAt) return false;
+  // Old records contain a wall-clock boot estimate, which also drifts in whole
+  // seconds. Their exact PID and process birth remain the migration anchor.
+  // New UUID records never take this compatibility path.
+  return true;
 }

@@ -185,7 +185,7 @@ test('host dismissal: Escape route works without focusing the webview', async ({
   await expect(f.locator('[id="s:04-session"]')).toBeFocused();
 });
 
-test('rapid switching, folder details and outside click keep the correct owner', async ({ page }) => {
+test('rapid switching, folder details and outside click keep the correct owner', async ({ page }, info) => {
   const f=await load(page);
   await f.locator('[id="s:03-session"]').hover();
   await f.locator('[id="s:04-session"]').hover();
@@ -198,8 +198,12 @@ test('rapid switching, folder details and outside click keep the correct owner',
   expect(messages).toEqual([{type:'show',session:'01-session'}]);
   await f.locator('body').evaluate(()=>sendModel(fixture,false));
   const group=f.locator('.group').first();
+  await expect(group.locator('.codicon-git-branch')).toHaveCount(1);
+  await expect(group.locator('.group-branch')).toHaveAttribute('aria-label', 'Current worktree branch: feature/session-preview');
+  await page.locator('iframe').screenshot({ path: info.outputPath('branch-heading.png') });
   await group.hover();await page.clock.runFor(100);
   await expect(f.getByRole('dialog')).toContainText('/workspace/product');
+  await expect(f.getByRole('dialog')).toContainText('Current worktree branch: feature/session-preview');
   await group.click();
   await expect(f.getByRole('dialog')).toBeHidden();
 });

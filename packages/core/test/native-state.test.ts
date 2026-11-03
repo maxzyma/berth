@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { geminiCursor } from '../src/agents/gemini-state.js';
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,7 +7,7 @@ import { join } from 'node:path';
 import { sandbox, waitFor } from './helpers.js';
 import { captureProfile } from '../src/agents/profile.js';
 import { processLifetime } from '../src/process-owner.js';
-import { sessionProducers } from '../src/registry/discover.js';
+import { discover, PRODUCER_CHANGED, sessionProducers } from '../src/registry/discover.js';
 import { shellQuote } from '../src/shell.js';
 import { applyNativeState, nativeIdle, observeNativeState, prepareNativeState } from '../src/registry/native-state.js';
 
@@ -131,4 +132,33 @@ test('CR59 Gemini cancellation reconciles only the verified unchanged producer a
   assert.deepEqual(observeNativeState(ctx, prepareNativeState(ctx)), [], 'old cancellation predates new cursor');
   ctx.tmux.setMeta('gemini', { producerLifetime: 'different-process' });
   assert.deepEqual(prepareNativeState(ctx), []);
+});
+
+test('legacy producer identity normalizes without losing the conversation and native idle clears working', { skip: process.platform !== 'darwin' }, async t => {
+  const f = await fixture(t);
+  const producer = sessionProducers(f.ctx, 'active')[0];
+  const boot = spawnSync('sysctl', ['-n', 'kern.boottime'], { encoding: 'utf8' });
+  assert.equal(boot.status, 0);
+  const legacy = `${boot.stdout.trim().replace(/usec = \d+/, 'usec = 0')}:${producer.pid}:${processLifetime(producer.pid)!.bornAt}`;
+  f.ctx.tmux.setMeta('active', { producerLifetime: legacy, bindingIssue: PRODUCER_CHANGED });
+  discover(f.ctx);
+  assert.equal(f.meta().bindingIssue, undefined);
+  assert.equal(f.meta().conversation, 'exact-id');
+  assert.equal(f.meta().producerLifetime, processLifetime(producer.pid)!.key);
+  applyNativeState(f.ctx, observeNativeState(f.ctx, prepareNativeState(f.ctx)));
+  assert.equal(f.meta().state, undefined);
+  f.ctx.tmux.setMeta('active', { producerLifetime: legacy, bindingIssue: 'unrelated profile conflict' });
+  discover(f.ctx);
+  assert.equal(f.meta().bindingIssue, 'unrelated profile conflict');
+});
+
+test('verified native waiting ends the working indicator without answering the agent', async t => {
+  const f = await fixture(t);
+  writeFileSync(f.report, JSON.stringify([{ ...f.record, status: 'waiting' }]));
+  applyNativeState(f.ctx, observeNativeState(f.ctx, prepareNativeState(f.ctx)));
+  assert.equal(f.meta().state, 'waiting');
+  assert.equal(f.meta().conversation, 'exact-id');
+  f.ctx.tmux.setMeta('active', { note: 'Keep the permission question' });
+  assert.deepEqual(observeNativeState(f.ctx, prepareNativeState(f.ctx)), []);
+  assert.equal(f.meta().note, 'Keep the permission question');
 });

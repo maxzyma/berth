@@ -100,7 +100,7 @@ retains the earlier fingerprints and captures.
 
 | Journey | Candidate behavior | Remaining acceptance |
 |---|---|---|
-| Install and understand readiness | Native Check Setup uses core findings; hooks install through the persistent bundled runtime. | Clean install, upgrade and actual hook invocation. T7/T9 |
+| Install and understand readiness | Native Diagnose Problems uses core findings; hooks install through the persistent bundled runtime. | Clean install, upgrade and actual hook invocation. T7/T9 |
 | Discover existing work | Inspect independent producers across panes; reject conflicting adapter, pane, process or conversation events. Unknown process formats cannot replace an existing ID. | Installed agent versions and unsupported-format boundaries. T1/T8 |
 | Identify work | Prefer task/title context, remove duplicate descriptions, show the shared branch once and copy full values. | Native zoom and screen-reader use. T5 |
 | Open a session | Confirm the exact terminal client before clearing unread or changing ownership. | Real editor attachment and failure feedback. T3 |

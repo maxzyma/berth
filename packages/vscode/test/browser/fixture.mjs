@@ -103,7 +103,7 @@ export async function serveFixture() {
       } else if (url.pathname === '/view') {
         res.setHeader('Content-Type', 'text/html');
         res.end(documentHtml(url.searchParams.get('theme')));
-      } else if (/^\/assets\/(main\.(js|css)|codicon\.(css|ttf))$/.test(url.pathname) || /^\/agents\/[a-z-]+\.(svg|png)$/.test(url.pathname)) {
+      } else if (/^\/assets\/(main\.(js|css)|codicon\.(css|ttf))$/.test(url.pathname) || /^\/(agents|hosts)\/[a-z-]+\.(svg|png)$/.test(url.pathname)) {
         const relative = url.pathname.startsWith('/assets/') ? `../../dist/webview/${url.pathname.split('/').pop()}` : `../../media${url.pathname}`;
         const file = fileURLToPath(new URL(relative, import.meta.url));
         res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.svg') ? 'image/svg+xml' : file.endsWith('.png') ? 'image/png' : 'font/ttf');

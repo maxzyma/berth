@@ -1,5 +1,87 @@
 # Whole-code review: findings and repairs
 
+## Unified Editor creation entry — 2026-11-03
+
+The Editor toolbar exposes one Berth creation dropdown before the native plus
+(`navigation@-1`). It invokes the same current-folder and choose-folder commands
+as the sidebar. Duplicate native terminal-profile contributions, providers,
+activation events and adoption callbacks were removed. Editor/tab context menus
+keep direct commands; terminal content right-click has no creation entry.
+Blank tab-bar and empty-group context injection remains unavailable through
+stable APIs. The native plus stays an ordinary-terminal surface.
+
+The Berth brand uses the selected folded lowercase-b design, vectorized as a
+project asset. The new-session toolbar action uses a separate bubble-plus glyph.
+This replaces both the earlier wave/terminal mark and the interim layout icon.
+Sidebar and extension icon share the brand geometry; the toolbar action has
+explicit light/dark SVGs. Real 16px previews were rendered on both backgrounds;
+native placement remains subject to manual reload acceptance.
+
+The diagnostic menu and picker say “Diagnose Problems”; existing command IDs
+are retained for shortcuts. Prior native-profile validation applies to the
+removed implementation, not a retained public entry point.
+
+## Stable terminal navigation — 2026-11-03
+
+Baseline: `47fec56` plus local changes, rechecked at 23:07 +08:00.
+Spec §6 defines the navigation contract. The previous preserve-and-duplicate
+Panel policy is superseded by local connection handoff.
+
+Selection reuses an owned Editor terminal or attaches a new one. After confirming
+its PID and exact session, it detaches captured unowned clients from this VS Code
+window. Each source PID/TTY and the destination are revalidated before detach;
+changed sources are skipped. Shells, agent sessions, owned side views and external
+clients are preserved. Failed attachment leaves original clients connected.
+No terminal is identified by display name or moved using ambiguous active-Panel
+commands. This removes incidental +1 connections without hiding real multi-client
+counts. Selecting external sessions opens an Editor attachment directly, without
+a confirmation dialog. Pending PID identification defers attachment.
+
+Build and 13 targeted checks passed: seven core identity/failure checks and six
+navigation/handoff checks, including a real isolated tmux transfer preserving
+the external client and live session. Native VS Code focus/tab lifecycle remains
+pending manual acceptance.
+
+## Connection identity and compact rows — 2026-11-03
+
+Baseline: `47fec56b5643f5848d4e8097547986a2aa249839` plus local changes,
+rechecked at 14:02 +08:00. The specification owns the connection and row contracts.
+
+- Live client identities and displayed counts previously came from separate
+  tmux reads. A zero older count plus an unmatched new client could render as
+  detached. Counts now come from the client sample; positive client evidence
+  wins over a conflicting count. Strict inventory queries reject read failures.
+- One pending terminal PID could block every subsequent refresh. PID reads now
+  have a bounded wait, preserve an explicit readiness result, and cannot mutate
+  an already-published sample when a late promise resolves. Terminal lifecycle
+  events request refresh, and PID identity is sampled again after inventory.
+- A live registered host was rejected because macOS `kern.boottime` differed
+  in microseconds between processes. Boot UUIDs now identify the boot session.
+  Compatibility checks for older host/lock records require exact PID and process
+  birth; their old boot-clock estimate can drift in both seconds and microseconds. Read-only native checks accepted the same live host and
+  classified its attached session as this-window after this change.
+- Connection markers stay on the title line. Window and terminal glyphs are
+  shared with hover details; working uses a spinning glyph instead of a menu-like
+  ellipsis. Empty subtitles reserve no line. Connection and activity metadata are icon-only
+  at every width; hover supplies text. A fixed activity slot prevents marker
+  movement when state changes. Numeric connection counts remain visible.
+
+Regression coverage lives in `connections.test.ts`, `followup-regressions.test.ts`,
+`identity.test.ts`, `inventory.test.ts` and the browser identity/icon suites.
+The exact sequence behind the earlier screenshot was not recorded; the live
+host rejection and synthetic inconsistent-sample path are independently verified.
+The initial connection repair full run passed 284 tests with seven opt-in native
+cases skipped. Subsequent legacy producer migration and native waiting handling
+passed all 30 affected tests; icon-only rows passed 60 browser checks. A verified
+native waiting record had been ignored by the idle-only reconciler; native
+waiting now stops the working animation without answering the agent prompt.
+Browser checks: 78 passed across the existing two viewport projects; eight icon
+cases were rerun after narrowing an ambiguous test selector. The local extension
+and both existing CLI installations were checked against their package payloads.
+Native editor reload and interactive acceptance remain manual.
+
+
+
 ## CLI first-install coverage — 2026-11-02
 
 Baseline: `dfb47bf8c321121b263cfc71016ffc0cc21b6a8a` plus working-tree changes.
@@ -50,6 +132,19 @@ context-menu diagnosis and stopped-session recovery remain available.
 expose a verified TUI-to-thread mapping in the inspected process descriptors,
 logs or protocol interfaces. The current conversation remains unbound. Synthetic
 writer fixtures do not establish acceptance for this native configuration.
+
+Read-only recheck on 2026-11-03 (Berth `47fec56` plus local changes): the
+running daemon reports 0.166.0. Its freshly generated experimental schema exposes
+thread identity/status but no verified local TUI PID-to-active-thread relation.
+Local log storage includes process identity, but the sampled live TUI records
+have no structured thread identity; daemon thread records do not identify which
+terminal displays them. Thread attachments inspected here describe worktrees and
+pull requests, not terminal connections. This evidence does not establish that
+all possible native integration paths are unavailable. A passive solution still
+needs authoritative client-to-current-thread evidence; directory recency and
+loaded-thread membership are insufficient. The official
+[App Server protocol](https://learn.chatgpt.com/docs/app-server) documents thread
+listing and reading, which alone do not supply that missing relation.
 
 Validation: 96 affected core/controller tests and 14 browser checks passed.
 The browser checks covered both required viewport sizes; rendered live details
@@ -777,7 +872,7 @@ through real isolated tmux. This verifies mapping and integration, not Cursor's
 native event delivery. The installed CLI is 2025.09.12-4852336; no native session
 was invoked for this repair.
 
-### CR51 — P2: Check Setup lacked agent-version capability diagnosis (repaired; native setup pending)
+### CR51 — P2: Diagnose Problems lacked agent-version capability diagnosis (repaired; native setup pending)
 
 The original finding at the baseline above described a tmux-only version check.
 The current implementation queries standard launchers with bounded `--version`
@@ -1588,7 +1683,7 @@ is stable before and after a socket directory is created, including symlinked
 ancestors. Tmux subprocesses use the same context environment as state lookup.
 
 Conventional system-directory keys remain compatible. Ambiguous custom-endpoint
-basename history is retained but not silently imported: Check Setup reports its
+basename history is retained but not silently imported: Diagnose Problems reports its
 location and explicit restore is available after source verification. Tests cover
 different same-basename endpoints, equivalent selectors, new directories,
 conventional keys and legacy detection.

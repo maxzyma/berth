@@ -256,7 +256,28 @@ launcher or agent hook, not terminal discovery.
 ### 4.2.2 Live connections
 
 Connections come from the current tmux client inventory, independently of
-origin and agent state. Each connection has its client PID and terminal;
+origin and agent state. The displayed client count and client identities use the
+same successful client sample. A failed sample is not an empty sample: retain
+the last inventory with its existing refresh-error indication. A positive
+client identity always proves a connection even if an older count says zero.
+Window membership is a separate check. Until terminal PIDs or process ancestry
+are available, a connected session's window may be unknown; it is never detached
+for that reason. Terminal PID collection is bounded so one unresolved terminal
+cannot block the inventory refresh. Terminal lifecycle changes request refresh.
+Host lifetime identity uses the OS boot-session identifier and process birth,
+not a formatted boot-time clock reading. On macOS this is `kern.bootsessionuuid`;
+on Linux it is `/proc/sys/kernel/random/boot_id`. Legacy macOS keys have no stable boot identifier; their upgrade compatibility
+requires the exact live PID and process birth, not the drifting boot-clock
+seconds or microseconds. New UUID records require the boot UUID as well. The same
+compatibility applies to agent-producer identity and native activity checks.
+Discovery may normalize an old identity and clear only the producer-changed
+flag when the single live agent, pane, PID and process birth all match; it must
+preserve conversation/profile identity and unrelated binding issues.
+A verified Claude native `waiting` observation changes working to waiting for
+user input; `idle` clears activity. This includes native choice prompts such as
+usage-limit dialogs. Neither observation changes the conversation or answers
+an agent prompt. Matching requires the exact PID, conversation and process birth.
+Each connection has its client PID and terminal;
 verified application names are shown when available. A matching live host
 registration supplies its application name before process-name or terminal-type
 fallbacks; an unrelated registration supplies neither application nor workspace. A frontend determines
@@ -264,11 +285,11 @@ which clients descend from terminals in its own window, including terminals
 not created by Berth. Unknown hosts remain “Other terminal”; a working
 directory is not evidence of a window identity.
 
-The row shows “This window”, a known application name, “Other terminal”,
-“Detached”, or “Stopped”. Multiple clients show a count of additional
-connections; details enumerate every client. Detached means the live session
-has no attached client, not that its agent has stopped. Missing client details
-retain the attached count and an unknown-terminal label, never a guessed origin.
+The row uses icons only for connection and activity metadata; application names
+and status explanations appear in hover details and accessible labels, not as
+list text. Additional connections use a numeric count. Detached means the live
+session has no attached client, not that its agent has stopped. Missing client
+identity is not evidence of detachment.
 
 Resume argument preservation parses option arity before selecting options to
 replay. Values of discarded options cannot become flags. Retained variadic
@@ -354,7 +375,7 @@ A frontend only does what its host alone can do:
 | | Berth for VS Code (§6) | Berth for iTerm2 (§7) |
 |---|---|---|
 | Uses the core | bundled library for actions; bundled CLI for asynchronous sampling | through the CLI, from an AutoLaunch script |
-| Shows sessions | its sessions view and one session terminal | the panes iTerm2 restores |
+| Shows sessions | its sessions view and per-session terminals | the panes iTerm2 restores |
 | Layout | VS Code's own parts, set by the layout preset | iTerm2's own window restoration |
 | Asks the core to | list, show, rebuild, adopt, stamp origin `vscode` | reattach a pane's session |
 | State on terminals | core presenter, VS Code sequences | core presenter, iTerm2 sequences |
@@ -655,7 +676,7 @@ panes remain untouched and receive a deferred-reattachment message in the script
   retains its default/named keys for compatibility. Other socket directories use
   a canonical full-endpoint hash; `-L` and equivalent `-S` resolve identically.
   Ambiguous legacy basename-only state for custom endpoints is not automatically
-  imported; explicit restore remains available after the user verifies its source. Check Setup
+  imported; explicit restore remains available after the user verifies its source. Diagnose Problems
   reports the legacy location so it is not silently mistaken for an empty history.
 - Contents:
   - `sessions.json` — one entry per managed session: name, cwd, agent, argv,
@@ -774,15 +795,49 @@ Berth runs with no config file.
     terminal / detached / stopped — in snapshot, not live); conversation bound or not; hooks.
   - **Card.** Line one: the agent's sourced product mark (a
     terminal icon for a shell or an unrecognised agent), the session name, and a state badge on the
-    right (working `⋯`, waiting `!`, unread `•`). Line two, the subtitle: the
+    right (working activity glyph, waiting `!`, unread `•`). Line two, the subtitle: the
     latest notification while waiting or done (what the agent needs from the
     user), otherwise the topic — the first line of the user's latest prompt
     (§4.2 hooks), then the exact-bound conversation title when no task text is
-    available. Duplicate name/title/task text is suppressed. An optional third
-    line (`berth.view.details`, on by default) shows connection and any recovery
-    limitation. The shared Git branch appears once beside the folder heading (in the native
+    available. Duplicate name/title/task text is suppressed. Cards use at most
+    two lines, with no reserved empty line. Connection markers stay on the
+    first line's right edge, before state/unread markers; their position never
+    depends on the subtitle. `berth.view.details` controls these muted markers
+    and defaults to on. The second line contains only task or notification
+    text and disappears when empty. The subtitle has a 3px top gap, 18px line
+    height and 5px bottom padding; single-line cards retain their compact spacing.
+    Connection and activity metadata use icons
+    only at every width. Application names and status words appear only in hover
+    details and accessible labels. Additional-client counts remain numeric.
+    The activity slot at the far right has fixed width even while idle, so
+    connection markers do not shift when activity changes. This-window membership
+    uses the same host product icon as any connection in that application,
+    with a small corner dot denoting this-window membership. Host marks occupy
+    a fixed 16px slot; VS Code artwork is optically sized to 14px and centered.
+    The membership dot is 4px with a 1px background-matched border, contained
+    inside the slot. Review the combined silhouette on normal, selected and
+    hover backgrounds; equal asset dimensions do not imply equal visual weight. The dot does not
+    indicate selection, active terminal or unread activity. Hover and accessible
+    labels include both the application and “This window”. Known hosts use their
+    official transparent product mark when a reviewed distributable asset is
+    available (VS Code); otherwise use the verified installed application's
+    original artwork. Never crop app tiles, invert brand colors or invent
+    product identities. Unknown hosts or unavailable artwork use the generic
+    terminal glyph while retaining verified membership. Bundled marks work
+    offline on every platform; native extraction remains asynchronous and bounded.
+    List and hover share the same resolved host asset. Detached uses a disconnected-terminal icon, stopped uses a stop icon.
+    Running uses a 12px arrowless Codicons loading ring in the fixed 16px activity slot,
+    matching the hover chip. Primary agent identities remain 16px. The ring stays
+    static under either editor or OS reduced-motion settings. Refresh/sync arrows
+    remain action glyphs, not activity indicators. Waiting and unread retain their distinct
+    attention markers. List and hover use the same connection glyphs.
+    Selection, active terminal and window membership remain distinct. Recovery
+    limitations appear in relevant recovery details, never an extra list line.
+    The shared Git branch appears once beside the folder heading (in the native
     view description when one workspace folder is flattened),
-    with its full value also available in details. Long text ends in an
+    with a Git branch icon. Its accessible label and hover details identify it
+    as the current worktree branch, with the full value available for copying.
+    It does not describe a session's historical branch. Long text ends in an
     ellipsis; the hover card has it in full.
   - **Entry and recovery.** The empty list has a keyboard-accessible New
     Session action. Refresh errors appear in the view with a Retry action;
@@ -869,18 +924,30 @@ Berth runs with no config file.
     Code's list row height. Functional icons are VS Code's codicons; agent
     marks follow the icon contract above. Context menu,
     title actions and badge are native, not imitations.
-- **One session terminal.** Selecting a row shows that session in the one
-  session terminal: the terminal's tmux client switches to it
-  (`switch-client`), or the terminal opens attached when there is none. A
-  stopped session is rebuilt first. The list, not a row of tabs, is how
-  sessions are switched; tmux keeps each session's screen. *Open to the Side*
-  adds a second terminal for watching two sessions at once.
+- **Stable Editor session terminals.** Berth navigation takes over a session's
+  connections in this VS Code window into a Berth-owned Editor terminal. Reuse
+  requires live tmux ancestry, never a display-name match. If no owned terminal
+  exists, first attach an Editor terminal and confirm its exact session and PID;
+  only then detach the previously identified unowned local clients. Do not
+  dispose their terminal objects or kill their shells or agent session. Failure before confirmation leaves the
+  original connections intact. Revalidate each source identity and destination
+  before detaching; switched or disappeared clients are not transferred.
+  This handoff does not leave an extra connection or a spurious +1. Existing
+  owned views and external-window/application clients remain connected, and
+  genuine multiple attachments remain visible. Native terminal objects are not
+  moved using active-terminal commands because those can target another Panel.
+  A detached session opens in its own Editor terminal; a stopped session is
+  rebuilt first. Selection never disposes another session's terminal.
+  Selecting a session connected outside this window directly opens a local
+  Editor attachment without a confirmation prompt; external clients stay
+  connected. Unresolved local PIDs defer attachment. “Open to the Side” explicitly adds an Editor view. Startup opens
+  at most one eligible session, not tabs for every background session.
 - **Find a session.** A native Quick Pick searches session name, exact-bound
   conversation title and folder across live and stopped inventory. Results show
   product identity and lifecycle/recovery state. Selection uses the same guarded
   open action; cancellation leaves selection and terminals unchanged. Removed
-  selections report a refresh instruction. Search is a sidebar title action;
-  Choose Folder remains in the overflow menu to keep the title compact.
+  selections report a refresh instruction. The sidebar title exposes New Session, New Session in Folder and Search.
+  Refresh, next-attention and setup remain in the overflow menu.
   Inventory loading must leave the editor responsive and the picker cancellable;
   finding a session does not wait for git branch decoration.
 - **Go to the next session needing you.** A command and key (⌘⌥U on macOS,
@@ -899,8 +966,7 @@ Berth runs with no config file.
   title, which VS Code records only on unnamed terminals — another reason
   Berth's terminals are unnamed. Berth turns on tmux's `set-titles` for its
   sessions with the session name prefixed by the state glyph, and the layout
-  makes tab titles use `${sequence}`, so a tab reads like "● work" and follows
-  `switch-client`.
+  makes tab titles use `${sequence}`, so a tab reads like "● work" and follows its session state.
 - **Notifications.** Initial inventory and extension reload do not replay old
   waiting/completion events. In a focused editor, the visible active terminal
   needs no popup; other sessions waiting for input receive an editor notification.
@@ -908,7 +974,7 @@ Berth runs with no config file.
   editor, a new waiting/completion event uses the OS channel when enabled, otherwise
   the editor channel; never both. A failed OS-helper launch falls back to the
   editor notification, but successful launch is not proof of OS delivery.
-- **Check Setup.** A host-native command lists core health findings: missing
+- **Diagnose Problems.** A host-native command lists core health findings: missing
   directories/executables, missing hooks, unbound/conflicting conversations and
   unconfirmed/failed recovery. Selecting a hook finding offers that agent's
   existing installer; a session finding opens its terminal when available.
@@ -970,6 +1036,20 @@ Berth runs with no config file.
   exists; *New Agent Session in Folder…* always asks (workspace folders,
   existing groups, or any folder); a group's *New Session Here* uses that
   group's folder.
+  Editor terminal creation has one Berth toolbar entry, ordered before the
+  native plus. Its two-item menu offers New Berth Session and New Berth Session
+  in Folder, using the same creation commands as the sidebar. The toolbar mark
+  uses a session-bubble-plus action glyph, distinct from the folded lowercase-b
+  Berth brand mark used by the sidebar and extension icon. Brand replacements
+  use a distinct sidebar asset URI so same-version local upgrades do not reuse
+  the previous workbench icon resource. Both have explicit
+  light/dark SVG variants because an external SVG cannot inherit
+  the workbench's currentColor. No Berth profiles are contributed to the native
+  plus dropdown, avoiding duplicate creation entries there.
+  Editor and terminal tab right-click menus expose the same two commands
+  directly; terminal content right-click contains no Berth creation actions.
+  Stable APIs do not expose blank-tab-bar or empty-group context injection.
+  A group plus retains its exact folder. Ordinary shell profiles are unchanged.
 - **Custom launcher.** `berth.customLauncher`, when set, starts sessions
   instead of `berth new` (the §5.2 contract): it runs in the session terminal,
   in the chosen folder, and creates and attaches the session; Berth learns the
@@ -995,8 +1075,8 @@ Berth runs with no config file.
   only after the host acknowledges attachment to the requested tmux session.
   The main and side entry points use the same rule. A failed open preserves
   these fields and reports an actionable error; creating a terminal is not
-  attachment acknowledgement. A replacement main terminal must attach before
-  disposing the previous one.
+  attachment acknowledgement. Opening or focusing a terminal never disposes
+  the previous terminal; only a failed newly created terminal is cleaned up.
   Rename validates the new name, updates tmux and immediately writes a snapshot
   before updating host references and unread keys. Snapshot failure rolls the
   tmux name back and reports failure. A collision leaves both sessions intact.
@@ -1031,7 +1111,7 @@ Berth runs with no config file.
 New installation and upgrade preserve existing windows, layout, terminals and
 agent configuration. Inventory refresh never launches a hook-install prompt.
 Missing hooks and unknown identity/profile remain in session details and explicit
-Check Setup / Check Recovery Readiness. Hook installation requires a user action
+Diagnose Problems / Check Recovery Readiness. Hook installation requires a user action
 and reports its result once. Optional layout creation is separate from basic use.
 A blocked recovery explains the exact prerequisite when requested; missing evidence
 on a running session is not an immediate incident.

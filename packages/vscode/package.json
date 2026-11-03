@@ -3,7 +3,7 @@
   "displayName": "Berth",
   "description": "Every terminal coding agent in one list: kept running in tmux, resumed after restarts, state on your terminal tabs.",
   "icon": "media/icon.png",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "publisher": "berthdev",
   "license": "MIT",
   "type": "module",
@@ -33,7 +33,7 @@
         {
           "id": "berth",
           "title": "Berth",
-          "icon": "media/berth.svg"
+          "icon": "media/berth-brand-c.svg"
         }
       ]
     },
@@ -49,13 +49,13 @@
     "commands": [
       {
         "command": "berth.new",
-        "title": "New Agent Session",
+        "title": "New Berth Session",
         "category": "Berth",
         "icon": "$(add)"
       },
       {
         "command": "berth.newChooseFolder",
-        "title": "New Agent Session in Folder\u2026",
+        "title": "New Berth Session in Folder…",
         "category": "Berth",
         "icon": "$(folder-opened)"
       },
@@ -89,6 +89,11 @@
         "category": "Berth"
       },
       {
+        "command": "berth.openHere",
+        "title": "Open in This Window",
+        "category": "Berth"
+      },
+      {
         "command": "berth.openToSide",
         "title": "Open to the Side",
         "category": "Berth"
@@ -100,37 +105,37 @@
       },
       {
         "command": "berth.rename",
-        "title": "Rename\u2026",
+        "title": "Rename…",
         "category": "Berth"
       },
       {
         "command": "berth.kill",
-        "title": "Kill Session\u2026",
+        "title": "Kill Session…",
         "category": "Berth"
       },
       {
         "command": "berth.forget",
-        "title": "Forget Session\u2026",
+        "title": "Forget Session…",
         "category": "Berth"
       },
       {
         "command": "berth.adopt",
-        "title": "Adopt as Agent Session\u2026",
+        "title": "Adopt as Agent Session…",
         "category": "Berth"
       },
       {
         "command": "berth.installHooks",
-        "title": "Install Agent Hooks\u2026",
+        "title": "Install Agent Hooks…",
         "category": "Berth"
       },
       {
         "command": "berth.applyLayout",
-        "title": "Create Agent Layout Profile\u2026",
+        "title": "Create Agent Layout Profile…",
         "category": "Berth"
       },
       {
         "command": "berth.revertLayout",
-        "title": "Switch Layout Profile\u2026",
+        "title": "Switch Layout Profile…",
         "category": "Berth"
       },
       {
@@ -140,37 +145,37 @@
       },
       {
         "command": "berth.findSession",
-        "title": "Find a Session\u2026",
+        "title": "Find a Session…",
         "category": "Berth",
         "icon": "$(search)"
       },
       {
         "command": "berth.checkSetup",
-        "title": "Check Setup\u2026",
+        "title": "Diagnose Problems…",
         "category": "Berth",
         "icon": "$(checklist)"
       },
       {
         "command": "berth.retryRecovery",
-        "title": "Retry Recovery\u2026",
+        "title": "Retry Recovery…",
         "category": "Berth",
         "icon": "$(debug-restart)"
       },
       {
         "command": "berth.recoveryFolder",
-        "title": "Choose Recovery Folder\u2026",
+        "title": "Choose Recovery Folder…",
         "category": "Berth",
         "icon": "$(folder-opened)"
       },
       {
         "command": "berth.recoveryProfile",
-        "title": "Choose Recovery Profile\u2026",
+        "title": "Choose Recovery Profile…",
         "category": "Berth",
         "icon": "$(folder-opened)"
       },
       {
         "command": "berth.recoveryOptions",
-        "title": "Review Recovery Options\u2026",
+        "title": "Review Recovery Options…",
         "category": "Berth",
         "icon": "$(settings-gear)"
       },
@@ -191,22 +196,22 @@
         {
           "command": "berth.nextAttention",
           "when": "view == berth.sessions",
-          "group": "navigation@3"
+          "group": "2_session@1"
         },
         {
           "command": "berth.refresh",
           "when": "view == berth.sessions",
-          "group": "navigation@4"
+          "group": "2_session@2"
         },
         {
           "command": "berth.newChooseFolder",
           "when": "view == berth.sessions",
-          "group": "1_session@2"
+          "group": "navigation@2"
         },
         {
           "command": "berth.findSession",
           "when": "view == berth.sessions",
-          "group": "navigation@2"
+          "group": "navigation@3"
         },
         {
           "command": "berth.checkSetup",
@@ -217,6 +222,10 @@
       "commandPalette": [
         {
           "command": "berth.focus",
+          "when": "false"
+        },
+        {
+          "command": "berth.openHere",
           "when": "false"
         },
         {
@@ -277,6 +286,11 @@
           "command": "berth.focus",
           "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /^session/",
           "group": "1@1"
+        },
+        {
+          "command": "berth.openHere",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /^session/",
+          "group": "1@2"
         },
         {
           "command": "berth.markRead",
@@ -348,6 +362,43 @@
           "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /agent-session/",
           "group": "2@3"
         }
+      ],
+      "berth.sessionCreation": [
+        {
+          "command": "berth.new",
+          "group": "1_create@1"
+        },
+        {
+          "command": "berth.newChooseFolder",
+          "group": "1_create@2"
+        }
+      ],
+      "editor/title": [
+        {
+          "submenu": "berth.sessionCreation",
+          "when": "resourceScheme == vscode-terminal",
+          "group": "navigation@-1"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "berth.new",
+          "group": "0_berth@1"
+        },
+        {
+          "command": "berth.newChooseFolder",
+          "group": "0_berth@2"
+        }
+      ],
+      "terminal/title/context": [
+        {
+          "command": "berth.new",
+          "group": "0_berth@1"
+        },
+        {
+          "command": "berth.newChooseFolder",
+          "group": "0_berth@2"
+        }
       ]
     },
     "configuration": {
@@ -395,7 +446,7 @@
         "berth.view.details": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Show a third line on each session card with its git branch and where it is open."
+          "markdownDescription": "Show compact connection markers on the right of the session title. Full connection details remain available on hover."
         }
       }
     },
@@ -409,6 +460,16 @@
         "command": "berth.nextAttention",
         "key": "ctrl+alt+u",
         "mac": "cmd+alt+u"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "berth.sessionCreation",
+        "label": "New Berth Session",
+        "icon": {
+          "dark": "media/new-session-dark.svg",
+          "light": "media/new-session-light.svg"
+        }
       }
     ]
   },

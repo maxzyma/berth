@@ -16,7 +16,7 @@ Find terminal coding agents and return to the right conversation inside VS Code.
   the optional layout are available when you choose them; inventory refresh does
   not prompt you to install hooks. Existing conversation records are completed
   automatically when a verified agent event supplies the missing identity.
-- **Check Setup** explains missing prerequisites, hooks and recovery limits.
+- **Diagnose Problems** explains missing prerequisites, hooks and recovery limits.
 - **Check Recovery Readiness**, in the right-click menu (also in stopped-session details),
   explains what prevents that conversation from being recovered and offers
   applicable repairs. Checking never restarts the agent or clears an unverified

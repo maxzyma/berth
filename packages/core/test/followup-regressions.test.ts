@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, existsSync, readFileSync, chmodSync } from 'node:fs';
@@ -112,4 +113,32 @@ for (const electron of [true, false]) test(`CR13 generated OpenCode hook preserv
     child.on('close', (code) => code === 0 ? resolve() : reject(new Error(`plugin exit ${code}`)));
   });
   assert.equal(readFileSync(out, 'utf8'), electron ? '1' : 'missing');
+});
+
+test('macOS boot clock drift preserves host identity while a different boot is rejected', { skip: process.platform !== 'darwin' }, t => {
+  const sb = sandbox(t), bin = join(sb.root, 'boot-tools');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'sysctl'), `#!/bin/sh
+case "$2" in
+kern.bootsessionuuid) echo "$FIXTURE_BOOT_UUID" ;;
+kern.boottime) echo "{ sec = 100, usec = $FIXTURE_BOOT_USEC } fixture" ;;
+esac
+`, { mode: 0o755 });
+  const module = new URL('../src/process-owner.js', import.meta.url).href;
+  const probe = (uuid: string, usec: string) => {
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+      import {processLifetime,processOwnerAlive} from ${JSON.stringify(module)};
+      const current=processLifetime(${process.pid});
+      const legacy='{ sec = 100, usec = 1 } fixture:${process.pid}:'+current.bornAt;
+      console.log(JSON.stringify({key:current.key,legacy:processOwnerAlive(${process.pid},legacy,Date.now()),wrong:processOwnerAlive(${process.pid},legacy.replace(':'+current.bornAt, ':'+(current.bornAt-1000)),Date.now())}));
+    `], { env: { ...process.env, PATH: bin + ':' + process.env.PATH, FIXTURE_BOOT_UUID: uuid, FIXTURE_BOOT_USEC: usec }, encoding: 'utf8', timeout: 5000 });
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+  };
+  const first = probe('11111111-1111-4111-8111-111111111111', '1');
+  const drifted = probe('11111111-1111-4111-8111-111111111111', '999999');
+  assert.equal(first.key, drifted.key);
+  assert.equal(drifted.legacy, true);
+  assert.equal(drifted.wrong, false);
+  assert.notEqual(first.key, probe('22222222-2222-4222-8222-222222222222', '1').key);
 });

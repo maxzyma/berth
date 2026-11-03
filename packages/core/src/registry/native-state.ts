@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import type { Context } from '../context.js';
 import type { LiveSession } from '../tmux/client.js';
 import { readProfile, profileEnvironment, profileKey } from '../agents/profile.js';
-import { processLifetime } from '../process-owner.js';
+import { processLifetime, processOwnerAlive } from '../process-owner.js';
 import { presentState } from '../present/state.js';
 import { nameCollision } from '../snapshot/identity.js';
 import { resolveBinary } from '../tools.js';
@@ -16,7 +16,7 @@ export interface NativeCandidate {
   bornAt: number;
 }
 
-interface NativeObservation extends NativeCandidate { state?: 'working' }
+interface NativeObservation extends NativeCandidate { state?: 'working' | 'waiting' }
 
 function eligible(session: LiveSession): boolean {
   const m = session.meta;
@@ -50,23 +50,27 @@ export function prepareNativeState(ctx: Context): NativeCandidate[] {
       const lifetime = producer && processLifetime(producer.pid);
       if (!producer || producer.agent !== session.meta.agent || producer.argvIssue
         || producer.pane !== session.meta.producerPane || !lifetime
-        || lifetime.key !== session.meta.producerLifetime) return [];
+        || !processOwnerAlive(producer.pid, session.meta.producerLifetime, Date.now())) return [];
       return [{ session: updated, pid: producer.pid, bornAt: lifetime.bornAt }];
     } catch { return []; } // Unverifiable ownership is not an idle observation.
   });
 }
 
 /** Native schemas are versioned externally; unknown or ambiguous data is inert. */
-export function nativeIdle(data: unknown, candidate: NativeCandidate): boolean {
-  if (!Array.isArray(data)) return false;
+function nativeActivity(data: unknown, candidate: NativeCandidate): 'idle' | 'waiting' | undefined {
+  if (!Array.isArray(data)) return undefined;
   const records = data.filter((row) => row && typeof row === 'object'
     && (row.pid === candidate.pid || row.sessionId === candidate.session.meta.conversation));
-  if (records.length !== 1) return false;
+  if (records.length !== 1) return undefined;
   const row = records[0];
   return row.pid === candidate.pid && row.sessionId === candidate.session.meta.conversation
-    && row.kind === 'interactive' && row.status === 'idle'
+    && row.kind === 'interactive' && ['idle', 'waiting'].includes(row.status)
     && typeof row.startedAt === 'number' && Number.isFinite(row.startedAt)
-    && row.startedAt >= candidate.bornAt && row.startedAt <= Date.now();
+    && row.startedAt >= candidate.bornAt && row.startedAt <= Date.now() ? row.status : undefined;
+}
+
+export function nativeIdle(data: unknown, candidate: NativeCandidate): boolean {
+  return nativeActivity(data, candidate) === 'idle';
 }
 
 /** No shared state lock may be held while invoking the native CLI. */
@@ -91,7 +95,11 @@ export function observeNativeState(ctx: Context, candidates: NativeCandidate[]):
     });
     if (result.error || result.status !== 0) return [];
     const data: unknown = JSON.parse(result.stdout);
-    return candidates.filter((candidate) => nativeIdle(data, candidate));
+    return candidates.flatMap((candidate): NativeObservation[] => {
+      const state = nativeActivity(data, candidate);
+      if (!state || state === candidate.session.meta.state) return [];
+      return [{ ...candidate, ...(state === 'waiting' ? { state } : {}) }];
+    });
   } catch { return []; }
 }
 
@@ -116,7 +124,7 @@ export function applyNativeState(ctx: Context, observations: NativeObservation[]
       const producer = producers.length === 1 ? producers[0] : undefined;
       if (!producer || producer.pid !== observation.pid || producer.agent !== current.meta.agent
         || producer.argvIssue || producer.pane !== current.meta.producerPane
-        || processLifetime(producer.pid)?.key !== current.meta.producerLifetime) continue;
+        || !processOwnerAlive(producer.pid, current.meta.producerLifetime, Date.now())) continue;
       ctx.tmux.setMeta(current.name, { state: observation.state ?? '', note: '' });
       presentState(ctx.tmux, current.name, observation.state ?? '');
     } catch { /* A disappearing or unverifiable producer leaves hooks authoritative. */ }

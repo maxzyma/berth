@@ -17,6 +17,16 @@ emulator, worktree manager, analytics dashboard or duplicate Git interface.
 A plain tmux/agent-native workflow remains appropriate for users who do not need
 cross-host session management.
 
+## Editor creation entry
+
+A single Berth button precedes the native plus in terminal Editor toolbars.
+Its current-folder and choose-folder actions share the sidebar creation flow.
+Editor/tab context menus retain direct actions; terminal content right-click
+has none. The native plus dropdown contains no duplicate Berth profiles.
+
+Blank tab-bar and empty Editor group context menus have no stable extension
+point. Toolbar placement and theme variants await manual reload acceptance.
+
 ## Current correctness gate
 
 First-install adoption remains open across CLI adapters. The common missed-start
@@ -234,7 +244,7 @@ verify exact destination and keep context when the picker is cancelled.
 
 ## T7 — Make setup and health understandable
 
-**State:** Implemented: Check Setup, explicit binding/recovery findings, missing executables and tmux-version diagnostics, PATH-independent hook installation and native layout Profile creation/switching and read-only legacy backup inspection. The new workflow passes isolated Linux native acceptance while preserving source/shared settings. Initial agent-version/capability diagnosis (CR51) passes focused tests; CR54 resolver regressions pass. Upgrade and full setup interaction remain pending.
+**State:** Implemented: Diagnose Problems, explicit binding/recovery findings, missing executables and tmux-version diagnostics, PATH-independent hook installation and native layout Profile creation/switching and read-only legacy backup inspection. The new workflow passes isolated Linux native acceptance while preserving source/shared settings. Initial agent-version/capability diagnosis (CR51) passes focused tests; CR54 resolver regressions pass. Upgrade and full setup interaction remain pending.
 **Owner:** core doctor/capabilities and host commands. **Depends on:** T2/T8 capability model.
 
 - Use one small host-native health entry to explain missing tmux, agent binary,

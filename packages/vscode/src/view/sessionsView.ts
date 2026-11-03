@@ -18,11 +18,13 @@ export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposab
   private model?: TreeView;
   private sent = '';
   private error = '';
+  private hostIcons: Record<string, string> = {};
   private readonly subscriptions: vscode.Disposable[] = [];
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly onMessage: (message: FromView) => void,
+    private readonly hostIconRoot?: vscode.Uri,
   ) {
     this.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
@@ -35,7 +37,7 @@ export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposab
     this.view = view;
     this.sent = '';
     const root = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
-    view.webview.options = { enableScripts: true, localResourceRoots: [root, vscode.Uri.joinPath(this.extensionUri, 'media', 'agents')] };
+    view.webview.options = { enableScripts: true, localResourceRoots: [root, vscode.Uri.joinPath(this.extensionUri, 'media', 'agents'), vscode.Uri.joinPath(this.extensionUri, 'media', 'hosts'), ...(this.hostIconRoot ? [this.hostIconRoot] : [])] };
     view.webview.html = this.html(view.webview, root);
     view.webview.onDidReceiveMessage((message: FromView) => {
       if (message.type === 'copy') {
@@ -104,6 +106,11 @@ export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposab
     void this.view?.webview.postMessage(message);
   }
 
+  setHostIcons(files: Record<string, string>): void {
+    this.hostIcons = files;
+    this.post({ type: 'settings', settings: this.settings() });
+  }
+
   private settings(): ViewSettings {
     const config = vscode.workspace.getConfiguration();
     const guides = config.get<string>('workbench.tree.renderIndentGuides', 'onHover');
@@ -112,6 +119,12 @@ export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposab
       indentGuides: guides === 'none' || guides === 'always' ? guides : 'onHover',
       hoverDelay: config.get<number>('berth.hover.delay', 500),
       details: config.get<boolean>('berth.view.details', true),
+      hostIcons: {
+        ...(this.view && this.hostIconRoot ? Object.fromEntries(Object.entries(this.hostIcons).map(([name, file]) => [name, this.view!.webview.asWebviewUri(vscode.Uri.joinPath(this.hostIconRoot!, file)).toString()])) : {}),
+        ...Object.fromEntries(['VS Code', 'Visual Studio Code'].map(name => [name,
+          this.view?.webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'hosts', 'vscode.svg')).toString() ?? '',
+        ])),
+      },
       agentIcons: this.view?.webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'agents')).toString() ?? '',
     };
   }

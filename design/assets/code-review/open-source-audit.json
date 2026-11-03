@@ -23,7 +23,7 @@
     "github_actions_artifacts": 0,
     "github_issues_and_comments": 0
   },
-  "identity": "Existing public attribution retained; future release commits use GitHub noreply.",
+  "identity": "Existing public attribution retained; author email is intentional attribution, not a credential.",
   "limitations": [
     "Pattern scanning and OCR cannot prove absence of all sensitive information.",
     "Unreachable remote objects, third-party clones and caches are outside the observed scope."

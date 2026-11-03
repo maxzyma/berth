@@ -49,7 +49,7 @@ for (const theme of ['dark', 'light', 'hc', 'hclight']) {
       await expect(f.getByRole('dialog')).not.toBeVisible();
     }
     await f.getByRole('treeitem', { name: 'Other tmux sessions', exact: true }).click();
-    await expect(f.locator('[id="s:unmanaged"] .codicon-terminal')).toBeVisible();
+    await expect(f.locator('[id="s:unmanaged"] .icon.codicon-terminal')).toBeVisible();
     await page.mouse.move(700, 500);
     await page.clock.runFor(250);
     await page.locator('iframe').screenshot({ path: info.outputPath('icons.png') });
@@ -63,13 +63,23 @@ test('functional icons: font glyphs, spinning work and reduced motion', async ({
   const f = page.frameLocator('iframe');
   await expect(f.getByRole('tree')).toBeVisible();
   await f.locator('body').evaluate(() => window.sendModel(window.variants.working));
+  await expect(f.locator('[id="s:03-session"] .badge .codicon-loading')).toBeVisible();
+  await expect(f.locator('[id="s:03-session"] .badge .codicon-loading')).toHaveCSS('font-size', '12px');
+  await expect(f.locator('[id="s:03-session"] .activity-slot')).toHaveCSS('width', '16px');
+  await expect(f.locator('[id="s:03-session"] .badge')).not.toHaveText('⋯');
   await f.locator('[id="s:03-session"]').hover();
   await page.clock.runFor(100);
-  const spin = f.getByRole('dialog').locator('.codicon-sync.codicon-modifier-spin');
+  const spin = f.getByRole('dialog').locator('.codicon-loading.codicon-modifier-spin');
   await expect(spin).toBeVisible();
+  await expect(spin).toHaveCSS('font-size', '12px');
   expect(await spin.evaluate(el => getComputedStyle(el, '::before').content)).not.toBe('none');
   await expect(spin).toHaveCSS('animation-name', 'none');
   await f.locator('body').evaluate(el => el.classList.remove('vscode-reduce-motion'));
+  await expect(spin).toHaveCSS('animation-name', 'codicon-spin');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(spin).toHaveCSS('animation-name', 'none');
+  await expect(f.locator('[id="s:03-session"] .badge .codicon-loading')).toHaveCSS('animation-name', 'none');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   await expect(spin).toHaveCSS('animation-name', 'codicon-spin');
   await f.locator('body').evaluate(el => el.classList.add('vscode-reduce-motion'));
   const glyphs = await f.locator('.codicon').evaluateAll(els => els.map(el => ({ classes: el.className, content: getComputedStyle(el, '::before').content })));

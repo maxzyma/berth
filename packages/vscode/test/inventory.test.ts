@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { sampleDoctor, sampleInventory, sampleSessions } from '../src/inventory.js';
+import { resolveTerminalPids, sampleDoctor, sampleInventory, sampleSessions } from '../src/inventory.js';
 
 test('Slow core inspection leaves the host event loop available', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'berth-inventory-'));
@@ -68,4 +68,14 @@ test('CR80 find-session inventory stays asynchronous and does not probe git', as
   assert.equal((await pending)[0].name, 'session');
   writeFileSync(cli, "process.stdout.write('[null]');");
   await assert.rejects(sampleSessions(cli, process.env), /Invalid session inventory/);
+});
+
+test('unresolved or rejected terminal PID cannot block inventory; later resolution is usable', async () => {
+  let finish!: (pid: number) => void;
+  const pending = new Promise<number>(resolve => { finish = resolve; });
+  const first = await resolveTerminalPids([Promise.resolve(10), pending, Promise.reject(new Error('closed'))], 5);
+  assert.deepEqual(first, { pids: [10, undefined, undefined], ready: false });
+  finish(20);
+  assert.deepEqual(await resolveTerminalPids([pending]), { pids: [20], ready: true });
+  assert.deepEqual(first.pids, [10, undefined, undefined], 'late completion cannot mutate a published sample');
 });

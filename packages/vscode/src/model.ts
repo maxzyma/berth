@@ -1,13 +1,16 @@
+import { WORKING_ICON } from './view/iconSemantics.js';
 import { profileRoot } from '@berthdev/berth';
 /** Pure view logic for Berth for VS Code (spec §6); no `vscode` import, so it is unit-testable. */
 import { basename } from 'node:path';
 import { getAdapter, type SessionRow } from '@berthdev/berth';
 
-export type Connection = 'attached-here' | 'attached-elsewhere' | 'detached' | 'stopped';
+export type Connection = 'attached-here' | 'attached-unknown' | 'attached-elsewhere' | 'detached' | 'stopped';
 
 /** One line of a hover card, led by a codicon (spec §6). */
 export interface HoverLine {
   icon: string;
+  hostApplication?: string;
+  currentWindow?: boolean;
   text: string;
   kind?: 'title' | 'quote' | 'rule' | 'path' | 'warning';
   /** Secondary text on a title line (the agent's name). */
@@ -23,7 +26,7 @@ export interface HoverLine {
 
 /**
  * A session card (spec §6): the agent's icon, the name and a state badge on
- * line one; the subtitle on line two; optional details on line three; the
+ * line one with compact connection markers; the subtitle on line two; the
  * rest in the hover card.
  */
 export interface RowView {
@@ -34,8 +37,9 @@ export interface RowView {
   /** Line two: what a waiting or finished agent said, else the topic. */
   subtitle: string;
   subtitleKind: 'note' | 'topic' | '';
-  /** Optional line three: branch and connection. */
+  /** Full connection label for accessibility. */
   details: string;
+  location: { icon: string; additional: number; hostApplication?: string; currentWindow: boolean };
   hover: HoverLine[];
   /** Matched by the context menu's when clauses (`berthItem`). */
   contextValue: string;
@@ -101,16 +105,20 @@ export interface TreeView {
   waiting: number;
 }
 
-export function connection(row: SessionRow, here: ReadonlySet<string>, terminalPids?: ReadonlySet<number>): Connection {
+export function connection(row: SessionRow, here: ReadonlySet<string>, terminalPids?: ReadonlySet<number>, pidsReady = true): Connection {
   if (!row.live) return 'stopped';
   const local = row.connections?.some((client) => client.ancestors.some((pid) => terminalPids?.has(pid)));
   if (local || (!terminalPids && here.has(row.name) && row.attachedClients > 0)) return 'attached-here';
-  return row.attachedClients > 0 ? 'attached-elsewhere' : 'detached';
+  const connected = row.attachedClients > 0 || !!row.connections?.length;
+  if (!connected) return 'detached';
+  if (!pidsReady || !terminalPids || !row.connections?.length || row.connections.every(client => client.ancestors.length < 2)) return 'attached-unknown';
+  return 'attached-elsewhere';
 }
 
 const CONNECTION_TEXT: Record<Connection, string> = {
   'attached-here': 'Shown in this window',
   'attached-elsewhere': 'Open in another terminal',
+  'attached-unknown': 'Connected; its window has not yet been identified',
   detached: 'Not open in any terminal',
   stopped: 'Stopped; no running terminal',
 };
@@ -129,14 +137,15 @@ const BADGE: Partial<Record<RowView['icon'], string>> = { working: '⋯', waitin
 
 /** One icon per tooltip line (spec §6). */
 const CONNECTION_CODICON: Record<Connection, string> = {
-  'attached-here': 'eye',
-  'attached-elsewhere': 'link-external',
+  'attached-here': 'terminal',
+  'attached-elsewhere': 'terminal',
+  'attached-unknown': 'terminal',
   detached: 'debug-disconnect',
-  stopped: 'history',
+  stopped: 'debug-stop',
 };
 
 const STATE_CODICON: Record<RowView['icon'], string> = {
-  working: 'sync~spin',
+  working: WORKING_ICON,
   waiting: 'bell-dot',
   done: 'check',
   idle: 'circle-outline',
@@ -147,6 +156,7 @@ const STATE_CODICON: Record<RowView['icon'], string> = {
 const CONNECTION_SHORT: Record<Connection, string> = {
   'attached-here': 'This window',
   'attached-elsewhere': 'Other terminal',
+  'attached-unknown': 'Connected',
   detached: 'detached',
   stopped: 'stopped',
 };
@@ -154,6 +164,7 @@ const CONNECTION_SHORT: Record<Connection, string> = {
 export interface ViewInput {
   here: ReadonlySet<string>;
   terminalPids?: ReadonlySet<number>;
+  terminalPidsReady?: boolean;
   activeTerminalPid?: number;
   unread: ReadonlySet<string>;
   branch: (cwd: string) => string;
@@ -176,19 +187,27 @@ export function shortPath(cwd: string, workspaceFolders: readonly string[], home
 const HOOKS_MISSING = "This agent's Berth hooks are not installed. State updates and future conversation binding may be unavailable. Right-click → Install Agent Hooks.";
 
 export function rowView(row: SessionRow, input: ViewInput): RowView {
-  const conn = connection(row, input.here, input.terminalPids);
+  const conn = connection(row, input.here, input.terminalPids, input.terminalPidsReady);
   const clients = row.live ? row.connections ?? [] : [];
   const locations = clients.map((client) => ({
     local: client.ancestors.some((pid) => input.terminalPids?.has(pid)),
-    label: client.ancestors.some((pid) => input.terminalPids?.has(pid)) ? 'This window' : [client.application || 'Other terminal', client.workspace].filter(Boolean).join(' · '),
+    label: client.ancestors.some((pid) => input.terminalPids?.has(pid)) ? [client.application, 'This window'].filter(Boolean).join(' · ') : [client.application || 'Other terminal', client.workspace].filter(Boolean).join(' · '),
     terminal: client.terminal,
+    application: client.application,
   })).sort((a, b) => Number(b.local) - Number(a.local));
   const count = row.live ? Math.max(row.attachedClients, clients.length) : 0;
   const location = locations[0]?.label ?? CONNECTION_SHORT[conn];
   const summary = `${location}${count > 1 ? ` +${count - 1}` : ''}`;
+  const compactLocation = {
+    icon: CONNECTION_CODICON[conn],
+    hostApplication: locations[0]?.application,
+    currentWindow: conn === 'attached-here',
+    additional: Math.max(0, count - 1),
+  };
   const connectionLines: HoverLine[] = locations.length
-    ? locations.map((location) => ({ icon: CONNECTION_CODICON[conn], text: `${location.label}${location.terminal ? ` · ${location.terminal}` : ''}`, copyValue: `${location.label}${location.terminal ? ` · ${location.terminal}` : ''}`, copyLabel: 'connection' }))
+    ? locations.map((location) => ({ icon: 'terminal', hostApplication: location.application, currentWindow: location.local, text: `${location.label}${location.terminal ? ` · ${location.terminal}` : ''}`, copyValue: `${location.label}${location.terminal ? ` · ${location.terminal}` : ''}`, copyLabel: 'connection' }))
     : [{ icon: CONNECTION_CODICON[conn], text: CONNECTION_TEXT[conn], copyValue: CONNECTION_TEXT[conn], copyLabel: 'connection' }];
+  if (conn === 'attached-unknown' && locations.length) connectionLines.push({ icon: 'info', text: CONNECTION_TEXT[conn] });
   if (locations.length && count > locations.length) connectionLines.push({ icon: 'terminal', text: `${count - locations.length} other terminal(s)` });
   const unread = input.unread.has(row.name);
   if (!row.managed) {
@@ -199,6 +218,7 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
       subtitle: '',
       subtitleKind: '',
       details: summary,
+      location: compactLocation,
       hover: [
         { icon: 'terminal', text: row.name, copyValue: row.name, copyLabel: 'session name', kind: 'title', sub: 'not an agent session' },
         { icon: row.bindingIssue ? 'warning' : 'info', text: row.bindingIssue || 'Adopt it to manage it', ...(row.bindingIssue ? { kind: 'warning' as const } : {}) },
@@ -254,7 +274,8 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
     agent: row.agent,
     subtitle: supporting,
     subtitleKind: note ? 'note' : supporting ? 'topic' : '',
-    details: [summary, row.bindingIssue ? (row.live ? '' : 'Verify before resuming') : row.recovery && row.recovery !== 'confirmed' ? `Recovery ${row.recovery}` : ''].filter(Boolean).join(' · '),
+    details: summary,
+    location: compactLocation,
     hover,
     contextValue: `session managed${row.agent !== 'shell' ? ' agent-session' : ''} ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing || row.hooks === 'unknown' ? ' hooks-missing' : ''}${unread ? ' unread' : ''}${row.recovery === 'failed' || row.recovery === 'unconfirmed' ? ' recovery-retry' : ''}`,
     icon,
@@ -293,7 +314,7 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
       hover: [
         { icon: '', text: basename(cwd) || cwd, copyValue: basename(cwd) || cwd, copyLabel: 'folder name', kind: 'title' as const },
         { icon: 'folder', text: shortPath(cwd, folders, input.home), full: cwd, copyValue: cwd, copyLabel: 'folder path', kind: 'path' as const },
-        ...(input.branch(cwd) ? [{ icon: 'git-branch', text: input.branch(cwd), copyValue: input.branch(cwd), copyLabel: 'branch' }] : []),
+        ...(input.branch(cwd) ? [{ icon: 'git-branch', text: `Current worktree branch: ${input.branch(cwd)}`, copyValue: input.branch(cwd), copyLabel: 'branch' }] : []),
         { icon: PLACE_CODICON[placeOf(cwd, folders)], text: PLACE_TEXT[placeOf(cwd, folders)] },
       ],
       attention: (list.some((r) => r.attention === 'waiting') ? 'waiting' : list.some((r) => r.attention === 'unread') ? 'unread' : '') as Attention,

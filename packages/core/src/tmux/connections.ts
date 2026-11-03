@@ -1,3 +1,4 @@
+import { BerthError } from '../errors.js';
 import { formatFields, readFields } from './fields.js';
 import { spawnSync } from 'node:child_process';
 import type { HostRecord } from '../registry/hosts.js';
@@ -34,8 +35,9 @@ export function processAncestry(pid: number, table: string): { ancestors: number
 }
 
 /** Live clients only; restore ownership is deliberately not consulted. */
-export function connections(tmux: Tmux, hosts: readonly HostRecord[] = []): ReadonlyMap<string, ConnectionInfo[]> {
+export function connections(tmux: Tmux, hosts: readonly HostRecord[] = [], strict = false): ReadonlyMap<string, ConnectionInfo[]> {
   const result = tmux.run(['list-clients', '-F', formatFields(['client_session', 'client_pid', 'client_tty', 'client_termtype'])], true);
+  if (!result.ok && strict) throw new BerthError(`Could not read terminal connections: ${result.stderr.trim()}`);
   if (!result.ok || !result.stdout.trim()) return new Map();
   const processes = spawnSync('ps', ['-axo', 'pid=,ppid=,comm='], { encoding: 'utf8', timeout: 2000, killSignal: 'SIGKILL' });
   const entries = readFields(result.stdout, 4).map(([session, rawPid, terminal, termtype]) => {
@@ -73,5 +75,19 @@ export function detachTerminalClients(tmux: Tmux, session: string, terminalPids:
     if (client.terminal && client.ancestors.some((pid) => terminalPids.has(pid))) {
       tmux.run(['detach-client', '-t', client.terminal]);
     }
+  }
+}
+
+/** Transfer captured clients only while the replacement and source identities remain live. */
+export function handoffTerminalClients(
+  tmux: Tmux, session: string, destinationPid: number, sources: readonly ConnectionInfo[],
+): void {
+  for (const source of sources) {
+    const live = connections(tmux, [], true).get(session) ?? [];
+    const destination = live.find(client => client.ancestors.includes(destinationPid));
+    if (!destination) throw new BerthError('Editor attachment disappeared; original terminals were preserved.');
+    const current = live.find(client => client.pid === source.pid && client.terminal === source.terminal);
+    if (!current || current.pid === destination.pid || !current.terminal) continue;
+    tmux.run(['detach-client', '-t', current.terminal]);
   }
 }

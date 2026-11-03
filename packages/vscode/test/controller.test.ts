@@ -4,7 +4,7 @@
  */
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
-import { shellQuote, type Context } from '@berthdev/berth';
+import { shellQuote, connections, handoffTerminalClients, type Context } from '@berthdev/berth';
 import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -34,6 +34,8 @@ class FakeHost implements Host {
   shown: string[] = [];
   /** pid of a real tmux client standing in for the main terminal, when a test provides one. */
   mainPid?: number;
+  localPids = new Set<number>();
+  terminalPids() { return this.localPids; }
   main?: string;
   openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string) {
     this.terminals.push({ session, argv, role, cwd });
@@ -42,10 +44,13 @@ class FakeHost implements Host {
   async mainTerminalPid() {
     return this.main !== undefined ? this.mainPid : undefined;
   }
-  showMain(session: string) {
+  async focusExisting(session: string) {
+    if (!this.terminals.some(terminal => terminal.session === session)) return false;
     this.main = session;
     this.shown.push(session);
+    return true;
   }
+
   renameSession(from: string, to: string) {
     if (this.main === from) this.main = to;
     this.terminals = this.terminals.map((terminal) => terminal.session === from ? { ...terminal, session: to } : terminal);
@@ -115,7 +120,7 @@ test('V1 the session view groups by cwd, shows state and counts waiting sessions
   assert.equal(tree.waiting, 1);
 });
 
-test('V2 selecting a row switches the one session terminal to it; with none, one opens', async (t) => {
+test('V2 selection preserves other attachments and reuses the matching terminal', async (t) => {
   const { sb, host, controller } = setup(t);
   sb.cli('new', 'claude', '--cwd', sb.makeDir('a'), '--origin', 'iterm2');
   sb.cli('new', 'claude', '--cwd', sb.makeDir('b'));
@@ -131,9 +136,12 @@ test('V2 selecting a row switches the one session terminal to it; with none, one
   const pid = await waitFor(() => Number(sb.tmux('list-clients', '-t', '=a', '-F', '#{client_pid}').trim()) || undefined, 'client attached', 20_000);
   host.mainPid = pid;
   await controller.show('b');
-  assert.equal(host.terminals.length, 1, 'no second terminal: the main one switched');
-  assert.deepEqual(host.shown, ['b']);
-  await waitFor(() => sb.tmux('list-clients', '-F', '#{client_pid} #{session_name}').trim() === `${pid} b`, 'client switched to b');
+  assert.equal(host.terminals.length, 2, 'each session retains its own terminal');
+  assert.equal(sb.tmux('list-clients', '-F', '#{client_pid} #{session_name}').trim(), `${pid} a`, 'original client stays on a');
+  await controller.show('a');
+  await controller.show('b');
+  assert.equal(host.terminals.length, 2, 'repeated selection does not duplicate terminals');
+  assert.deepEqual(host.shown, ['a', 'b']);
 
   sb.cli('stamp', '--session', 'b', 'conversation=conv-b');
   sb.cli('snapshot');
@@ -721,10 +729,103 @@ test('binding risks and current terminal are independent of window membership', 
   const views = buildTree(rows, input).groups[0].rows;
   assert.deepEqual(views.map(row => row.active), [true, false]);
   for (const row of views) {
-    assert.equal(row.details, 'This window');
+    assert.equal(row.details, 'VS Code · This window');
     assert.ok(!row.hover.some(line => line.checkRecoveryFor || line.text.includes('No process identity recorded')));
     assert.equal(row.icon, 'working');
   }
-  assert.ok(buildTree([{ ...rows[0], live: false }], input).groups[0].rows[0].details.includes('Verify before resuming'));
+  assert.equal(buildTree([{ ...rows[0], live: false }], input).groups[0].rows[0].details, 'stopped');
   assert.ok(buildTree(rows, { ...input, activeTerminalPid: undefined }).groups[0].rows.every(row => !row.active));
+});
+
+for (const agent of ['claude', 'codex']) {
+  test(`stable navigation: ${agent} external attachment opens directly and preserves external client`, async t => {
+    const { sb, host, controller } = setup(t);
+    sb.cli('new', agent, '--cwd', sb.makeDir('external'));
+    const client = attachPty(sb.socket, 'external');
+    t.after(() => client.kill());
+    const original = await waitFor(() => sb.tmux('list-clients', '-t', '=external', '-F', '#{client_pid}').trim(), 'external attached');
+    controller.unread.add('external');
+    await controller.show('external');
+    assert.equal(host.main, 'external');
+    assert.equal(host.terminals.length, 1);
+    assert.equal(controller.unread.has('external'), false);
+    assert.equal(sb.tmux('list-clients', '-t', '=external', '-F', '#{client_pid}').trim(), original);
+    await controller.show('external');
+    assert.equal(host.terminals.length, 1);
+  });
+}
+
+test('stable navigation: pending terminal identity cannot create a duplicate attachment', async t => {
+  const { sb, host } = setup(t);
+  sb.cli('new', 'codex', '--cwd', sb.makeDir('pending'));
+  const controller = new Controller(sb.ctx(), Object.assign(host, { terminalPidsReady: () => false }));
+  await assert.rejects(controller.show('pending'), /identification is still in progress/);
+  assert.equal(host.terminals.length, 0);
+});
+
+for (const agent of ['claude', 'codex']) {
+  test(`Editor navigation: ${agent} local user terminal routes through the host Editor handoff`, async t => {
+    const { sb, host, controller } = setup(t);
+    sb.cli('new', agent, '--cwd', sb.makeDir('panel'));
+    const client = attachPty(sb.socket, 'panel');
+    t.after(() => client.kill());
+    const pid = await waitFor(() => Number(sb.tmux('list-clients', '-t', '=panel', '-F', '#{client_pid}').trim()) || undefined, 'panel attached');
+    host.localPids = new Set([pid]);
+    await controller.show('panel');
+    assert.deepEqual(host.terminals.map(terminal => [terminal.session, terminal.role]), [['panel', 'main']]);
+    assert.equal(sb.tmux('list-clients', '-t', '=panel', '-F', '#{client_pid}').trim(), String(pid), 'fake host does not execute the native terminal handoff');
+    await controller.show('panel');
+    assert.equal(host.terminals.length, 1, 'repeat click reuses the Berth view');
+    assert.deepEqual(host.shown, ['panel']);
+  });
+}
+
+test('prepared launch waits for attachment acknowledgement', async t => {
+  const { sb, host, controller } = setup(t);
+  const plan = controller.prepareNewSession('codex', sb.makeDir('profile'));
+  assert.equal(plan.custom, false);
+  assert.ok(sb.ctx().tmux.hasSession(plan.session));
+  assert.deepEqual(plan.argv.slice(-3), ['attach-session', '-t', `=${plan.session}`]);
+  assert.equal(host.terminals.length, 0, 'preparation does not open a terminal');
+  controller.unread.add(plan.session);
+  assert.ok(controller.unread.has(plan.session));
+  controller.completeNewSession(plan, process.pid);
+  assert.equal(controller.unread.has(plan.session), false);
+  assert.equal(sb.ctx().tmux.listSessions().find(row => row.name === plan.session)?.meta.ownerWorkspace, 'test-workspace');
+});
+
+test('prepared custom launcher uses the same quoting and shell exception', t => {
+  const { sb, controller } = setup(t);
+  const cwd = sb.makeDir('folder with spaces');
+  const plan = controller.prepareNewSession('codex', cwd, 'launcher --agent {agent} --cwd {cwd}');
+  assert.equal(plan.custom, true);
+  assert.equal(plan.session, '');
+  assert.ok(plan.argv.at(-1)?.includes(shellQuote(cwd)));
+  assert.equal(sb.ctx().tmux.listSessions().length, 0, 'preparing launcher creates no extra tmux session');
+  const shell = controller.prepareNewSession('shell', cwd, 'launcher');
+  assert.equal(shell.custom, false);
+  assert.ok(sb.ctx().tmux.hasSession(shell.session));
+});
+
+test('Editor handoff detaches only the captured local client and keeps the session alive', async t => {
+  const { sb } = setup(t);
+  sb.cli('new', 'codex', '--cwd', sb.makeDir('handoff'));
+  const ctx = sb.ctx();
+  const attach = async () => {
+    const before = new Set((connections(ctx.tmux).get('handoff') ?? []).map(client => client.pid));
+    const child = attachPty(sb.socket, 'handoff');
+    t.after(() => child.kill());
+    return waitFor(() => (connections(ctx.tmux).get('handoff') ?? []).find(client => !before.has(client.pid)), 'new client attached');
+  };
+  const source = await attach();
+  const external = await attach();
+  assert.throws(() => handoffTerminalClients(ctx.tmux, 'handoff', 99000002, [source]));
+  assert.equal(connections(ctx.tmux).get('handoff')?.length, 2);
+  const destination = await attach();
+  handoffTerminalClients(ctx.tmux, 'handoff', destination.pid, [source]);
+  await waitFor(() => connections(ctx.tmux).get('handoff')?.length === 2, 'handoff finished');
+  assert.deepEqual(new Set(connections(ctx.tmux).get('handoff')?.map(client => client.pid)), new Set([destination.pid, external.pid]));
+  assert.equal(ctx.tmux.hasSession('handoff'), true);
+  handoffTerminalClients(ctx.tmux, 'handoff', destination.pid, [source]);
+  assert.equal(connections(ctx.tmux).get('handoff')?.length, 2, 'retry leaves remaining clients intact');
 });

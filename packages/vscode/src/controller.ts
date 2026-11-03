@@ -28,20 +28,31 @@ import { compareSessionNames, buildTree, nextAttention, relativeToWorkspace, ren
 
 export type TerminalRole = 'main' | 'side';
 
+export interface SessionLaunch {
+  session: string;
+  argv: string[];
+  cwd: string;
+  agent: string;
+  startedAt: number;
+  custom: boolean;
+}
+
+
 export interface Host {
   /**
    * Open a terminal running `argv` (an attach command). `main` is the one
-   * session terminal that follows the selection; `side` terminals are extra
+   * most recently selected session terminal; `side` terminals are extra
    * views opened on request. Terminals are unnamed, so tab titles follow tmux.
    */
   openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string): void | Promise<void>;
   /** Process id of the main session terminal, when one is open. */
   mainTerminalPid(): Promise<number | undefined>;
-  /** Bring the main terminal forward; it now shows `session`. */
-  showMain(session: string): void;
+  /** Focus a live Editor attachment and hand off unowned local clients. */
+  focusExisting(session: string): Promise<boolean>;
   /** Sessions shown by a terminal in this window. */
   sessionsHere(): Set<string>;
   terminalPids?(): ReadonlySet<number>;
+  terminalPidsReady?(): boolean;
   activeTerminalPid?(): number | undefined;
   renameSession?(from: string, to: string): void;
   notify(transition: Transition): void;
@@ -112,6 +123,7 @@ export class Controller {
     return buildTree(this.rows, {
       here: this.host.sessionsHere(),
       terminalPids: this.host.terminalPids?.(),
+      terminalPidsReady: this.host.terminalPidsReady?.(),
       activeTerminalPid: this.host.activeTerminalPid?.(),
       unread: this.unread,
       branch: (cwd) => this.branch(cwd),
@@ -198,22 +210,7 @@ export class Controller {
     return true;
   }
 
-  /** tmux client of a terminal process, found by its pid. */
-  private clientTty(pid: number): string | undefined {
-    const result = this.ctx.tmux.run(['list-clients', '-F', '#{client_pid}\t#{client_tty}'], true);
-    if (!result.ok) return undefined;
-    for (const line of result.stdout.split('\n')) {
-      const [clientPid, tty] = line.split('\t');
-      if (tty && descendsFrom(Number(clientPid), pid)) return tty;
-    }
-    return undefined;
-  }
-
-  /**
-   * Selecting a row: the main terminal switches to the session (tmux
-   * switch-client), or opens attached to it when there is none. A stopped
-   * session is rebuilt first.
-   */
+  /** Selection preserves every other session's terminal attachment. */
   show(name: string): Promise<void> {
     return this.orderMain(() => this.showNow(name));
   }
@@ -221,12 +218,10 @@ export class Controller {
   private async showNow(name: string): Promise<void> {
     this.pendingLaunch = undefined;
     this.ensureAvailable(name);
-    const pid = await this.host.mainTerminalPid();
-    const tty = pid ? this.clientTty(pid) : undefined;
-    if (tty) {
-      this.ctx.tmux.run(['switch-client', '-c', tty, '-t', `=${name}`]);
-      this.host.showMain(name);
-    } else {
+    if (!await this.host.focusExisting(name)) {
+      if (this.host.terminalPidsReady?.() === false) {
+        throw new Error('Terminal identification is still in progress. Try opening the session again.');
+      }
       await this.host.openTerminal(name, this.ctx.tmux.attachArgv(name), 'main');
     }
     this.attached(name);
@@ -305,21 +300,36 @@ export class Controller {
    * Start a session. A custom launcher starts agents (spec §6); a plain shell
    * is always Berth's own. `agent` is undefined when the launcher picks it.
    */
-  async newSession(agent: string | undefined, cwd: string, customLauncher = '', workspaceFolders: string[] = []): Promise<string | undefined> {
+  prepareNewSession(agent: string | undefined, cwd: string, customLauncher = '', workspaceFolders: string[] = []): SessionLaunch {
+    this.pendingLaunch = undefined;
+    const startedAt = Date.now();
     if (customLauncher && agent !== 'shell') {
       const command = renderLauncher(customLauncher, { agent: agent ?? '', cwd, relative: relativeToWorkspace(cwd, workspaceFolders), name: basename(cwd) });
-      await this.orderMain(async () => {
-        this.pendingLaunch = undefined;
-        const startedAt = Date.now();
-        await this.host.openTerminal('', [process.env.SHELL || '/bin/sh', '-lc', command], 'main', cwd);
-        const terminalPid = await this.host.mainTerminalPid();
-        if (terminalPid) this.pendingLaunch = { agent: agent ?? '', startedAt, terminalPid };
-      });
-      return undefined;
+      return { session: '', argv: [process.env.SHELL || '/bin/sh', '-lc', command], cwd, agent: agent ?? '', startedAt, custom: true };
     }
-    const name = create(this.ctx, { agent: agent ?? 'shell', cwd, origin: 'vscode' });
-    await this.show(name);
-    return name;
+    const session = create(this.ctx, { agent: agent ?? 'shell', cwd, origin: 'vscode' });
+    return { session, argv: this.ctx.tmux.attachArgv(session), cwd, agent: agent ?? 'shell', startedAt, custom: false };
+  }
+
+  /** Called only after the host has acknowledged this launch's terminal. */
+  completeNewSession(plan: SessionLaunch, terminalPid?: number): void {
+    if (plan.custom) {
+      if (terminalPid) this.pendingLaunch = { agent: plan.agent, startedAt: plan.startedAt, terminalPid };
+      return;
+    }
+    this.attached(plan.session);
+    const row = this.row(plan.session);
+    if (row) this.host.sessionShown?.(row);
+    presentCurrentState(this.ctx, plan.session);
+  }
+
+  async newSession(agent: string | undefined, cwd: string, customLauncher = '', workspaceFolders: string[] = []): Promise<string | undefined> {
+    return this.orderMain(async () => {
+      const plan = this.prepareNewSession(agent, cwd, customLauncher, workspaceFolders);
+      await this.host.openTerminal(plan.session, plan.argv, 'main', cwd);
+      this.completeNewSession(plan, await this.host.mainTerminalPid());
+      return plan.session || undefined;
+    });
   }
 
   rename(from: string, to: string): void {

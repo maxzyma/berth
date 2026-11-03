@@ -59,3 +59,21 @@ export async function sampleDoctor(cli: string, env: NodeJS.ProcessEnv, runtime 
   }
   return data as Finding[];
 }
+
+/** A pending/rejected terminal must not hold the whole inventory refresh open. */
+export async function resolveTerminalPids(
+  pending: readonly PromiseLike<number | undefined>[], timeoutMs = 250,
+): Promise<{ pids: (number | undefined)[]; ready: boolean }> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let values = pending.map(() => ({ pid: undefined as number | undefined, ready: false }));
+  const reads = pending.map(async (promise, i) => {
+    try {
+      const pid = await promise;
+      values = values.map((value, index) => index === i ? { pid, ready: pid !== undefined } : value);
+    } catch { /* Rejected identity remains unknown; other terminals still resolve. */ }
+  });
+  try {
+    await Promise.race([Promise.all(reads), new Promise<void>(resolve => { timer = setTimeout(resolve, timeoutMs); })]);
+    return { pids: values.map(value => value.pid), ready: values.every(value => value.ready) };
+  } finally { if (timer) clearTimeout(timer); }
+}

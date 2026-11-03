@@ -11,18 +11,21 @@ const input = { here: new Set<string>(), terminalPids: new Set([20]), unread: ne
 
 test('manual local attachment and remote clients are both visible', () => {
   const view = rowView(row, input);
-  assert.equal(view.details, 'This window +1');
+  assert.equal(view.details, 'VS Code · This window +1');
   assert.ok(view.hover.some((line) => line.text.includes('iTerm2')));
   assert.ok(view.hover.some((line) => line.text === 'Conversation: Fix search'));
   assert.ok(view.hover.some((line) => line.text === 'Conversation ID: exact-id'));
   assert.equal(view.name, 'job-2');
+  assert.equal(view.location.hostApplication, 'VS Code');
+  assert.equal(view.location.currentWindow, true);
+  assert.equal(view.hover.find(line => line.hostApplication === 'iTerm2')?.currentWindow, false);
 });
 
 test('stale local bookkeeping and origin do not determine connection', () => {
   const view = rowView({ ...row, connections: [], attachedClients: 0 }, { ...input, here: new Set(['job-2']) });
   assert.equal(view.details, 'detached');
   assert.equal(view.icon, 'working');
-  assert.equal(rowView({ ...row, connections: [], attachedClients: 1 }, input).details, 'Other terminal');
+  assert.equal(rowView({ ...row, connections: [], attachedClients: 1 }, input).details, 'Connected');
   assert.equal(rowView({ ...row, live: false }, input).details, 'stopped');
 });
 
@@ -39,4 +42,29 @@ test('CR32 configured hooks display native activation guidance as information', 
   const view = rowView({ ...row, hookSetup }, input);
   assert.ok(view.hover.some((line) => line.icon === 'info' && line.text === hookSetup));
   assert.doesNotMatch(view.contextValue, /hooks-missing/);
+});
+
+test('live client evidence outranks an older zero count while window identity resolves', () => {
+  const stale = { ...row, attachedClients: 0 };
+  const pending = rowView(stale, { ...input, terminalPids: new Set<number>(), terminalPidsReady: false });
+  assert.match(pending.contextValue, /attached-unknown/);
+  assert.ok(pending.hover.some(line => /window has not yet been identified/.test(line.text)));
+  const ready = rowView(stale, input);
+  assert.match(ready.contextValue, /attached-here/);
+  assert.equal(ready.location.icon, 'terminal');
+  assert.equal(ready.location.currentWindow, true);
+  assert.equal(ready.location.additional, 1);
+  const elsewhere = rowView(stale, { ...input, terminalPids: new Set([99]) });
+  assert.match(elsewhere.contextValue, /attached-elsewhere/);
+  assert.equal(elsewhere.location.icon, 'terminal');
+  assert.equal(elsewhere.location.hostApplication, 'VS Code');
+  assert.match(rowView({ ...row, attachedClients: 0, connections: [] }, input).contextValue, /detached/);
+});
+
+test('the local host icon is selected from the same sorted connection as its label', () => {
+  const view = rowView({ ...row, connections: [...row.connections!].reverse() }, input);
+  assert.equal(view.location.hostApplication, 'VS Code');
+  assert.equal(view.location.currentWindow, true);
+  const external = rowView(row, { ...input, terminalPids: new Set([99]) });
+  assert.equal(external.location.currentWindow, false);
 });

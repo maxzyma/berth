@@ -52,7 +52,7 @@ export function list(ctx: Context): SessionRow[] {
   const live = ctx.tmux.listSessions();
   const saved = ctx.store.newest()?.sessions ?? [];
   const title = profiledTitleLookup([...live.map((row) => ({ agent: row.meta.agent ?? '', conversation: row.meta.conversation ?? '', profile: readProfile(row.meta.agent ?? '', row.meta.profile) })), ...saved], ctx.env, join(ctx.config.stateDir, 'title-cache'));
-  const clients = connections(ctx.tmux, registeredHosts(ctx.config.stateDir));
+  const clients = live.length ? connections(ctx.tmux, registeredHosts(ctx.config.stateDir), true) : new Map<string, ConnectionInfo[]>();
   const statuses = new Map<string, HookStatus>();
   const hooks = (agent: string, profile?: AgentProfile): HookStatus => {
     if (!agent || agent === 'shell') return 'none';
@@ -76,7 +76,7 @@ export function list(ctx: Context): SessionRow[] {
     state: s.meta.state ?? '',
     note: s.meta.note ?? '',
     topic: s.meta.topic ?? '',
-    attachedClients: s.attachedClients,
+    attachedClients: clients.get(s.name)?.length ?? 0,
     connections: clients.get(s.name) ?? [],
     live: true,
     hooks: hooks(s.meta.agent ?? '', readProfile(s.meta.agent ?? '', s.meta.profile)),
