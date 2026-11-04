@@ -1,5 +1,20 @@
 # Whole-code review: findings and repairs
 
+## Terminal persistence across reload — 2026-11-04
+
+Berth previously opted out of native terminal persistence with `isTransient: true`
+and kept ownership only in extension-host memory. Terminals now use native
+persistence and carry a durable workspace owner token in their explicit creation
+environment. Reconnection re-adopts only matching terminals with verified live
+session ancestry. Startup samples restored terminals before considering a fallback
+and defers while PID identification is pending. Existing side views remain owned.
+
+The public terminal persistence setting remains authoritative. Terminals created
+by 0.4.3 retain their original transient options: after loading this fix, reopening
+a session creates a persistent terminal for subsequent reloads. Native reload
+acceptance remains manual; no live user window is reloaded by automation.
+Build and ten targeted ownership, startup and navigation checks passed.
+
 ## Unified Editor creation entry — 2026-11-03
 
 The Editor toolbar exposes one Berth creation dropdown before the native plus
@@ -63,8 +78,13 @@ rechecked at 14:02 +08:00. The specification owns the connection and row contrac
 - Connection markers stay on the title line. Window and terminal glyphs are
   shared with hover details; working uses a spinning glyph instead of a menu-like
   ellipsis. Empty subtitles reserve no line. Connection and activity metadata are icon-only
-  at every width; hover supplies text. A fixed activity slot prevents marker
-  movement when state changes. Numeric connection counts remain visible.
+  at every width; hover supplies text. Host identity occupies the far-right slot,
+  with a fixed activity slot immediately to its left. A muted backing outline
+  denotes multiple connections; hover lists each connection. Hover, connection
+  changes and idle transitions leave both
+  icon slots stationary. The identity browser suite passed 22 checks; four
+  host-artwork checks passed with the stacked indicator. Dark/light rendered
+  rows were inspected across both required viewport sizes.
 
 Regression coverage lives in `connections.test.ts`, `followup-regressions.test.ts`,
 `identity.test.ts`, `inventory.test.ts` and the browser identity/icon suites.

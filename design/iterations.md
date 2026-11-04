@@ -17,6 +17,24 @@ emulator, worktree manager, analytics dashboard or duplicate Git interface.
 A plain tmux/agent-native workflow remains appropriate for users who do not need
 cross-host session management.
 
+## Extension boundary
+
+Extension work must follow the
+[core launch principle](spec.md#21-core-principle-terminal-led-launch-evidence-based-discovery):
+the terminal runs the user's launcher and Berth discovers its result. The launcher
+remains independent of Berth. A launch-result callback protocol is not an approved
+roadmap item; session management must not depend on one. Agent-callable interfaces
+may expose existing verified session operations without taking ownership of agent
+startup. Autonomous dispatch and content handoff require a separate product
+proposal that preserves this boundary.
+
+The current plan does not include a separate plugin platform, extension SDK or
+MCP service. Prioritize reliable session discovery, identity, activity and
+recovery. Add support for new agents and hosts through the existing adapters;
+serve concrete automation needs through existing CLI operations first. Revisit
+an additional interface only when a specific workflow cannot be served by these
+mechanisms, with its scope and maintenance cost justified separately.
+
 ## Editor creation entry
 
 A single Berth button precedes the native plus in terminal Editor toolbars.
@@ -252,6 +270,13 @@ verify exact destination and keep context when the picker is cancelled.
 - Separate an empty inventory from failed discovery or unavailable dependencies.
 - Installing/repairing hooks preserves unrelated configuration and reports the
   exact result. It must survive PATH/runtime changes and extension upgrades.
+- Reconcile older hook installations against the current adapter event set without
+  overwriting unrelated hooks. Verify activation in already-running agents, including
+  native trust requirements. A discovered terminal with no verified profile must
+  not be treated as proof that state and prompt events are available.
+- Cover Codex installations containing only SessionStart and Stop: missing working
+  events leave activity and prompt summaries unavailable. Verify the next real turn,
+  not just the configuration file, and avoid requiring launcher modifications.
 - Keep layout Profile creation optional and separate from basic setup.
   Return through native Profile selection; preserve original/shared settings.
 

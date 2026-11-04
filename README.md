@@ -10,6 +10,13 @@ editor restart or a reboot.
 > VS Code is available through the Marketplace install command below and
 > [GitHub Releases](https://github.com/maxzyma/berth/releases). The spec is [design/spec.md](design/spec.md).
 
+## Launch principle
+
+Keep using your terminal commands and custom scripts. Berth discovers the agents
+and tmux sessions they start; scripts do not need to integrate with Berth. Built-in
+launch commands are optional. This boundary also applies to future extensions;
+see the [core principle](design/spec.md#21-core-principle-terminal-led-launch-evidence-based-discovery).
+
 ## Install
 
 Requires tmux ≥ 3.0 and Node ≥ 20. macOS process discovery also uses the
@@ -134,8 +141,8 @@ session journey, architecture and remaining host acceptance limits.
 
 ## Releasing
 
-See the [0.4.3 release notes](packages/vscode/CHANGELOG.md) and
-[release preparation](design/release-0.4.3.md) for scope and outstanding gates.
+See the [0.4.4 release notes](packages/vscode/CHANGELOG.md) and
+[release preparation](design/release-0.4.4.md) for scope and outstanding gates.
 
 Set the same version in `packages/core` and `packages/vscode`, commit, then
 push a tag `vX.Y.Z` (or `vX.Y.Z-rc.N` for a prerelease under npm's `next`).

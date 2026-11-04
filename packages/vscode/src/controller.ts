@@ -149,6 +149,7 @@ export class Controller {
    * one not attached anywhere in the main terminal. Others stay listed.
    */
   async startup(): Promise<string | undefined> {
+    if (this.host.terminalPidsReady?.() === false) return undefined;
     const ownerWorkspace = this.host.ownerWorkspace?.();
     if (!ownerWorkspace || !this.host.claimStartup?.()) return undefined;
     ensure(this.ctx, { origin: 'vscode', ownerWorkspace, lockTimeoutMs: LOCK_WAIT_MS });

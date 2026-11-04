@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.4
+
+### Terminal persistence
+
+- Allow Berth Editor terminals to survive window reloads when VS Code terminal persistence is enabled.
+- Reclaim restored Berth terminals using their owner identity and live tmux attachment before startup navigation creates a new view.
+- Keep user-created and other-window terminals outside this restoration ownership.
+
+### Connection indicators
+
+- Keep the host icon fixed at the right edge, with activity in a stable slot to its left.
+- Replace the extra-connection number with a compact stacked marker. Hover details list every connection and its terminal identity.
+- Preserve the distinct current-window dot and light/dark theme behavior.
+
+### Upgrade notes and limits
+
+- Reload VS Code after updating. Terminals created by earlier versions with persistence disabled must be reopened once through Berth; subsequent reloads can restore the new terminals.
+- Respect VS Code terminal persistence settings; Berth does not change them. Native reload behavior still awaits manual acceptance.
+- Custom launch scripts remain independent of Berth; session discovery must not require a Berth-aware launcher.
+- Older Codex hook installations may lack working/prompt events. Such sessions can appear connected while activity and the second-row summary remain unavailable; this release does not repair that integration gap.
+- Passive conversation binding for already-running unbound Codex shared-daemon sessions remains a known limitation. Live terminal attachment is usable; exact recovery requires a verified binding. Qoder missed-start support remains deferred.
+
+
 ## 0.4.3
 
 ### Terminal navigation

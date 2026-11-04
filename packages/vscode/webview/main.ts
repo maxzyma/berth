@@ -218,12 +218,11 @@ class BerthSessions extends LitElement {
       <div class="line title">
         ${agentIcon(row.agent, this.settings?.agentIcons)}
         <span class="name">${row.label}</span>
-        ${this.settings?.details && row.details ? html`
-          <span class="details" role="img" aria-label=${row.details}>
-            ${hostIcon(row.location.icon, row.location.hostApplication, this.settings?.hostIcons, row.location.currentWindow)}
-            ${row.location.additional ? html`<span class="connection-count">+${row.location.additional}</span>` : nothing}
-          </span>` : nothing}
         <span class="activity-slot">${row.badge ? html`<span class="badge" role="img" aria-label=${STATE_WORDS[row.icon]}>${row.icon === 'working' ? codicon(WORKING_ICON) : row.badge}</span>` : nothing}</span>
+        ${this.settings?.details && row.details ? html`
+          <span class=${`details${row.location.additional ? ' multiple-connections' : ''}`} role="img" aria-label=${row.details}>
+            ${hostIcon(row.location.icon, row.location.hostApplication, this.settings?.hostIcons, row.location.currentWindow)}
+          </span>` : nothing}
       </div>
       ${row.subtitle ? html`
         <div class="line supporting"><span class="subtitle ${row.subtitleKind}">${row.subtitle}</span></div>` : nothing}

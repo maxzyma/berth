@@ -40,7 +40,8 @@ for (const theme of ['dark', 'light']) {
     await expect(frame.locator('[id="s:unknown"] .details .codicon-terminal')).toBeVisible();
     for (const id of ['job-2', 'job-13', 'terminal']) {
       const row = frame.locator(`[id="s:${id}"]`);
-      await expect(row.locator('.details')).toHaveText(id === 'job-2' ? '+1' : '');
+      await expect(row.locator('.details')).toHaveText('');
+      await expect(row.locator('.multiple-connections')).toHaveCount(id === 'job-2' ? 1 : 0);
       await expect(row.locator('.host-icon')).toHaveCSS('width', id === 'job-2' ? '14px' : '16px');
       await expect(row.locator('.host-mark')).toHaveCSS('width', '16px');
       await expect.poll(() => row.locator('.host-icon').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);

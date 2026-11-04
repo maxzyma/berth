@@ -14,7 +14,8 @@ for (const theme of ['dark', 'light']) {
     await frame.locator('body').evaluate(() => window.sendModel(window.identityFixture));
     const row = frame.locator('[id="s:job-2"]');
     await expect(row.locator('.details')).toHaveAttribute('aria-label', 'VS Code · This window +1');
-    await expect(row.locator('.details')).toHaveText('+1');
+    await expect(row.locator('.multiple-connections')).toHaveCount(1);
+    await expect(row.locator('.connection-count')).toHaveCount(0);
     await expect(row.locator('.host-mark.current-window')).toHaveCount(1);
     await expect(frame.locator('[id="s:job-3"] .details')).toHaveAttribute('aria-label', 'detached');
     await expect(frame.locator('[id="s:job-3"] .details')).toHaveText('');
@@ -161,5 +162,40 @@ for (const width of [180, 300]) {
     await expect(frame.locator('.card .details')).toHaveCount(0);
     await expect(row.locator('.subtitle')).toContainText('检查会话列表的状态显示');
     await expect(frame.locator('[id="s:job-3"] > .line')).toHaveCount(1);
+  });
+}
+
+for (const theme of ['dark', 'light']) {
+  test(`right-aligned markers ${theme}: stack, activity and hover preserve host position`, async ({ page }, info) => {
+    await page.goto(`${server.url}/frame?theme=${theme}&width=300`);
+    const frame = page.frameLocator('iframe');
+    await expect(frame.getByRole('tree')).toBeVisible();
+    await frame.locator('body').evaluate(() => window.sendModel(window.identityFixture));
+    const row = frame.locator('[id="s:job-2"]');
+    const host = await row.locator('.host-mark').boundingBox();
+    const activity = await row.locator('.activity-slot').boundingBox();
+    expect(activity.x + activity.width).toBeLessThan(host.x);
+    await expect(row.locator('.multiple-connections')).toHaveCount(1);
+    await expect(row.locator('.connection-count')).toHaveCount(0);
+    const outline = await row.locator('.host-mark').evaluate(el => getComputedStyle(el, '::before').content);
+    expect(outline).not.toBe('none');
+    await page.locator('iframe').screenshot({ path: info.outputPath('right-markers-active.png') });
+    await row.hover();
+    await expect(frame.getByRole('dialog')).toBeVisible();
+    await expect(frame.getByRole('dialog')).toContainText('/dev/ttys001');
+    await expect(frame.getByRole('dialog')).toContainText('/dev/ttys002');
+    await frame.getByRole('button', { name: 'Close details' }).click();
+    await expect.poll(async () => (await row.locator('.host-mark').boundingBox()).x).toBe(host.x);
+    await frame.locator('body').evaluate(() => {
+      const model = structuredClone(window.identityFixture);
+      const row = model.groups.flatMap(group => group.rows).find(row => row.name === 'job-2');
+      row.badge = ''; row.subtitle = ''; row.location.additional = 0;
+      window.sendModel(model);
+    });
+    await expect(row.locator('.multiple-connections')).toHaveCount(0);
+    expect((await row.locator('.host-mark').boundingBox()).x).toBe(host.x);
+    expect((await row.locator('.activity-slot').boundingBox()).x).toBe(activity.x);
+    await page.mouse.move(0, 0);
+    await page.locator('iframe').screenshot({ path: info.outputPath('right-markers.png') });
   });
 }

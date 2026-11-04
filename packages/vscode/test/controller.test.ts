@@ -829,3 +829,10 @@ test('Editor handoff detaches only the captured local client and keeps the sessi
   handoffTerminalClients(ctx.tmux, 'handoff', destination.pid, [source]);
   assert.equal(connections(ctx.tmux).get('handoff')?.length, 2, 'retry leaves remaining clients intact');
 });
+
+test('reload startup waits for restored terminal identity instead of opening a fallback', async t => {
+  const { sb, host } = setup(t);
+  const controller = new Controller(sb.ctx(), Object.assign(host, { terminalPidsReady: () => false }));
+  assert.equal(await controller.startup(), undefined);
+  assert.equal(host.terminals.length, 0);
+});

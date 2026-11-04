@@ -1,3 +1,4 @@
+import { persistentTerminalOptions, restoredTerminalSession } from './terminalOwnership.js';
 /** Berth for VS Code: glue between the editor API and the controller (spec §6). */
 import { resolveHostIcons } from './hostIcons.js';
 import { notificationChannel, notifySystem } from './notifications.js';
@@ -28,7 +29,7 @@ function currentWorkspaceIdentity() {
 }
 
 class TerminalHost implements Host {
-  constructor(private readonly ctx: Context, private registration: HostRegistration) {}
+  constructor(private readonly ctx: Context, private registration: HostRegistration, private readonly terminalOwner: string) {}
   ownerWorkspace(): string | undefined {
     this.syncWorkspace();
     return this.registration.workspace?.key;
@@ -71,6 +72,15 @@ class TerminalHost implements Host {
     const clients = [...connections(this.ctx.tmux).entries()];
     const shownBy = (pid: number | undefined) => pid ? clients.find(([, values]) => values.some((client) => client.ancestors.includes(pid)))?.[0] : undefined;
     this.sessionsByPid = new Map([...this.pids].flatMap(pid => { const name = shownBy(pid); return name ? [[pid, name] as const] : []; }));
+    for (const terminal of terminals) {
+      if (terminal.exitStatus !== undefined) continue;
+      const options = terminal.creationOptions;
+      const session = restoredTerminalSession('env' in options ? options.env : undefined,
+        this.terminalOwner, this.terminalIds.get(terminal), this.sessionsByPid);
+      if (!session || terminal === this.main?.terminal) continue;
+      if (!this.main && terminal === vscode.window.activeTerminal) this.main = { terminal, session };
+      else this.side.set(terminal, session);
+    }
     if (this.main) {
       const session = shownBy(pids[terminals.indexOf(this.main.terminal)]);
       this.main = { ...this.main, session: session ?? '' };
@@ -98,7 +108,7 @@ class TerminalHost implements Host {
       shellPath,
       shellArgs,
       cwd,
-      isTransient: true,
+      ...persistentTerminalOptions(this.terminalOwner),
       location: { viewColumn: role === 'main' ? vscode.ViewColumn.One : vscode.ViewColumn.Beside, preserveFocus: false },
     });
     try {
@@ -235,7 +245,7 @@ function sessionArg(arg: unknown): string | undefined {
   return (arg as MenuContext | undefined)?.session;
 }
 
-export function activate(context: vscode.ExtensionContext): void {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   void vscode.commands.executeCommand('setContext', 'berth.detailsVisible', false);
   try {
     prepareHookRuntime(context.asAbsolutePath('dist/cli.mjs'), context.globalStorageUri.fsPath);
@@ -246,7 +256,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const ctx = createContext({ ...process.env, ...(socket ? { BERTH_TMUX_SOCKET: socket } : {}) });
   const registration = new HostRegistration(ctx.config.stateDir, vscode.env.appName, currentWorkspaceIdentity());
   registration.update([]);
-  const host = new TerminalHost(ctx, registration);
+  const terminalOwner = context.workspaceState.get<string>('berth.terminalOwner') || randomUUID();
+  await context.workspaceState.update('berth.terminalOwner', terminalOwner);
+  const host = new TerminalHost(ctx, registration, terminalOwner);
   context.subscriptions.push(host);
   const controller = new Controller(ctx, host);
   const view = new SessionsView(context.extensionUri, (message) => {
@@ -554,7 +566,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.onDidCloseTerminal((t) => { host.forget(t); void refresh(); }),
     { dispose: (() => { const timer = setInterval(() => void refresh(false), REFRESH_MS); return () => clearInterval(timer); })() },
   );
-  controller.startup().catch((error: Error) => {
+  host.updateTerminalPids().then(() => controller.startup()).catch((error: Error) => {
     view.message = `Berth: ${error.message}`;
   });
   // Switching to one of Berth's terminals follows its session in the explorer.

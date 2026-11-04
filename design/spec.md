@@ -62,6 +62,35 @@ a reason for Berth to exist.
   claims must distinguish implemented adapters from agents whose binding and
   resume have been verified against the stated CLI version (§8).
 
+### 2.1 Core principle: terminal-led launch, evidence-based discovery
+
+The terminal executes the user's chosen command or custom script. The launcher
+owns how the agent starts, which agent runs, its configuration and whether to
+create or resume a conversation. Berth observes the resulting processes and tmux
+connections, verifies identity and then manages the discovered session.
+This is a required architectural boundary for existing and future features.
+
+- A launcher need not know Berth exists. Do not require a Berth SDK, wrapper,
+  callback, request token, result schema, environment marker or naming convention
+  to discover and manage sessions within the supported tmux/agent scope.
+- Do not couple discovery to a script name, script implementation, workspace
+  layout or Berth-owned creation path. Sessions started outside Berth follow the
+  same identity and management rules as sessions opened through its UI.
+- Built-in launch templates remain an optional convenience. They must not
+  supersede configured terminal launchers or become a prerequisite for management.
+- Hooks and native evidence may improve conversation binding and activity
+  reporting. Missing evidence means those particular facts are unknown; it must
+  not turn launcher cooperation into a prerequisite or justify a guessed identity.
+- CLI, MCP, plugins and future integrations must preserve this boundary. Queries
+  may expose verified facts; executing a launcher does not prove agent readiness
+  or task receipt. Autonomous dispatch and content handoff are not prerequisites
+  for session management and must not make Berth the owner of agent startup.
+
+Changes to this boundary require an explicit product decision from the maintainer
+and a revision of this section before implementation. A feature proposal or an
+implementation shortcut cannot implicitly override it. Launch behavior (§5.2),
+frontend creation and extension proposals must be reviewed against this section.
+
 ## 3. Non-goals
 
 - Not an agent harness or chat UI. Berth runs the user's own CLI with the
@@ -287,7 +316,8 @@ directory is not evidence of a window identity.
 
 The row uses icons only for connection and activity metadata; application names
 and status explanations appear in hover details and accessible labels, not as
-list text. Additional connections use a numeric count. Detached means the live
+list text. Multiple connections use a stacked host outline; hover lists the
+individual connections. Detached means the live
 session has no attached client, not that its agent has stopped. Missing client
 identity is not evidence of detachment.
 
@@ -424,6 +454,8 @@ Every command accepts `--socket <name>` (a tmux `-L` server) and
 server they run in, so each server's state stays separate.
 
 ### 5.2 Launch
+
+All launch paths follow the [core launch principle](#21-core-principle-terminal-led-launch-evidence-based-discovery).
 
 Each agent adapter defines a default launch template and a resume template.
 Users override either per agent in config:
@@ -801,16 +833,21 @@ Berth runs with no config file.
     (§4.2 hooks), then the exact-bound conversation title when no task text is
     available. Duplicate name/title/task text is suppressed. Cards use at most
     two lines, with no reserved empty line. Connection markers stay on the
-    first line's right edge, before state/unread markers; their position never
+    first line's far-right edge, after state/unread markers; their position never
     depends on the subtitle. `berth.view.details` controls these muted markers
     and defaults to on. The second line contains only task or notification
     text and disappears when empty. The subtitle has a 3px top gap, 18px line
     height and 5px bottom padding; single-line cards retain their compact spacing.
     Connection and activity metadata use icons
     only at every width. Application names and status words appear only in hover
-    details and accessible labels. Additional-client counts remain numeric.
-    The activity slot at the far right has fixed width even while idle, so
-    connection markers do not shift when activity changes. This-window membership
+    details and accessible labels. Multiple connections use a muted stacked-outline
+    mark behind the host glyph; exact connections and counts belong in hover,
+    not numeric badges in the row.
+    The fixed-width activity slot sits immediately left of the host slot and
+    remains reserved while idle. The multiple-connection outline stays inside
+    the host slot, so connection changes, hover and subtitles cannot displace
+    either icon slot. The outline denotes multiple connections; the bottom-right
+    dot denotes this-window membership. This-window membership
     uses the same host product icon as any connection in that application,
     with a small corner dot denoting this-window membership. Host marks occupy
     a fixed 16px slot; VS Code artwork is optically sized to 14px and centered.
@@ -925,7 +962,13 @@ Berth runs with no config file.
     marks follow the icon contract above. Context menu,
     title actions and badge are native, not imitations.
 - **Stable Editor session terminals.** Berth navigation takes over a session's
-  connections in this VS Code window into a Berth-owned Editor terminal. Reuse
+  connections in this VS Code window into a Berth-owned Editor terminal.
+  Editor terminals participate in native persistence across reload and restart,
+  subject to the user’s terminal persistence setting. A durable workspace owner
+  token in explicit terminal creation options identifies restored Berth terminals;
+  live PID ancestry determines their current session. Re-adoption never creates
+  a second attachment or changes focus. Startup samples restored terminals before
+  deciding whether to open a fallback session. Reuse
   requires live tmux ancestry, never a display-name match. If no owned terminal
   exists, first attach an Editor terminal and confirm its exact session and PID;
   only then detach the previously identified unowned local clients. Do not

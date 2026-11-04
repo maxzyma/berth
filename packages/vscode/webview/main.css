@@ -159,7 +159,6 @@ body {
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
 }
-.connection-count { flex: none; }
 .activity-slot { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 16px; }
 .details .codicon { flex: none; font-size: 12px; }
 
@@ -513,6 +512,15 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
 .host-vscode { width: 14px; height: 14px; }
 
 .host-mark { display: inline-flex; position: relative; align-items: center; justify-content: center; width: 16px; height: 16px; flex: none; }
+/* The upper-left backing outline means multiple connections, not activity. */
+.multiple-connections .host-mark::before {
+  content: ''; position: absolute; left: 0; top: 0;
+  width: 10px; height: 10px; box-sizing: border-box;
+  border-top: 1px solid var(--vscode-descriptionForeground);
+  border-left: 1px solid var(--vscode-descriptionForeground);
+  border-radius: 2px 0 0 0; opacity: 0.7;
+}
+.multiple-connections .host-mark > * { transform: translate(1px, 1px) scale(0.875); }
 .host-mark.current-window::after {
   content: ''; position: absolute; right: 0; bottom: 0;
   width: 4px; height: 4px; border-radius: 50%;

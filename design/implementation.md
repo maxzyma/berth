@@ -5,6 +5,16 @@ file fixes the choices code must follow and the acceptance cases that decide
 when a milestone is done. Where the two disagree, the spec wins and this file
 is fixed.
 
+Launch and discovery changes must satisfy the
+[core launch principle](spec.md#21-core-principle-terminal-led-launch-evidence-based-discovery).
+Acceptance must include an unchanged launcher that emits no Berth metadata and
+knows nothing of Berth, plus a session started outside the Berth UI. Identify the
+result from live process/connection evidence, preserve the launcher's chosen
+agent and directory, and report missing conversation evidence without guessing.
+Do not replace these cases with tests that supply a cooperative callback or
+Berth-created session. Existing V3 cases cover the unaware-launcher path; new
+interfaces must preserve that acceptance case.
+
 Attachment uses core `presentCurrentState` under the shared lock after bell
 acknowledgement; it does not replay an inventory row. Custom-launch intent belongs
 to the successful terminal PID and is assigned inside the main-action queue.
@@ -604,10 +614,11 @@ manual cases are recorded as checked, and the de-identification check passes.
 
 - **V1** The session view shows the cards of spec §6, grouped by cwd: line
   one the agent's icon, name and state badge; line two the notification while
-  waiting or done, else the topic. Connection markers stay on line one's right,
-  before state/unread markers, when `berth.view.details` is on. No third or empty
+  waiting or done, else the topic. Connection markers stay at line one's far right,
+  after the fixed state/unread slot; multiple connections use a backing outline, when `berth.view.details` is on. No third or empty
   reserved line; connection and activity metadata remain icon-only at every width, with numeric
-  client counts and a fixed activity slot. Full text belongs to hover details. Window membership, active
+  a stacked multi-connection mark and a fixed activity slot. Exact client
+  identities and counts belong to hover details. Window membership, active
   terminal and selection are independent; hover retains full connection values.
   The hover card's lines each have an icon; the
   waiting-count badge.
@@ -623,6 +634,12 @@ manual cases are recorded as checked, and the de-identification check passes.
   connections remain counted. Unknown PIDs defer attachment. Stopped sessions
   rebuild first; open to the side explicitly adds a view. Agent identity does
   not change these rules. Explorer follows only local folders.
+  Reload acceptance: with native persistence enabled, open multiple Berth Editor
+  terminals and a side view, reload, and verify the same native terminals remain
+  connected without focus changes, extra clients or a fallback tab. Recreated
+  extension hosts recover ownership from explicit creation metadata and resolve
+  current sessions from live PIDs. Unknown terminal identities defer startup;
+  mismatched owner tokens must not confer Berth ownership.
 - **V3** New / attach / detach / rename / kill / adopt act on the test server;
   a custom launcher runs in the session terminal in the chosen folder with its
   placeholders filled; the terminal then learns its session from tmux, and a
