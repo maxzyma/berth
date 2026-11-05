@@ -4,7 +4,9 @@ Find terminal coding agents and return to the right conversation inside VS Code.
 
 - **Sessions** groups work by folder and shows product identity, attention state
   and verified terminal connections. **Find a Session** searches names, titles
-  and folders; details provide Copy controls for full values.
+  and folders; details provide Copy controls for full values. Unread completion
+  uses a blue title and circle-check; working and waiting take precedence. Hover
+  shows available event times without adding timestamps to list rows.
 - **Persistence** keeps agents running in tmux when a terminal or editor closes.
   Startup recovery uses the workspace recorded at successful attachment. Legacy
   records stay available for manual opening.
@@ -15,7 +17,9 @@ Find terminal coding agents and return to the right conversation inside VS Code.
 - Installation and upgrades preserve your current view and layout. Hook setup and
   the optional layout are available when you choose them; inventory refresh does
   not prompt you to install hooks. Existing conversation records are completed
-  automatically when a verified agent event supplies the missing identity.
+  automatically when a verified agent event supplies the missing identity. Updates
+  can complete an unchanged legacy Berth Codex hook installation; customized hooks
+  are preserved and Codex hook trust remains under your control.
 - **Diagnose Problems** explains missing prerequisites, hooks and recovery limits.
 - **Check Recovery Readiness**, in the right-click menu (also in stopped-session details),
   explains what prevents that conversation from being recovered and offers
@@ -35,3 +39,12 @@ Requires tmux 3.0 or later on the machine where the workspace runs. Remote
 workspaces use that host's tmux and state. Native host and agent-version
 acceptance is tracked in the repository's product review; implementation support
 alone is not a verified compatibility claim.
+
+Codex clients using a shared daemon may remain unbound when no verified current
+conversation signal is available. Working activity and a temporary visible-prompt
+preview can still appear, but do not establish an identity or enable exact recovery.
+Passive discovery does not change Codex configuration or your launch scripts.
+
+See the [product review](https://github.com/maxzyma/berth/blob/main/design/product-review.md)
+and [release notes](https://github.com/maxzyma/berth/blob/main/packages/vscode/CHANGELOG.md)
+for tested scope and remaining limits.

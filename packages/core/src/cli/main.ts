@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { upgradeCodexHooks } from '../agents/hook-upgrade.js';
 import { profileRoot } from '../agents/profile.js';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, realpathSync } from 'node:fs';
@@ -35,6 +36,7 @@ const USAGE = `usage: berth <command> [options]
   show <session> [<snapshot dir>]
   doctor [--json]
   hooks install|uninstall <agent>
+  hooks upgrade codex                          add events to a legacy Berth installation
   tmux install|uninstall                       snapshot hooks in ~/.tmux.conf
   iterm2 install|uninstall                     Berth for iTerm2 (AutoLaunch script)
   iterm2 reattach <session>                    rebuild if missing, print attach command
@@ -226,8 +228,9 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
         const guidance = hookSetupGuidance(agent);
         if (guidance) process.stderr.write(`${guidance}\n`);
       }
+      else if (action === 'upgrade' && agent === 'codex') out(JSON.stringify(upgradeCodexHooks(cliPath())));
       else if (action === 'uninstall') out(uninstallHooks(need(agent, 'agent')));
-      else throw new BerthError(`hooks: expected install or uninstall\n${USAGE}`, ExitCode.usage);
+      else throw new BerthError(`hooks: expected install, uninstall, or upgrade codex\n${USAGE}`, ExitCode.usage);
       return ExitCode.ok;
     }
     case 'bell': {

@@ -177,7 +177,7 @@ class BerthSessions extends LitElement {
       ${'branch' in group && group.branch ? html`<span class="group-branch" role="img" aria-label=${`Current worktree branch: ${group.branch}`}>
         <i class="codicon codicon-git-branch" aria-hidden="true"></i><span class="branch-name">${group.branch}</span>
       </span>` : nothing}
-      ${attention ? html`<span class="badge">${attention === 'waiting' ? '!' : '•'}</span>` : nothing}
+      ${attention ? html`<span class="badge">${attention === 'waiting' ? '!' : codicon('pass-filled')}</span>` : nothing}
       ${other
         ? nothing
         : html`<span
@@ -218,7 +218,7 @@ class BerthSessions extends LitElement {
       <div class="line title">
         ${agentIcon(row.agent, this.settings?.agentIcons)}
         <span class="name">${row.label}</span>
-        <span class="activity-slot">${row.badge ? html`<span class="badge" role="img" aria-label=${STATE_WORDS[row.icon]}>${row.icon === 'working' ? codicon(WORKING_ICON) : row.badge}</span>` : nothing}</span>
+        <span class="activity-slot">${row.badge ? html`<span class="badge" role="img" aria-label=${STATE_WORDS[row.icon]}>${row.icon === 'working' ? codicon(WORKING_ICON) : row.attention === 'unread' ? codicon('pass-filled') : row.badge}</span>` : nothing}</span>
         ${this.settings?.details && row.details ? html`
           <span class=${`details${row.location.additional ? ' multiple-connections' : ''}`} role="img" aria-label=${row.details}>
             ${hostIcon(row.location.icon, row.location.hostApplication, this.settings?.hostIcons, row.location.currentWindow)}

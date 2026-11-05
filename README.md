@@ -1,9 +1,12 @@
 # Berth
 
-A berth for every coding agent: keep terminal-based agent CLIs (Claude Code,
-Codex CLI, and others) running in tmux, list them all in one place, and bring
-each one back — conversation included — in the terminal it came from after an
-editor restart or a reboot.
+Discover terminal coding agents, keep their processes running in tmux, and
+manage their sessions from VS Code. Berth can resume a recorded conversation
+after a restart when its identity, profile and launch options have been verified.
+
+VS Code provides the session list and Editor terminals. The optional iTerm2
+integration reconnects panes restored by iTerm2 and shows agent state on tabs;
+it does not add a session sidebar or manage iTerm2 layouts.
 
 > Status: early. The core and `berth` CLI are on npm as
 > [`@berthdev/berth`](https://www.npmjs.com/package/@berthdev/berth); Berth for
@@ -64,11 +67,11 @@ prompt. Busy programs are left running. From a ready shell,
 |---|---|---|
 | **Berth core** | Session registry, launch, conversation binding, snapshot, restore. A library plus the `berth` CLI. Knows nothing about editors. | TypeScript |
 | **Berth for VS Code** | Layout preset, a list of every agent session, new / attach / kill, reopening its own sessions at startup. | TypeScript |
-| **Berth for iTerm2** | AutoLaunch script that reopens iTerm2's own sessions at startup, written by `berth iterm2 install`. Calls the CLI; holds no logic. | Python (generated) |
+| **Berth for iTerm2** | Optional AutoLaunch reattachment and native tab-state integration. Uses iTerm2 window restoration; no separate session list or layout manager. | Python (generated) |
 
 Frontends only present and reopen sessions. Every decision about sessions —
 what exists, which conversation it holds, which terminal owns it — is made
-in the core, so frontends cannot disagree. Each host Berth supports gets its
+in the core. Each host Berth supports gets its
 own frontend, *Berth for <host>*.
 
 ## Directory layout
@@ -141,8 +144,13 @@ session journey, architecture and remaining host acceptance limits.
 
 ## Releasing
 
-See the [0.4.4 release notes](packages/vscode/CHANGELOG.md) and
-[release preparation](design/release-0.4.4.md) for scope and outstanding gates.
+See the [release notes](packages/vscode/CHANGELOG.md) and
+[current release record](design/release-0.4.5.md) for scope and outstanding gates.
+
+Use local candidate packages during review; publish a version after its scoped
+checks and release notes are complete. Retain normal published versions for
+rollback and reproducible installation. Remove stale preview tags and deprecate
+nonfunctional placeholders instead of deleting usable releases.
 
 Set the same version in `packages/core` and `packages/vscode`, commit, then
 push a tag `vX.Y.Z` (or `vX.Y.Z-rc.N` for a prerelease under npm's `next`).

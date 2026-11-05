@@ -1,0 +1,30 @@
+import { test, expect } from '@playwright/test';
+import { buildTree } from '../../dist-test/src/model.js';
+import { serveFixture } from './fixture.mjs';
+let server;
+test.beforeAll(async () => { server = await serveFixture(); });
+test.afterAll(async () => { await server.close(); });
+for (const theme of ['dark', 'light']) test(`activity times stay in hover ${theme}`, async ({ page }, info) => {
+  await page.clock.install();
+  await page.goto(`${server.url}/frame?theme=${theme}&width=300`);
+  const frame = page.frameLocator('iframe');
+  await expect(frame.getByRole('tree')).toBeVisible();
+  const now = Date.parse('2026-01-01T12:05:00Z');
+  const row = { name: 'time-session', managed: true, agent: 'codex', cwd: '/workspace/product', conversation: 'fixture', origin: 'none', state: 'waiting', note: 'Approve the export', topic: '', attachedClients: 0, live: true, hooks: 'installed',
+    activityTiming: { state: 'waiting', turnStartedAt: '2026-01-01T12:00:00.000Z', stateSince: '2026-01-01T12:02:00.000Z' } };
+  const model = buildTree([row], { here: new Set(), unread: new Set(), branch: () => '', now });
+  await frame.locator('body').evaluate((_, model) => window.sendModel(model), model);
+  const item = frame.locator('[id="s:time-session"]');
+  await expect(item).not.toContainText('ago');
+  await item.hover();
+  await page.clock.runFor(100);
+  const dialog = frame.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Turn started 5m ago');
+  await expect(dialog).toContainText('Waiting for 3m');
+  await dialog.getByRole('button', { name: 'Copy waiting time', exact: true }).click();
+  expect(await frame.locator('body').evaluate(() => window.messages.filter(m => m.type === 'copy').at(-1)?.value)).toBe('2026-01-01T12:02:00.000Z');
+  const box = await dialog.boundingBox();
+  expect(box.y + box.height).toBeLessThanOrEqual(info.project.use.viewport.height);
+  await page.locator('iframe').screenshot({ path: info.outputPath('activity-time.png') });
+});

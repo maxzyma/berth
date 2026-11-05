@@ -29,11 +29,12 @@ export function installBundledHooks(
   storage: string,
   agent: string,
   env: NodeJS.ProcessEnv = process.env,
+  action: 'install' | 'upgrade' = 'install',
 ): Promise<{ ok: boolean; detail: string }> {
   const execute = async () => {
     try {
       const cli = prepareHookRuntime(bundle, storage);
-      const result = await run(process.execPath, [cli, 'hooks', 'install', agent], {
+      const result = await run(process.execPath, [cli, 'hooks', action, agent], {
         env: { ...env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8',
         timeout: 30_000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
       });

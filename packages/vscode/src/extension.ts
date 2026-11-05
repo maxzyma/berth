@@ -296,6 +296,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     refresh();
   };
 
+  const checkedHookProfiles = new Set<string>();
+  const upgradeHooks = (profile: AgentProfile) => {
+    const env = profileEnvironment('codex', profile, ctx.env);
+    const key = JSON.stringify(profile);
+    if (checkedHookProfiles.has(key)) return;
+    checkedHookProfiles.add(key);
+    void installBundledHooks(context.asAbsolutePath('dist/cli.mjs'), context.globalStorageUri.fsPath, 'codex', env, 'upgrade').then(result => {
+      if (!result.ok) { console.error(`Berth hook upgrade: ${result.detail}`); return; }
+      try {
+        if (JSON.parse(result.detail).changed) void vscode.window.showInformationMessage(
+          'Berth added missing Codex activity hooks. Review the new definitions in Codex /hooks. State and summaries update after events arrive.');
+      } catch (error) { console.error('Berth hook upgrade returned an invalid result', error); }
+    });
+  };
+  upgradeHooks(captureProfile('codex', ctx.env));
+
   let refreshTask: Promise<void> | undefined;
   let refreshAgain = false;
   const refresh = (requestAgain = true): Promise<void> => {
@@ -318,6 +334,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             }
           }
           const sample = await sampleInventory(context.asAbsolutePath('dist/cli.mjs'), ctx.env);
+          for (const row of sample.rows) if (row.agent === 'codex' && row.profile) upgradeHooks(row.profile);
           await host.updateTerminalPids();
           const { tree: model } = controller.acceptInventory(sample.rows, sample.branches);
           view.update(model);

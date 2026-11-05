@@ -1,5 +1,176 @@
 # Whole-code review: findings and repairs
 
+## Hover lifecycle times — 2026-11-04
+
+Live-only activity timing now distinguishes a turn start, waiting entry and
+successful completion. Validated hooks timestamp receipt; exact-bound Codex
+rollouts retain native event timestamps. Duplicate same-state hook events do not
+restart elapsed time. Explicit prompts begin a new turn; idle/unknown state writes
+clear old timing. Screen-only overrides cannot borrow a completion timestamp.
+Snapshots exclude this metadata. Missing, future, malformed or mismatched timing
+is omitted rather than reconstructed from discovery or file modification times.
+
+Hover shows relative duration plus local date/time and copies the ISO value.
+Rows and natural ordering are unchanged; existing refreshes update relative labels.
+At HEAD `367782c` plus this candidate, 323 regression tests passed, 11 opt-in
+native tests were skipped, and the two selected native Codex journeys passed
+separately. Native assertions verify stable completion time and no timestamp from
+screen-only activity. Four browser checks passed at 1440×900 and 1280×800 in dark
+and light themes; screenshots were visually inspected. Copy returns the original
+ISO timestamp. The local activity-time VSIX is installed; no formal release.
+
+## Unbound Codex terminal preview — 2026-11-04
+
+At HEAD `367782c` plus the candidate working tree, the visible-grid observer now
+returns an optional `terminalPreview` independently of conversation identity.
+The view uses it only when notification, verified topic and conversation title
+are absent, and identifies its source in hover. It is never persisted, cached,
+used for unread completion or accepted as recovery evidence. Missing/unknown
+layouts remove the preview. Textual recognition is best-effort, not authentication;
+output can imitate native text. Indented/fenced prompts, slash commands, unsent
+composer text and samples with changed ownership are rejected.
+
+The default footer can omit context usage: recognition then additionally requires
+the native version header and model/reasoning footer shape. Animated bullet variants
+are accepted for response output. The native fixture uses an isolated shared server,
+no hooks and no status-line customization; it checks working plus preview with no
+bound ID, no stored topic and unchanged configuration after native startup.
+Two native journeys passed, including the existing exact-selection/recovery case;
+17 parser/native-record/view-model and 56 controller checks passed. A read-only
+sample of the existing default-footer TUI also returned working and a visible
+preview without an identity candidate. Exact default-footer binding remains open. The local terminal-preview VSIX was
+installed and all 32 installed payload files were checked against the package;
+no formal release. The added fixture kills its isolated server process group on
+cleanup so the npm launcher cannot keep the test runner alive.
+
+## Unread completion presentation — 2026-11-04
+
+Unread completion now uses a blue normal-weight title and a 12px blue
+`pass-filled` Codicon in the fixed activity slot, including collapsed-group
+indicators. Selected titles inherit the theme selection foreground. Working and
+waiting take precedence over old unread decoration; no dot background is applied
+to a spinner. The hover says “Finished, unread”. Reading removes the unread cue.
+Eight browser checks passed across four themes and both review viewports; dark
+and light selected rendering were inspected. The focused view-model checks passed.
+The local candidate was installed and its payload verified; no formal release.
+
+## Codex legacy hook upgrade — 2026-11-04
+
+The previous two-event installation could remain in place after an extension
+update. The runtime bundle was refreshed, but missing working/prompt handlers
+were never added. The new `hooks upgrade codex` path recognizes only an unchanged
+Berth SessionStart/Stop installation and adds the missing events, retaining existing
+handler definitions and unrelated configuration. VS Code checks the default and
+verified session profiles once per activation. Disabled, customized or unparseable
+configuration is preserved; upgrade failures are logged, not retried on each poll.
+
+Twenty-two targeted hook installation, preservation, health and binding checks
+passed. A loopback-only native Codex fixture also passed after adding hooks to an
+already-running session and clearing its saved binding: the next turn established
+the conversation, working state and prompt summary, and subsequent lifecycle and
+recovery checks passed. The executable reports CLI 0.162.1. The fixture uses an
+isolated profile with an explicit test-only trust bypass; it does not prove trust
+or delivery in the user's existing shared-daemon session.
+
+The [official hook contract](https://learn.chatgpt.com/docs/hooks), checked
+2026-11-04, requires reviewing new definitions in `/hooks`. Berth never writes
+trust records or adds a production bypass. Configuration completion, native trust
+and observed events remain separate.
+
+Live diagnosis at HEAD `367782c` plus the hook-upgrade working tree, 2026-11-04
+17:32 +0800, captured an actual PostToolUse invocation from shared daemon 0.166.0.
+The hook inherited the daemon's stale tmux socket and pane, rather than the active
+TUI's socket and pane; the inherited socket no longer existed. Berth's hook handler
+therefore could not resolve a session and discarded the event before updating
+state, topic or binding. The temporary metadata-only probe was removed and the
+runtime restored. This proves execution, so repeating trust review cannot address
+this observed failure.
+
+The isolated test above does not cover a pre-existing shared daemon with foreign
+terminal environment. Even correcting environment alone is insufficient: current
+producer validation also requires the hook to descend from the TUI process,
+whereas daemon hooks descend from the shared server. The follow-up needs an
+authoritative event-to-conversation-to-live-terminal association and a regression
+with two same-directory clients sharing a daemon started outside their terminals.
+Do not replace the ancestry guard with a cwd/latest-thread guess or restart a
+shared daemon as an automatic repair.
+
+A second metadata-only capture confirmed that the real PostToolUse payload
+contains session_id, turn_id, transcript_path, cwd, hook_event_name, model,
+permission_mode and tool fields, but no client PID or terminal identifier. Its
+parent is the shared server, not the TUI. The generated 0.166.0 protocol and the
+inspected TUI process logs did not supply a current client-to-thread mapping.
+Both temporary probes were removed and the original runtime restored. These
+findings rule out routing by inherited daemon environment; they do not establish
+that passive terminal observation is impossible.
+
+Official and community sources checked 2026-11-04 identify these alternatives:
+
+- [Upstream issue #48500](https://github.com/openai/codex/issues/48500) reports the
+  same stale terminal environment. [Herdr's reproduction](https://github.com/herdrdev/herdr/issues/4649)
+  reports `--no-daemon` as a working workaround. The local 0.162.1 binary exposes
+  that flag; it has not been separately accepted against Berth's shared-daemon
+  regression. Existing loaded threads can complicate migration, so no daemon stop
+  or launcher rewrite is automatic.
+- [Official 0.162.1 status rendering](https://github.com/openai/codex/blob/rust-v0.162.1/codex-rs/tui/src/chatwidget/status_surfaces.rs)
+  supplies full `session-id` and native activity status. Its terminal-title ID is
+  truncated to 32 characters. Native Waiting denotes background-terminal waiting,
+  so it must not be mapped directly to Berth's needs-user state.
+- [Prowl's research](https://tangled.org/onev.cat/Prowl/blob/fix%2Fcodex-daemon-revoked-descriptor/docs-ai/064-agent-completion-signals/020-selection-channel-research.md)
+  reports native 0.154.0 footer identity following new/resume, but truncation in narrow
+  viewports and concealment by pickers. This is external experimental evidence,
+  not a Berth acceptance result. Its recording investigation also found that request
+  logs cannot distinguish a successful resume from a failed request.
+- [The cmux discussion](https://github.com/manaflow-ai/cmux/issues/14853#issuecomment-6114518639)
+  proposes TUI-emitted OSC identity. This remains a proposal in the inspected
+  discussion, not an available compatibility guarantee.
+
+Current-viewport activity is now a read-only inventory overlay, independently of
+conversation binding. It requires the native composer/footer and running widget,
+plus unchanged producer, session incarnation and activity metadata. It never writes
+state, summary, binding or recovery metadata, and preserves hook-reported waiting.
+A new working turn also suppresses the previous unread decoration in the row,
+hover chip and collapsed group; the unread record itself remains intact.
+
+Nineteen targeted core/native-observation and view-model checks passed. A hook-free,
+loopback-only native 0.162.1 fixture launched outside Berth passed: it observed
+working, completion clearing the display, full configured footer identity changing
+on `/new`, and rejection after narrowing the viewport. This fixture does not prove
+shared-daemon identity routing. A separate read-only observation of the existing
+shared-daemon terminal changed its returned display from empty to working while
+leaving its conversation unbound. Eight theme/viewport browser checks passed.
+
+At Berth `367782c` plus this working tree, checked 2026-11-04, the
+native-selection adapter cross-checks the complete footer UUID,
+the TUI's own writable log-database profile and that profile's exact-ID rollout.
+It follows a direct npm-wrapper child only when the CLI argument vector matches.
+Native records with source `vscode` are accepted only when their header explicitly
+identifies `codex-tui`; other editor and subagent sources remain rejected.
+The typed `item_completed` / `UserMessage` event supplies the latest prompt for
+newer native histories; raw user-role context messages do not count as prompts.
+Verified selection can bind and follow conversation changes, derive lifecycle and
+prompt display, and acknowledge exact-ID recovery. Missing or hidden selection
+suspends recovery for bindings owned by this adapter. Native transport choices
+(`--remote`, remote-auth environment-name and `--no-daemon`) survive resume.
+
+Acceptance uses two TUIs in the same directory sharing one explicitly started
+Unix app-server with deliberately stale foreign tmux environment, no hooks and an
+unchanged external launcher. Both exact IDs, distinct prompts and completion were
+observed; after tmux restart both resumed their original IDs and acknowledged
+recovery. New-conversation and narrow-screen cases suspended the old binding.
+This test configures a native session-ID footer only in the disposable fixture.
+It does not prove zero-configuration binding for a default footer without an ID.
+The user's configuration and scripts remain untouched. Default shared-daemon
+sessions without a current identity signal still have passive Working display,
+but exact binding, prompt summaries and recovery remain unavailable.
+The final full suite passed 314 tests with 10 opt-in skips; the explicit shared-server
+native fixture passed separately. The VSIX was installed locally and all 32 payload
+files verified (installer manifest metadata excluded). A read-only check of the
+existing default-footer session still returned working, no binding and no prompt;
+its metadata was unchanged. This is not a zero-configuration repair for that session.
+
+
+
 ## Terminal persistence across reload — 2026-11-04
 
 Berth previously opted out of native terminal persistence with `isTransient: true`
@@ -114,7 +285,7 @@ not confirm a pending recovery. Qoder is deferred by request.
 | CLI | Missed-start event accepted | Passive adoption without integration |
 | --- | --- | --- |
 | Claude Code | UserPromptSubmit / Stop | Not implemented; PID registry alone needs current-thread validation |
-| Codex CLI | UserPromptSubmit / Stop | Direct rollout writer only; shared-daemon TUI unresolved |
+| Codex CLI | UserPromptSubmit / Stop | Direct writer; verified existing full-ID footer plus native profile/rollout (2026-11-04). Default shared-daemon footer remains unresolved |
 | Gemini CLI | BeforeAgent / AfterAgent | Not implemented |
 | OpenCode | session.status / session.idle | Not implemented; plugin still requires a verified root-session event |
 | GitHub Copilot CLI | userPromptSubmitted / agentStop | Not implemented |
@@ -148,7 +319,7 @@ single-producer checks agree. Conflicting IDs and profiles remain unchanged.
 Live details omit internal recovery explanations and the readiness button;
 context-menu diagnosis and stopped-session recovery remain available.
 
-**Current native limitation:** Codex CLI 0.166.0 in shared-daemon mode did not
+**Default-footer limitation:** Codex CLI 0.166.0 in shared-daemon mode did not
 expose a verified TUI-to-thread mapping in the inspected process descriptors,
 logs or protocol interfaces. The current conversation remains unbound. Synthetic
 writer fixtures do not establish acceptance for this native configuration.

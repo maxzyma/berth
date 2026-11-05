@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { BerthError, ExitCode } from '../errors.js';
 
 /** Berth metadata stored on a tmux session as user options (spec §4). */
-export const META_KEYS = ['agent', 'cwd', 'argv', 'argvVerified', 'conversation', 'origin', 'state', 'stateRevision', 'nativeCheckedAt', 'nativeTranscript', 'note', 'topic', 'producerPane', 'producerLifetime', 'bindingIssue', 'recovery', 'recoveryAt', 'recoveryDetail', 'ownerWorkspace', 'restoreSource', 'profile'] as const;
+export const META_KEYS = ['agent', 'cwd', 'argv', 'argvVerified', 'conversation', 'origin', 'state', 'stateRevision', 'activityTiming', 'nativeCheckedAt', 'nativeTranscript', 'nativeCodexSelection', 'note', 'topic', 'producerPane', 'producerLifetime', 'bindingIssue', 'recovery', 'recoveryAt', 'recoveryDetail', 'ownerWorkspace', 'restoreSource', 'profile'] as const;
 export type MetaKey = (typeof META_KEYS)[number];
 export type SessionMeta = Partial<Record<MetaKey, string>>;
 
@@ -116,7 +116,7 @@ export class Tmux {
   }
 
   setMeta(name: string, meta: SessionMeta): void {
-    const values = meta.state === undefined ? meta : { ...meta, stateRevision: randomUUID() };
+    const values = meta.state === undefined ? meta : { ...meta, activityTiming: meta.activityTiming ?? '', stateRevision: randomUUID() };
     for (const [key, value] of Object.entries(values)) {
       if (value === undefined) continue;
       // Argument values must survive the line-delimited tmux transport unchanged.

@@ -217,6 +217,17 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   color: var(--vscode-charts-blue);
 }
 
+.row.selected.attention-unread .name { color: inherit; }
+.attention-unread .badge .codicon { font-size: 12px; width: 12px; height: 12px; }
+
+.attention-unread .subtitle {
+  color: color-mix(in srgb, var(--vscode-sideBar-foreground) 80%, var(--vscode-descriptionForeground));
+}
+
+.list:focus-within .row.selected.attention-unread .subtitle {
+  opacity: 1;
+}
+
 /* Secondary activity glyphs share the hover chip's optical size. */
 .activity-slot .badge .codicon { font-size: 12px; width: 12px; height: 12px; }
 

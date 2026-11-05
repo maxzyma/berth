@@ -1,3 +1,4 @@
+import { hookActivityTiming } from './activity-timing.js';
 import { copilotCursor } from './copilot-state.js';
 import { lateBindingId } from './late-binding.js';
 import { geminiCursor } from './gemini-state.js';
@@ -216,6 +217,10 @@ export function handleHook(agentId: string, event: string, stdin: string, env = 
       }
       tmux.setMeta(session, {
         ...meta, producerPane: pane,
+        ...(meta.state !== undefined ? { activityTiming: hookActivityTiming(
+          meta.conversation && meta.conversation !== live.meta.conversation ? undefined : live.meta.activityTiming,
+          live.meta.state || '', meta.state, meta.topic !== undefined,
+        ) } : meta.conversation && meta.conversation !== live.meta.conversation ? { activityTiming: '' } : {}),
         ...(agentId === 'gemini' && event === 'BeforeAgent' ? {
           nativeTranscript: producer ? geminiCursor(payload.transcript_path, meta.conversation || live.meta.conversation || '', env) : '',
         } : agentId === 'copilot' && event === 'userPromptSubmitted' ? {

@@ -115,7 +115,7 @@ export const ADAPTERS: Adapter[] = [
       '--dangerously-bypass-approvals-and-sandbox': false,
       '--dangerously-bypass-hook-trust': false, '--approve-for-me': false,
       '--enable': true, '--disable': true, '--add-dir': true, '--search': false,
-      '--no-alt-screen': false,
+      '--no-alt-screen': false, '--no-daemon': false, '--remote': true, '--remote-auth-token-env': true,
     },
     discard: { '--last': false, '--all': false, '--cd': true, '-C': true },
     hookTarget: 'codex-hooks',

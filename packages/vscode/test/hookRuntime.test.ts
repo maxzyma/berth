@@ -107,3 +107,57 @@ test('CR56 a failed hook installer does not poison the queued request', async (t
   assert.deepEqual(await first, { ok: false, detail: 'fixture failure' });
   assert.deepEqual(await next, { ok: true, detail: 'recovered' });
 });
+
+test('legacy Codex upgrade preserves existing definitions and adds activity events once', async (t) => {
+  const f = fixture(t);
+  const installed = await installBundledHooks(bundle, f.storage, 'codex', f.env);
+  assert.equal(installed.ok, true, installed.detail);
+  const file = installed.detail;
+  const full = JSON.parse(readFileSync(file, 'utf8'));
+  const user = { matcher: 'Bash', hooks: [{ type: 'command', command: 'user-hook', timeout: 9 }] };
+  const legacy = { description: 'keep', hooks: { SessionStart: full.hooks.SessionStart, Stop: full.hooks.Stop, PostToolUse: [user] } };
+  writeFileSync(file, JSON.stringify(legacy));
+  const upgraded = await installBundledHooks(bundle, f.storage, 'codex', f.env, 'upgrade');
+  assert.equal(upgraded.ok, true, upgraded.detail);
+  assert.equal(JSON.parse(upgraded.detail).changed, true);
+  const actual = JSON.parse(readFileSync(file, 'utf8'));
+  assert.deepEqual(actual.hooks.SessionStart, legacy.hooks.SessionStart);
+  assert.deepEqual(actual.hooks.Stop, legacy.hooks.Stop);
+  assert.deepEqual(actual.hooks.PostToolUse[0], user);
+  for (const event of ['UserPromptSubmit', 'PostToolUse', 'PermissionRequest', 'Interrupt']) assert.ok(actual.hooks[event]);
+  const before = readFileSync(file, 'utf8');
+  const again = await installBundledHooks(bundle, f.storage, 'codex', f.env, 'upgrade');
+  assert.equal(JSON.parse(again.detail).changed, false);
+  assert.equal(readFileSync(file, 'utf8'), before);
+});
+
+test('Codex upgrade leaves absent, disabled, customized and malformed configurations untouched', async (t) => {
+  const f = fixture(t);
+  const absent = await installBundledHooks(bundle, f.storage, 'codex', f.env, 'upgrade');
+  assert.equal(JSON.parse(absent.detail).changed, false);
+  const installed = await installBundledHooks(bundle, f.storage, 'codex', f.env);
+  const file = installed.detail;
+  const full = JSON.parse(readFileSync(file, 'utf8'));
+  const legacy = { hooks: { SessionStart: full.hooks.SessionStart, Stop: full.hooks.Stop } };
+  for (const data of [
+    { ...legacy, disableAllHooks: true },
+    { hooks: { ...legacy.hooks, SessionStart: [{ matcher: 'startup', hooks: full.hooks.SessionStart[0].hooks }] } },
+    { hooks: { ...legacy.hooks, Stop: [{ hooks: [{ type: 'command', command: 'BERTH_HOOK=1 custom' }] }] } },
+  ]) {
+    const before = JSON.stringify(data); writeFileSync(file, before);
+    const result = await installBundledHooks(bundle, f.storage, 'codex', f.env, 'upgrade');
+    assert.equal(result.ok, true, result.detail);
+    assert.equal(JSON.parse(result.detail).changed, false);
+    assert.equal(readFileSync(file, 'utf8'), before);
+  }
+  writeFileSync(file, JSON.stringify(legacy));
+  writeFileSync(join(f.env.CODEX_HOME, 'config.toml'), '[features]\nhooks = false\n');
+  const before = readFileSync(file, 'utf8');
+  const disabled = await installBundledHooks(bundle, f.storage, 'codex', f.env, 'upgrade');
+  assert.equal(JSON.parse(disabled.detail).changed, false);
+  assert.equal(readFileSync(file, 'utf8'), before);
+  writeFileSync(file, '{invalid');
+  const malformed = await installBundledHooks(bundle, f.storage, 'codex', f.env, 'upgrade');
+  assert.equal(malformed.ok, false);
+  assert.equal(readFileSync(file, 'utf8'), '{invalid');
+});

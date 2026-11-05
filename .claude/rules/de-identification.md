@@ -1,7 +1,7 @@
-# De-identification: write as if already public
+# De-identification for public contributions
 
-The repo is private now and will be made public with its history. Every
-commit must already be safe to publish; history rewrites are not a plan.
+Every commit and distributable artifact must be safe for public release.
+History rewrites are not a substitute for checking contributions before publication.
 
 - No absolute paths, hostnames, or user names from any machine.
 - No names, paths or URLs of other private repositories or projects, and no

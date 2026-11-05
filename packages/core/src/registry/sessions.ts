@@ -1,3 +1,6 @@
+import { readActivityTiming, type ActivityTiming } from '../agents/activity-timing.js';
+import { reconcileCodexSelection } from './codex-selection.js';
+import { withCodexScreenActivity } from './codex-screen.js';
 import { prepareNativeState, observeNativeState, applyNativeState } from './native-state.js';
 import { processLifetime } from '../process-owner.js';
 import { applyLaunchEnvironment, captureProfile, profileEnvironment, profileKey, readProfile, type AgentProfile } from '../agents/profile.js';
@@ -33,6 +36,9 @@ export interface SessionRow extends RecoveryStatus {
   note: string;
   /** First line of the user's latest prompt (spec §4.2). */
   topic: string;
+  activityTiming?: ActivityTiming;
+  /** Ephemeral visible-terminal excerpt; not conversation or recovery evidence. */
+  terminalPreview?: string;
   attachedClients: number;
   connections?: ConnectionInfo[];
   conversationTitle?: string;
@@ -74,6 +80,7 @@ export function list(ctx: Context): SessionRow[] {
     conversationTitle: title(s.meta.agent ?? '', s.meta.cwd ?? s.path, s.meta.conversation ?? '', readProfile(s.meta.agent ?? '', s.meta.profile)),
     origin: s.meta.origin ?? (s.meta.agent ? 'none' : ''),
     state: s.meta.state ?? '',
+    activityTiming: s.meta.bindingIssue ? undefined : readActivityTiming(s.meta.activityTiming, s.meta.state || ''),
     note: s.meta.note ?? '',
     topic: s.meta.topic ?? '',
     attachedClients: clients.get(s.name)?.length ?? 0,
@@ -93,10 +100,12 @@ export function list(ctx: Context): SessionRow[] {
 export function inventory(ctx: Context): SessionRow[] {
   const candidates = withLock(ctx.config.stateDir, () => prepareNativeState(ctx));
   const observations = observeNativeState(ctx, candidates);
-  return withLock(ctx.config.stateDir, () => {
+  withLock(ctx.config.stateDir, () => {
     applyNativeState(ctx, observations);
     return inventoryLocked(ctx);
   });
+  reconcileCodexSelection(ctx);
+  return withCodexScreenActivity(ctx, list(ctx));
 }
 
 function inventoryLocked(ctx: Context): SessionRow[] {

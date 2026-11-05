@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.5
+
+### Activity and session details
+
+- Show unread completion with a blue normal-weight title and a circle-check icon. Working and waiting take precedence over old unread decoration.
+- Show available turn-start, waiting and completion times in hover details, including local date/time and a copyable timestamp. Keep the session list and natural ordering unchanged.
+- Use validated hook events and native event timestamps; do not substitute polling time or infer completion from a quiet terminal.
+
+### Codex discovery
+
+- Detect working activity from a recognized live TUI without requiring a conversation ID. When verified task text is absent, use a temporary visible-prompt excerpt with its source identified in hover.
+- Verify an existing complete native session-ID footer against the running client, profile and root rollout before binding. Support the npm launcher and native codex-tui rollout variants.
+- Preserve remote-server and no-daemon launch options during recovery.
+- Complete recognized legacy Berth two-event hook installations while preserving unrelated or customized configuration. Codex still requires native hook trust review; Berth does not grant trust.
+
+### Upgrade notes and limits
+
+- Clarify VS Code session management, optional iTerm2 reattachment and the evidence required for conversation recovery in public documentation.
+- Reload VS Code after updating. Existing custom launch scripts remain independent of Berth.
+- The passive observer does not change Codex configuration or launch arguments. A visible-prompt excerpt disappears when it is no longer visible and is never used for recovery.
+- Exact conversation binding and automatic recovery remain unavailable for unbound shared-daemon Codex clients without a current identity signal. Working activity and prompt preview do not close this gap.
+- Qoder missed-start support remains deferred. Broader native reload, cross-host and accessibility acceptance remains open.
+
 ## 0.4.4
 
 ### Terminal persistence

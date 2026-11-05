@@ -41,7 +41,7 @@ export function rolloutBinding(file: string, expectedInode?: number): CodexBindi
     if (end < 0) return undefined;
     const record = JSON.parse(bytes.subarray(0, end).toString('utf8'));
     const meta = record?.payload;
-    if (record?.type !== 'session_meta' || meta?.source !== 'cli' || meta.parent_thread_id || meta.agent_role || meta.agent_path) return undefined;
+    if (record?.type !== 'session_meta' || !(meta?.source === 'cli' || (meta?.source === 'vscode' && meta?.originator === 'codex-tui')) || meta.parent_thread_id || meta.agent_role || meta.agent_path) return undefined;
     if (typeof meta.id !== 'string' || meta.id.toLowerCase() !== match[1].toLowerCase()) return undefined;
     return { conversation: meta.id, root: dirname(dirname(dirname(dirname(dirname(canonical))))) };
   } catch { return undefined; }

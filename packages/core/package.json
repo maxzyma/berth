@@ -1,7 +1,7 @@
 {
   "name": "@berthdev/berth",
-  "version": "0.4.4",
-  "description": "Keep terminal-based coding agents running in tmux and bring each back, conversation included.",
+  "version": "0.4.5",
+  "description": "Discover terminal coding agents in tmux and restore verified conversations after restarts.",
   "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",

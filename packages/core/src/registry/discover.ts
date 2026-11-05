@@ -1,3 +1,4 @@
+import { codexRuntime } from '../agents/codex-process.js';
 import { codexProcessBinding } from '../agents/codex-binding.js';
 import { captureProfile, readProfile, profileRoot } from '../agents/profile.js';
 import { formatFields, readFields } from '../tmux/fields.js';
@@ -132,7 +133,8 @@ function discoverLocked(ctx: Context): string[] {
         && !found.argvIssue && nativeCandidates.has(s.name)
         && (!s.meta.recovery || s.meta.recovery === 'confirmed')
         && (!s.meta.conversation || !s.meta.profile || s.meta.bindingIssue === PRODUCER_CHANGED || s.meta.bindingIssue === BINDING_UNVERIFIED)) {
-        const binding = codexProcessBinding(found.pid, lifetime);
+        const runtime = codexRuntime(found.pid);
+        const binding = runtime && codexProcessBinding(runtime.pid, runtime.lifetime);
         const profile = readProfile('codex', s.meta.profile);
         if (binding && (!s.meta.conversation || s.meta.conversation === binding.conversation)
           && (!profile || profileRoot('codex', profile) === binding.root)
@@ -141,7 +143,8 @@ function discoverLocked(ctx: Context): string[] {
           const owners = sessionProducers(ctx, s.name);
           if (current?.sessionId === s.sessionId && current.serverStart === s.serverStart
             && owners.length === 1 && owners[0].pid === found.pid && owners[0].pane === found.pane
-            && processLifetime(found.pid)?.key === lifetime) {
+            && processLifetime(found.pid)?.key === lifetime
+            && JSON.stringify(codexRuntime(found.pid)) === JSON.stringify(runtime)) {
             ctx.tmux.setMeta(s.name, { agent: 'codex', conversation: binding.conversation,
               profile: JSON.stringify(profile ?? captureProfile('codex', { ...ctx.env, CODEX_HOME: binding.root })),
               producerPane: found.pane, producerLifetime: lifetime, bindingIssue: '',

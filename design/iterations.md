@@ -55,9 +55,13 @@ running conversation, then repeat with two same-directory sessions, a native
 conversation switch and a different profile. No directory-recency fallback is
 allowed. See [CLI coverage and remaining gaps](code-review.md).
 
-Passive Codex binding covers verified direct rollout writers; current Codex 0.166.0
-shared-daemon TUI identity remains unresolved. Implement and validate an authoritative
-client-to-thread mapping before closing first-install adoption. Live details no longer
+Passive Codex binding covers verified direct rollout writers and existing complete
+native session-ID footers cross-checked against the TUI profile and root rollout.
+The latter passes a two-client shared-server binding/summary/recovery fixture.
+Default shared-daemon TUIs without a current identity signal remain unresolved
+for exact binding and recovery. Their visible prompt can now supply a temporary
+subtitle independently of identity; it is neither cached nor stored as task text.
+Zero-configuration first-install adoption is not closed. Live details no longer
 ask users to repair missing internal identity evidence; see the
 [binding review](code-review.md#passive-binding-and-live-details--2026-11-02).
 
@@ -274,9 +278,44 @@ verify exact destination and keep context when the picker is cancelled.
   overwriting unrelated hooks. Verify activation in already-running agents, including
   native trust requirements. A discovered terminal with no verified profile must
   not be treated as proof that state and prompt events are available.
-- Cover Codex installations containing only SessionStart and Stop: missing working
-  events leave activity and prompt summaries unavailable. Verify the next real turn,
-  not just the configuration file, and avoid requiring launcher modifications.
+- Recognized Codex SessionStart/Stop installations now receive missing lifecycle
+  events through a non-destructive CLI upgrade, checked once per default or verified
+  profile per VS Code activation. Absent, disabled, customized and malformed
+  configurations are not silently replaced. The isolated native fixture verifies
+  a next turn after upgrading an already-running, unbound session, followed by
+  waiting, completion, interruption and recovery. This fixture bypasses trust only
+  inside its isolated profile; real-session trust review and event delivery remain
+  separate acceptance steps. Live diagnosis confirms shared-daemon hooks can run
+  with a stale foreign tmux environment and fail Berth's terminal routing; ancestry
+  validation also assumes a direct TUI parent. The independent native-selection
+  adapter now bypasses this attribution defect without weakening hook guards:
+  complete footer ID, native process profile and exact root rollout must agree.
+  Same-directory dual-client binding, prompt/completion and exact recovery pass
+  against an explicit shared server with stale terminal environment. This does not
+  close default-footer zero-configuration binding.
+  The verified 0.166.0 hook payload supplies conversation/turn IDs but no TUI PID,
+  client connection identity or session-specific terminal environment. The generated
+  protocol and inspected TUI logs do not provide the missing client-to-thread map.
+  The missing hook association does not block every status-discovery approach.
+  Passive current-viewport Working display is implemented separately from exact
+  conversation binding, with a hook-free native fixture and a read-only live
+  shared-daemon observation. It never searches scrollback or writes lifecycle
+  metadata. Native Codex 0.162.1
+  exposes `status` and full `session-id` in its configurable status line. Consume
+  this identity only when it is already exposed; never require a Berth-aware launcher
+  or silently change agent configuration. The current user requires zero configuration
+  changes; the fixture's explicit footer is not an acceptance result for that setup. Truncated, hidden or ambiguous identity
+  must not authorize transcript summaries or recovery. Native Waiting can mean a
+  background terminal, not a request for user action.
+  Once identity is verified, associate conversation-scoped events with live terminal
+  bindings rather than the shared daemon's inherited environment. A payload ID alone,
+  daemon PID, cwd, prompt match or latest activity is not a terminal association.
+  Acceptance must include stale foreign daemon environment, two same-directory
+  clients, switching conversations, child views, narrow viewports, overlays, stale
+  screen content and process reuse. Keep state, summary and recovery acceptance
+  separate. The upstream `--no-daemon` option is a user-selected workaround, not
+  Berth's default or a reason to stop a running shared daemon. See the research
+  evidence in [code review](code-review.md#codex-legacy-hook-upgrade--2026-11-04).
 - Keep layout Profile creation optional and separate from basic setup.
   Return through native Profile selection; preserve original/shared settings.
 

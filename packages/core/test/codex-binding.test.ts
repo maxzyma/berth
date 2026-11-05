@@ -20,7 +20,8 @@ function rollout(root: string, change: Record<string, unknown> = {}) {
 test('native header validates exact ID, CLI source and root, without directory recency', t => {
   const sb = sandbox(t), root = sb.makeDir('codex-profile');
   assert.deepEqual(rolloutBinding(rollout(root)), { conversation: ID, root: realpathSync(root) });
-  for (const change of [{ id: OTHER }, { source: 'vscode' }, { source: { subagent: 'worker' } }, { parent_thread_id: OTHER }]) {
+  assert.deepEqual(rolloutBinding(rollout(root, { source: 'vscode', originator: 'codex-tui' })), { conversation: ID, root: realpathSync(root) });
+  for (const change of [{ source: 'vscode', originator: 'codex-vscode' }, { id: OTHER }, { source: 'vscode' }, { source: { subagent: 'worker' } }, { parent_thread_id: OTHER }]) {
     assert.equal(rolloutBinding(rollout(root, change)), undefined);
   }
   const file = rollout(root);

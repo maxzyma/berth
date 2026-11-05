@@ -68,3 +68,24 @@ test('the local host icon is selected from the same sorted connection as its lab
   const external = rowView(row, { ...input, terminalPids: new Set([99]) });
   assert.equal(external.location.currentWindow, false);
 });
+
+test('working suppresses old unread decoration while retaining the read marker', () => {
+  const view = rowView(row, { ...input, unread: new Set([row.name]) });
+  assert.equal(view.unread, true);
+  assert.equal(view.icon, 'working');
+  assert.equal(view.attention, '');
+  assert.equal(view.hover[0].chip?.tone, 'muted');
+  const waiting = rowView({ ...row, state: 'waiting' }, { ...input, unread: new Set([row.name]) });
+  assert.equal(waiting.attention, 'waiting');
+});
+
+
+test('Visible terminal preview is a live-only fallback with explicit hover provenance', () => {
+  const previewRow = { ...row, topic: '', conversationTitle: '', terminalPreview: 'Visible question' };
+  const view = rowView(previewRow, input);
+  assert.equal(view.subtitle, 'Visible question');
+  assert.ok(view.hover.some(line => line.text === 'Visible terminal prompt: Visible question'));
+  assert.equal(rowView({ ...previewRow, topic: 'Verified task' }, input).subtitle, 'Verified task');
+  assert.equal(rowView({ ...previewRow, conversationTitle: 'Verified title' }, input).subtitle, 'Verified title');
+  assert.equal(rowView({ ...previewRow, live: false }, input).subtitle, '');
+});

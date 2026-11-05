@@ -1,3 +1,4 @@
+import { activityTimeLines } from './activityTime.js';
 import { WORKING_ICON } from './view/iconSemantics.js';
 import { profileRoot } from '@berthdev/berth';
 /** Pure view logic for Berth for VS Code (spec §6); no `vscode` import, so it is unit-testable. */
@@ -126,13 +127,13 @@ const CONNECTION_TEXT: Record<Connection, string> = {
 const STATE_TEXT: Record<RowView['icon'], string> = {
   working: 'Working',
   waiting: 'Waiting for you',
-  done: 'Finished its turn',
+  done: 'Finished, unread',
   idle: 'Idle',
   stopped: 'Stopped',
   unmanaged: '',
 };
 
-// A finished turn is only shown while unread, so it wears the unread dot.
+// A finished turn is only shown while unread; the renderer uses a circle check.
 const BADGE: Partial<Record<RowView['icon'], string>> = { working: '⋯', waiting: '!', done: '•' };
 
 /** One icon per tooltip line (spec §6). */
@@ -147,7 +148,7 @@ const CONNECTION_CODICON: Record<Connection, string> = {
 const STATE_CODICON: Record<RowView['icon'], string> = {
   working: WORKING_ICON,
   waiting: 'bell-dot',
-  done: 'check',
+  done: 'pass-filled',
   idle: 'circle-outline',
   stopped: 'debug-stop',
   unmanaged: 'terminal',
@@ -171,6 +172,7 @@ export interface ViewInput {
   workspaceFolders?: readonly string[];
   /** The user's home, to shorten paths as `~/…`. */
   home?: string;
+  now?: number;
 }
 
 /** A folder as the user reads it: `<workspace>/rel` inside the workspace, `~/…` under home. */
@@ -240,14 +242,17 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
   const agentName = getAdapter(row.agent)?.displayName ?? row.agent;
   const note = (icon === 'waiting' || icon === 'done') && row.note ? row.note : '';
   // Idle says nothing; any other state is a chip on the title line.
-  const chip = icon === 'idle' ? undefined : { icon: STATE_CODICON[icon], text: STATE_TEXT[icon], tone: icon === 'waiting' ? ('waiting' as const) : unread ? ('unread' as const) : ('muted' as const) };
+  const chip = icon === 'idle' ? undefined : { icon: STATE_CODICON[icon], text: STATE_TEXT[icon], tone: icon === 'waiting' ? ('waiting' as const) : unread && icon !== 'working' ? ('unread' as const) : ('muted' as const) };
   const topic = row.topic !== row.name ? row.topic : '';
   const title = row.conversationTitle !== row.name ? row.conversationTitle : '';
-  const supporting = note || topic || title || '';
+  const preview = row.live && !note && !topic && !title && row.terminalPreview !== row.name ? row.terminalPreview : '';
+  const supporting = note || topic || title || preview || '';
   const hover: HoverLine[] = [
     { icon: '', text: row.name, copyValue: row.name, copyLabel: 'session name', kind: 'title', sub: agentName, chip },
     ...(note ? [{ icon: 'comment', text: note, copyValue: note, copyLabel: 'notification', kind: 'quote' as const }] : []),
     ...(topic && topic !== note ? [{ icon: 'comment-discussion', text: row.topic, copyValue: row.topic, copyLabel: 'task text' }] : []),
+    ...(preview ? [{ icon: 'comment-discussion', text: `Visible terminal prompt: ${preview}`, copyValue: preview, copyLabel: 'terminal prompt' }] : []),
+    ...activityTimeLines(row, input.now),
     { icon: '', text: '', kind: 'rule' },
     ...connectionLines,
     ...(title && title !== topic && title !== note ? [{ icon: 'comment-discussion', text: `Conversation: ${row.conversationTitle}`, copyValue: row.conversationTitle, copyLabel: 'conversation title' }] : []),
@@ -280,7 +285,7 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
     contextValue: `session managed${row.agent !== 'shell' ? ' agent-session' : ''} ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing || row.hooks === 'unknown' ? ' hooks-missing' : ''}${unread ? ' unread' : ''}${row.recovery === 'failed' || row.recovery === 'unconfirmed' ? ' recovery-retry' : ''}`,
     icon,
     badge: BADGE[icon] ?? (unread ? '•' : ''),
-    attention: icon === 'waiting' ? 'waiting' : unread ? 'unread' : '',
+    attention: icon === 'waiting' ? 'waiting' : unread && icon !== 'working' ? 'unread' : '',
     unread,
   };
 }

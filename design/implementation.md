@@ -97,6 +97,26 @@ SIGKILL at expiry so signal handlers cannot keep a query pending. Tests separate
 from core sampling duration. Native integration fixtures use an isolated editor
 profile and `berth-test-*` socket; they require an agreed foreground window.
 
+Codex screen observation runs after the inventory state lock is released and only
+returns a display overlay. `agents/codex-screen.ts` parses the visible grid;
+`registry/codex-screen.ts` verifies the producer and unchanged metadata around
+capture. A separate optional `terminalPreview` field holds a bounded visible prompt
+excerpt, never persisted as `topic`. It is resampled without caching and has lower
+display priority than verified text; hover identifies its source. Footer UUIDs alone
+are candidates, never recovery authority. The selection adapter
+independently verifies the native profile, top-level rollout and unchanged producer
+before persisting identity and typed lifecycle/prompt records. Unknown selection
+suspends observer-owned recovery. No agent configuration is modified. Regression
+coverage includes stale output, hidden/truncated footer, retained unread while
+working, hook waits, process mismatch and no metadata mutation. The opt-in native
+viewport fixture uses a local model endpoint, no hooks and an unaware launcher.
+
+Lifecycle timestamps use `agents/activity-timing.ts`: validated hooks supply receipt
+time; exact-bound Codex events supply their own timestamp. `activityTiming` is
+live metadata, excluded from snapshots. State writes without explicit timing clear
+old evidence. Screen-only state overrides suppress timing. The view formats relative
+and local absolute time only in hover, using existing refreshes and copy actions.
+
 ## 2. Data formats
 
 ### 2.1 Snapshot
@@ -674,6 +694,10 @@ manual cases are recorded as checked, and the de-identification check passes.
   only on waiting and unread, dimmed stopped cards, indent guides, the
   selected card, and the hover card above the list. Checked headless with
   theme variables standing in for VS Code's, then in VS Code itself.
+  Unread uses a 12px blue `pass-filled` Codicon, a blue normal-weight title
+  (theme foreground when selected), and stronger supporting text; waiting retains amber with its actionable note, and working stays muted.
+  Check both review viewports and focused selection: the fixed activity and host
+  slots must not move. Visual changes must preserve the unread lifecycle.
 - **V15** (manual, in VS Code) The view follows `workbench.tree.indent`,
   `workbench.tree.renderIndentGuides`, `berth.hover.delay`,
   `berth.view.details` and theme changes without reloading; right-click shows

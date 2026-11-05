@@ -1,7 +1,7 @@
 # AGENTS.md
 
-Berth keeps terminal-based coding agents running in tmux and brings each one
-back, conversation included, in the terminal it came from.
+Berth discovers terminal coding agents in tmux and presents them in VS Code.
+Conversation recovery requires verified identity, profile and launch options.
 
 Hand-maintained; `CLAUDE.md` is a link to this file.
 
@@ -20,6 +20,6 @@ Hand-maintained; `CLAUDE.md` is a link to this file.
 Each is defined in the spec; listed here because it is easy to miss.
 
 1. Frontends hold no session logic; every decision is made in the core (spec §5–7).
-2. Berth never edits an agent's configuration except through
-   `berth hooks install` (spec §9).
+2. Passive discovery does not change agent configuration. Hook installation and
+   conservative legacy-hook upgrades follow the explicit boundaries in spec §9.
 3. No directory layout is assumed anywhere — not in code, tests or docs (spec §9).

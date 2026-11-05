@@ -38,8 +38,9 @@ them sit on one core. Each host is supported for its own reason:
   restored pane return to the agent session it showed (§7).
 
 Across hosts, one set of live sessions is shared: a session attached in one
-host can be attached in the other, and returns after a restart to the host
-that last took it (§4.1). Other terminals can attach to the same tmux sessions;
+host can also be attached in the other. Reopening follows the recorded workspace
+ownership and host-specific pane identity (§4.1, §6, §7); multiple hosts may remain
+attached at once. Other terminals can attach to the same tmux sessions;
 Berth does not claim exclusive cross-terminal sharing.
 
 A feature counts as a Berth difference only if it relies on the host: if an
@@ -126,10 +127,12 @@ session and any tool can read it:
 | `@berth_origin` | `vscode` / `iterm2` / `none` |
 | `@berth_state` | `working` / `waiting` (needs the user) / `done` / empty when inactive or unknown; written by hooks and verified native observations |
 | `@berth_stateRevision` | opaque revision advanced on every activity write |
+| `@berth_activityTiming` | live-only JSON: current state, optional turn start and state-event time; never restored |
 | `@berth_nativeCheckedAt` | last native observation attempt; scheduling only, never restored |
 | `@berth_nativeTranscript` | Gemini request cursor: canonical path, file identity, byte offset, prefix fingerprint and capture time; live-only |
+| `@berth_nativeCodexSelection` | verified native footer ID, profile root and rollout revision; live-only, never restored |
 | `@berth_note` | latest notification text from the agent, shown in session lists |
-| `@berth_topic` | first line of the user's latest prompt, from the prompt-submitted hook; the session's subtitle |
+| `@berth_topic` | first line of the user's latest prompt, from a hook or the verified native Codex rollout; the session's subtitle |
 
 ### 4.1 Origin rules
 
@@ -248,11 +251,41 @@ resume argument alone, subagent rollouts or a shared daemon's file handles as
 current TUI identity. Existing different IDs and conflicting profiles are preserved.
 Probe failures leave identity unknown; they do not invalidate a known binding.
 
-This is a capability-based fallback, not a guarantee across Codex versions.
-Codex 0.166.0's shared-daemon TUI can expose neither a directly held rollout nor a
-client-PID/thread mapping through its generated protocol. That mode remains
-unbound without another authoritative event; never describe it as progressing
-when no evidence source is available.
+For shared-daemon Codex, the configured native `session-id` footer is an optional
+selection source. It must contain one complete UUID in the current composer/footer,
+not transcript text or a truncated title. Verify the sole live TUI producer and its
+lifetime, derive the profile from that process's own writable native log database,
+and look up only that exact ID in the profile's native thread database. The rollout
+header must agree on the ID and identify a top-level CLI conversation: `source=cli`,
+or the native TUI variant `source=vscode` with `originator=codex-tui`. Other editor
+and subagent records remain rejected. An npm wrapper may supply the owner identity,
+but profile descriptors must come from its sole direct native child with matching
+CLI arguments. Recheck the
+same footer selection, producer and metadata immediately before publication.
+Never match a UUID prefix, directory recency or a daemon's arbitrary environment.
+
+A verified native selection can establish or change the same producer's conversation.
+Changing selection clears previous activity and prompt data; a different profile,
+producer or conflicting recovery target remains rejected. A complete new ID without
+a persisted root rollout is not yet recoverable. For bindings owned by this observer,
+a hidden, truncated, child or otherwise unverified selection suspends recovery and
+transcript-derived activity until verification returns; keep the last ID as historical
+evidence, not as proof of current selection. Snapshot the suspension and verified
+identity transitions. Native selection metadata is live-only.
+
+Read the latest typed user-message and turn lifecycle records only from that verified
+rollout. Bound reads, reject incomplete or changed files and root/child mismatches,
+and guard publication with activity revision checks. Working screen evidence takes
+precedence over a prior completed turn; a native background-terminal wait is not a
+request for the user. Do not fabricate success from the absence of a running widget.
+Native recovery acknowledgement must match both the expected ID and profile.
+
+This is a version-tested fallback, not a universal Codex API. Enabling the native
+footer requires explicit user choice and preserves existing status-line fields;
+launch scripts remain unchanged. Existing `--remote`, remote-auth environment-name
+and `--no-daemon` launch choices must be preserved on exact-ID resume. Without a
+usable identity surface, activity display
+can still work but exact binding, summary and recovery remain unavailable.
 
 ### 4.2.1 Session names and conversation titles
 
@@ -434,6 +467,7 @@ The VS Code extension is published to the Marketplace, not npm.
 | `berth doctor [--json]` | Report unbound sessions, missing working directories, unknown agents and agents in use without hooks. |
 | `berth present <session>` | Show the session's state again on the terminals attached to it. |
 | `berth hooks install\|uninstall <agent>` | Agent hooks (§4.2). |
+| `berth hooks upgrade codex` | Add missing events to a recognized legacy Berth installation; preserve existing definitions and native trust settings. |
 | `berth tmux install\|uninstall` | Managed block in the user's tmux config: snapshot, bell and attach hooks. |
 | `berth iterm2 install\|uninstall` | Install the iTerm2 AutoLaunch script (§7.3). |
 | `berth iterm2 reattach <session>` | Rebuild the session if missing, then print its attach command (§7.3). |
@@ -561,6 +595,25 @@ creates a binding or successful completion, and preserves done. Unsupported CLI
 versions, query errors, unknown records and conflicting identities leave state
 unchanged. Do not infer cancellation from elapsed time or a missing response.
 
+Codex activity may be supplemented by a read-only observation of the current
+producer pane's visible viewport. This is presentation evidence, not conversation
+identity: it never writes a binding, stored prompt summary, successful completion or
+recovery metadata. A recognized visible prompt may supply an ephemeral `terminalPreview`
+when no trusted task text or conversation title is available. This is a best-effort
+excerpt, not a verified latest-message record. Require the native composer/footer,
+a preceding top-level prompt and a following response marker; reject fenced text,
+commands and empty prompts. Never inspect scrollback or retain the excerpt between
+samples. Hover identifies it as a visible terminal prompt. It cannot trigger unread
+notifications, binding or recovery. Recognize the native composer/footer and its current running
+indicator together; a footer without a context meter or UUID additionally requires
+the visible native version header and model/reasoning footer shape; text in scrollback or quoted output alone is insufficient.
+Working may replace a stale done display, but never a hook-reported permission
+wait. When the native layout is hidden, truncated or unknown, do not infer idle or
+success. Recheck session incarnation, producer lifetime, pane and activity revision
+before presenting a sample. A configured footer's complete session ID is a candidate for the independent
+profile and rollout validation in §4.2, not permission to bind from screen text alone.
+No Codex configuration or launcher is changed by this observer.
+
 Native queries run outside the state lock. Every activity write advances an opaque
 revision; before applying a result, inventory rechecks that revision, identity and
 activity metadata, server/session incarnation and the producer lifetime. Scheduling
@@ -634,6 +687,15 @@ agent-provided message or tool description, with a tool-name fallback. Independe
 based on file presence alone; a bell must preserve an already reported waiting
 state and its explanation. Only observed lifecycle events change state: a successful tool completion
 clears waiting; clicks, elapsed time and file presence cannot imply approval.
+
+Codex legacy hook upgrades only add missing lifecycle events to a recognized,
+unmodified Berth installation containing exactly SessionStart and Stop. Existing
+handlers and their definitions remain unchanged, preserving native trust identities.
+Missing, disabled, malformed or customized installations are left untouched for
+explicit repair. The VS Code host checks its default profile and verified session
+profiles once per activation through the bundled CLI; it does not require launcher
+changes. A successful upgrade means configuration was updated, not that the running
+agent received events. New definitions still require native trust review.
 
 Codex hook installation writes configuration but does not grant trust. Installation
 feedback and installed-session details direct users to Codex `/hooks` to review
@@ -831,7 +893,8 @@ Berth runs with no config file.
     latest notification while waiting or done (what the agent needs from the
     user), otherwise the topic — the first line of the user's latest prompt
     (§4.2 hooks), then the exact-bound conversation title when no task text is
-    available. Duplicate name/title/task text is suppressed. Cards use at most
+    available, then the ephemeral visible-terminal prompt preview. Duplicate
+name/title/task text is suppressed. Cards use at most
     two lines, with no reserved empty line. Connection markers stay on the
     first line's far-right edge, after state/unread markers; their position never
     depends on the subtitle. `berth.view.details` controls these muted markers
@@ -894,9 +957,20 @@ Berth runs with no config file.
     name order: `job`, `job-2`, `job-3`, `job-10`, `job-13`. Live and restored
     entries follow the same order. Attention navigation uses that ordering
     within each priority (waiting first, then unread).
-  - **Colour.** As in cmux, colour goes only to what needs the user: waiting
-    is amber, unread blue; stopped cards are dimmed; the rest keep the
-    default colours. A finished turn is unread until the user has seen it and
+  - **Attention hierarchy.** Waiting uses an amber exclamation marker, name and
+    actionable note on the second line when available. An unread finished turn
+    uses a blue, normal-weight title and a 12px blue filled-circle check in the
+    fixed 16px activity slot. Selected titles use the theme's selection foreground;
+    the check retains the completion cue. Supporting text has stronger contrast
+    than an ordinary subtitle. Reading clears both unread title colour and check.
+    Working restores the normal title colour and uses a muted 12px spinner in the
+    same slot. Waiting, working and unread marks are mutually exclusive.
+    A new working turn suppresses previous unread styling in the row, hover chip
+    and collapsed group while retaining the read marker internally. Activity and
+    unread decoration must never be drawn on the same glyph.
+    Collapsed groups use the same waiting/unread markers. No full-row attention
+    tint or flashing is used; selection and active-terminal styling stay distinct.
+    Stopped cards are dimmed; other content keeps the default colours. A finished turn is unread until the user has seen it and
     then looks idle, since it is the normal resting state; a new state
     replaces the notification, so a finished card never shows an old
     permission request. *Mark as Read* clears unread without opening the
@@ -907,6 +981,18 @@ Berth runs with no config file.
     the workspace folder its cards sit at the top level and the view's title
     shows the folder. A collapsed group shows its most urgent session
     (waiting, else unread) with the same badge and colour.
+  - **Activity time.** Keep timestamps out of the default session rows and retain
+    natural ordering. Hover may show the current turn start, current waiting
+    duration and completion time, with relative time plus local date/time and a
+    copyable ISO timestamp. Use validated lifecycle-hook receipt times or exact-bound
+    native event timestamps; never polling, file mtime, terminal output or inferred
+    idle time. Hook times represent receipt, not reconstructed historical events.
+    Missing evidence stays absent. Repeated same-state hooks retain the initial
+    time; an explicit user prompt resets the turn start even if already working.
+    Native samples retain event time rather than observation time. New conversations,
+    unknown state writes, screen-only overrides and restores cannot inherit timings.
+    Future or malformed dates are omitted. Time labels refresh with normal inventory
+    updates; no per-row timer or new background polling is introduced.
   - **Hover card.** After `berth.hover.delay` (default 500 ms, independent of
     `workbench.hover.delay`, which VS Code does not let an extension change
     for its own views), a card in VS Code's hover style: the session name
@@ -1151,8 +1237,9 @@ Berth runs with no config file.
 
 ### Installation and upgrade experience
 
-New installation and upgrade preserve existing windows, layout, terminals and
-agent configuration. Inventory refresh never launches a hook-install prompt.
+New installation and upgrade preserve existing windows, layout and terminals.
+Agent configuration changes are limited to the hook-maintenance boundary in §9.
+Inventory refresh never launches a hook-install prompt.
 Missing hooks and unknown identity/profile remain in session details and explicit
 Diagnose Problems / Check Recovery Readiness. Hook installation requires a user action
 and reports its result once. Optional layout creation is separate from basic use.
@@ -1333,7 +1420,10 @@ filling its row and passing the adapter tests; no change elsewhere.
 ## 9. Constraints
 
 - No dependency on any directory layout or workspace convention (G7).
-- No edits to agent configuration except via `berth hooks install`.
+- Passive discovery never edits agent configuration. Configuration writes are
+  limited to explicit hook installation/uninstallation and the conservative
+  upgrade of an existing, unchanged legacy Berth hook installation described
+  in §8. Native hook trust remains agent-owned.
 - No network access. Berth reads local files and talks to tmux only.
 - Snapshot data stays out of repositories.
 
@@ -1369,20 +1459,23 @@ from MIT-licensed projects keep their notices.
 
 ## 11. Milestones
 
+These are delivery areas; current acceptance and gaps are tracked in the
+[iteration plan](iterations.md).
+
 1. **Core + baseline adapters.** `ls`, `new`, `stamp`, `snapshot`, `ensure`,
-   `restore`, hooks, every agent in §8; reboot test: every managed session returns, resumed into
-   its own conversation.
+   `restore` and hooks for the adapters in §8. Recovery requires a verified
+   conversation and profile; an unknown identity is not replaced with a new chat.
 2. **VS Code frontend.** Session view, actions, startup reopen, layout preset.
 3. **iTerm2 frontend** (§7).
-4. **Public release.** Choose license, scan history for private identifiers,
-   publish packages.
+4. **Public distribution.** Licensed source, reviewed public history and
+   versioned packages through the release workflow.
 
 ## 12. Open questions
 
 - Whether iTerm2 keeps a pane's user variables through window restoration
-  after a quit, a crash and a reboot (§7.3). If not, the AutoLaunch script
-  records the arrangement (`Arrangement.async_save`) with the session of each
-  pane in order, and restores that instead.
+  after a quit, a crash and a reboot (§7.3). This still needs native acceptance;
+  any fallback must preserve iTerm2's ownership of windows and layouts rather
+  than create duplicate panes.
 - Which host-native features beyond the session view earn a place (for
   example a per-session changes view built on VS Code's source control), judged
   by the rule in §2.
