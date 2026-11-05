@@ -17,7 +17,15 @@ light themes, including timestamp copying; rendered screenshots were inspected.
 The earlier eight unread-completion browser checks remain applicable.
 Detailed evidence is in the [code review](code-review.md).
 
-Publication is pending. The locally installed candidate is not the formal release.
+The [release workflow](https://github.com/maxzyma/berth/actions/runs/41945016039)
+passed: 323 tests passed, 11 opt-in tests skipped, zero failures. npm `latest`,
+[GitHub Releases](https://github.com/maxzyma/berth/releases/tag/v0.4.5) and the
+VS Code Marketplace publish 0.4.5. Downloaded npm/GitHub CLI archives and
+Marketplace/GitHub VSIX archives match byte for byte; npm integrity also matches.
+The official VSIX is installed locally, with all 32 extension payload files
+verified against the archive (ignoring VS Code's installation metadata).
+Reload Window activates the installed update; native manual acceptance remains
+separate. See the [publication receipt](assets/code-review/release-0.4.5.json).
 
 ## Accepted limits
 
@@ -58,6 +66,6 @@ Pattern scans and OCR cannot establish that every sensitive string is absent.
 Unreachable server objects, third-party clones/caches and Actions logs are outside
 this evidence set. Public repository metadata, release text and package manifests
 were included. The final candidate passed private-identifier and whitespace
-checks; all 186 local Markdown link targets resolved. Source credential scanning
+checks; all 187 local Markdown link targets resolved. Source credential scanning
 reported only the six reviewed evidence hashes. Both package allowlists passed
 (168 npm archive entries and 34 VSIX entries).
