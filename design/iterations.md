@@ -365,6 +365,26 @@ check was skipped. A remaining critical identity or recovery defect blocks a
 stable-complete claim; a documented unsupported optional environment does not
 justify unrelated features.
 
+## Public discovery and sponsorship
+
+**State:** channel research complete; outreach sequence proposed, no posts sent.
+See [channel evidence and venue requirements](channel-research.md).
+
+1. Prepare one short synthetic-session demo and a clean-install walkthrough for
+   the supported VS Code/tmux path. Preserve the limitations in the release notes.
+2. Use V2EX Share Your Creations and a current ClaudeCode showcase as the first
+   candidate venues. Post separately and collect reproducible feedback before
+   broadening distribution. Actual Claude involvement must be described accurately.
+3. Consider Show HN after the advertised first-use path is verified. The maintainer
+   must write and post personally under its current no-generated-text policy.
+4. Treat Product Hunt and social amplification as later options, not required
+   launch steps. Measure independent successful use rather than star counts.
+
+The maintainer's [Ko-fi page](https://ko-fi.com/maxzyma) is connected for payments.
+Use `ko_fi: maxzyma` in `.github/FUNDING.yml` and a short support link at the end
+of the root README. The sponsorship boundary is defined in the [spec](spec.md).
+Additional funding platforms remain deferred.
+
 ## Deliberately outside this iteration
 
 Cloud sync, remote control service, team collaboration, embedded browser,

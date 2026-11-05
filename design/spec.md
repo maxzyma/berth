@@ -92,6 +92,14 @@ and a revision of this section before implementation. A feature proposal or an
 implementation shortcut cannot implicitly override it. Launch behavior (§5.2),
 frontend creation and extension proposals must be reviewed against this section.
 
+### 2.2 Voluntary support
+
+Maintainer sponsorship uses one shared destination: [Ko-fi](https://ko-fi.com/maxzyma).
+Expose it through GitHub's Sponsor button and a short section at the end of the
+root README. Keep sponsorship outside the product UI: no prompts, persistent
+promotion, feature gates or paid-support commitments. The maintainer profile
+uses the same avatar as GitHub so supporters can recognize its owner.
+
 ## 3. Non-goals
 
 - Not an agent harness or chat UI. Berth runs the user's own CLI with the

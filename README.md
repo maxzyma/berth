@@ -162,3 +162,8 @@ that is not a prerelease, publishes the extension to the VS Code Marketplace
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Support development
+
+If Berth helps your workflow, you can [support its development on Ko-fi](https://ko-fi.com/maxzyma).
+Your support helps cover development and infrastructure costs.
