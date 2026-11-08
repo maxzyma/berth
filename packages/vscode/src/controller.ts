@@ -13,6 +13,7 @@ import {
   stamp,
   rename,
   StateBusyError,
+  sendAgentLine,
   end,
   detachTerminalClients,
   inventory,
@@ -379,6 +380,11 @@ export class Controller {
     this.host.renameSession?.(from, to);
     if (this.unread.delete(from)) this.unread.add(to);
     this.rows = this.rows.map((row) => row.name === from ? { ...row, name: to } : row);
+  }
+
+  /** Confirmed by the user; the core picks the agent pane and refuses while busy. */
+  sendAgentLine(name: string, agent: string, line: string): void {
+    sendAgentLine(this.ctx, name, agent, line);
   }
 
   kill(name: string): void {

@@ -7,7 +7,7 @@ import { handoffSources, persistentTerminalOptions, restoredTerminalSession, ter
 import { resolveHostIcons } from './hostIcons.js';
 import { deliverNotification, notificationChannel, notifySystem } from './notifications.js';
 import * as vscode from 'vscode';
-import { hookInstallNotice, hookStatus, limitSynchronousLockWait, ADAPTERS, shellSplit, captureProfile, profileAtRoot, profileEnvironment, type AgentProfile, connections, handoffTerminalClients, HostRegistration, workspaceIdentity, createContext, waitForAttachment, type Context, type SessionRow } from '@berthdev/berth';
+import { hookInstallNotice, hookStatus, limitSynchronousLockWait, renameCommand, versionInspector, ADAPTERS, shellSplit, captureProfile, profileAtRoot, profileEnvironment, type AgentProfile, connections, handoffTerminalClients, HostRegistration, workspaceIdentity, createContext, waitForAttachment, type Context, type SessionRow } from '@berthdev/berth';
 import { createSession, renameSession, resolveTerminalPids, sampleDoctor, sampleInventory, sampleSessions } from './inventory.js';
 import { createLayoutQueue } from './layoutRuntime.js';
 import { createLayoutIntroduction } from './layoutIntro.js';
@@ -552,6 +552,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const to = await vscode.window.showInputBox({ prompt: `Rename ${name}`, value: name, validateInput: sessionNameProblem });
     if (!to || to === name) return;
     await controller.rename(name, to);
+    // Command naming (spec §4.2.1): only for agents without a terminal-free path, typed after the user confirms.
+    const row = controller.row(to);
+    const adapter = row?.live ? ADAPTERS.find(a => a.id === row.agent) : undefined;
+    const line = adapter && renameCommand(adapter.id, versionInspector(ctx.env)(adapter, row?.cwd).version, to);
+    if (!adapter || !line) return;
+    const send = await vscode.window.showInformationMessage(
+      `${adapter.displayName} in ${to} keeps its old session name. Type "${line}" into it now? Text already typed there would be combined with it.`,
+      'Type Command');
+    if (send) controller.sendAgentLine(to, adapter.id, line);
   }));
   command('berth.recoveryFolder', guarded(async (name, arg) => {
     const chosen = await vscode.window.showOpenDialog({ title: `Choose recovery folder for ${name}`, canSelectFolders: true, canSelectFiles: false, canSelectMany: false, openLabel: 'Use Folder' });

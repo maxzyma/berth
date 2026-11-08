@@ -305,22 +305,30 @@ them with `-`. Default names generated from a folder stay within
 `[A-Za-z0-9_-]`.
 
 A rename reaches an agent's own conversation name by the paths that agent
-offers, declared per adapter; none of them types into the agent's terminal.
-Protocol naming uses the agent's own interface at once (if the agent's service
-is not running, at its next hook event). Hook naming returns the name from the
-agent's next hook that accepts a title. Launch naming passes `{name}` at launch
-and resume. Evidence was checked on 2026-11-08 against the listed versions:
+offers, declared per adapter. Protocol naming uses the agent's own interface at
+once (if the agent's service is not running, at its next hook event). Hook
+naming returns the name from the agent's next hook that accepts a title. Launch
+naming passes `{name}` at launch and resume. None of these types into the
+agent's terminal. Command naming is the fallback for agents with neither
+protocol nor hook naming: after a rename the user is asked, and only on
+confirmation Berth types the agent's own rename command into the pane of the
+single verified producer, never while the agent is working or waiting. The
+prompt says that text already typed in the agent would be combined with the
+command, because Berth cannot see the agent's input. It is offered only when
+the installed version is at least the one the command was verified on and the
+name fits the command's limit; an older or unrecognized version is not offered
+a command it may not have. Evidence was checked on 2026-11-08:
 
-| Agent | Protocol | Hook | Launch | Evidence |
-|---|---|---|---|---|
-| Claude Code | — | `sessionTitle` from SessionStart (startup, resume, fork) and UserPromptSubmit | `--name` | Official hooks reference; 2.1.310 |
-| Codex | App-server `thread/name/set` over the running daemon's control socket | — | — | Generated protocol schema and isolated daemon run; 0.166 |
-| Qoder | — | `sessionTitle` from UserPromptSubmit | `--name`, also with `--resume` | Hooks docs ("a suggested session title"); 1.0.48 binary |
-| OpenCode | — | Berth's plugin applies a returned title through its SDK client (`session.update`, `body.title`) | — | Plugin and SDK types; 1.19.5 |
-| Copilot CLI | — | — | — | `--name` names only new sessions and is unverified on the recorded 1.0.105; `session.name.set` needs `--ui-server` |
-| Kimi Code | — | — | — | Only `kimi web` updates titles; a separate terminal process is not shown to follow; 0.31.1 |
-| Gemini CLI | — | — | — | No title flag, hook field or interface; rename requests unshipped; 0.66–0.67 |
-| Cursor Agent | — | — | — | No title flag, hook field or interface; `/rename` is in-session only |
+| Agent | Protocol | Hook | Launch | Command (confirmed) | Evidence |
+|---|---|---|---|---|---|
+| Claude Code | — | `sessionTitle` from SessionStart (startup, resume, fork) and UserPromptSubmit | `--name` | — | Official hooks reference; 2.1.310 |
+| Codex | App-server `thread/name/set` over the running daemon's control socket | — | — | — | Generated protocol schema and isolated daemon run; 0.166 |
+| Qoder | — | `sessionTitle` from UserPromptSubmit | `--name`, also with `--resume` | — | Hooks docs ("a suggested session title"); 1.0.48 binary |
+| OpenCode | — | Berth's plugin applies a returned title through its SDK client (`session.update`, `body.title`) | — | — | Plugin and SDK types; 1.19.5 |
+| Copilot CLI | — | — | — | `/rename {name}` from 1.0.107, at most 100 characters | CLI command reference; SDK `session.name.set` limit. `--name` names only new sessions and is unverified on the recorded 1.0.105 |
+| Kimi Code | — | — | — | `/title {name}` from 2.5.2, at most 200 characters | Kimi Code docs for 2.5.2; `kimi web` is the only title interface and a separate terminal process is not shown to follow |
+| Gemini CLI | — | — | — | — | No title flag, hook field, interface or command; rename requests unshipped; 0.66–0.67 |
+| Cursor Agent | — | — | — | — | Current docs list `/rename`, but the release that added it is unverified; the recorded 2025.09.12 build lacks it |
 
 Naming follows only an explicit rename: binding a conversation never pushes a
 default folder-derived name over the title the agent generates. A rename stays

@@ -218,8 +218,11 @@ daemon is stopped the rename stays pending for the next Codex hook. Claude Code
 as hook output `sessionTitle`; Berth's OpenCode plugin applies it through its
 SDK client. Qoder recovery now passes `--name`, as its launch already did.
 Copilot, Kimi Code, Gemini and Cursor offer no path that avoids the agent's
-terminal for a session Berth runs; Copilot's `--name` names only new sessions
-and is unverified on the recorded version. Binding never pushes a default name
+terminal for a session Berth runs. Copilot (`/rename`, from 1.0.107) and Kimi
+Code (`/title`, from 2.5.2) are offered their own command after a rename, typed
+into the verified agent pane only when the user confirms and the agent is idle;
+older or unrecognized versions are not offered it. Gemini has no command, and
+Cursor's is not verified for a release. Binding never pushes a default name
 over the agent's title. Whether running agent UIs show a new name immediately
 was not observed.
 
@@ -231,10 +234,10 @@ startup restore retries a busy state; lock timeouts name the holding process;
 editor-host waits are capped at 5 s.
 
 New regressions cover the WebSocket exchange, rename naming, Claude, Qoder and
-OpenCode hook naming, delayed Codex delivery, binding without naming, managed
-reattach without discovery, busy startup and the lock wait cap; the full suite
-passed (395 passed, 11 skipped, 0 failed). Candidate:
-`berth-vscode-0.4.5-allnaming.vsix`, SHA-256 `c897c7dd29f91359d9690863e319b5c63a0c848e11e5cbb03447db84ccc7f3d6`, installed
+OpenCode hook naming, delayed Codex delivery, the command version gate and pane
+targeting, binding without naming, managed reattach without discovery, busy
+startup and the lock wait cap; the full suite passed (397 passed, 11 skipped,
+0 failed). Candidate: `berth-vscode-0.4.5-commandnaming.vsix`, SHA-256 `cf5b8575cf6f1129d81faedb49ff8d57fa96608bb1d2f0164e979337ab3e1f0e`, installed
 locally; the daily editor needs reload. No formal release.
 
 ## Automatic Berth layout preparation

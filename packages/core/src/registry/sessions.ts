@@ -237,6 +237,23 @@ function adoptLocked(ctx: Context, name: string, agent: string, origin?: string)
   snapshotQuietly(ctx);
 }
 
+/**
+ * Type one line into the session's agent, only after the user confirms it
+ * (command naming, spec §4.2.1). It goes to the pane of the single verified
+ * producer, never to whichever pane is active, and is refused while the agent
+ * is working or waiting, where typed text would be taken as an answer.
+ */
+export function sendAgentLine(ctx: Context, name: string, agent: string, line: string): void {
+  requireLive(ctx, name);
+  if (/[\u0000-\u001f\u007f]/.test(line)) throw new BerthError('A line to send cannot contain control characters.', ExitCode.usage);
+  const state = ctx.tmux.listSessions().find((session) => session.name === name)?.meta.state;
+  if (state === 'working' || state === 'waiting') throw new BerthError(`The agent in ${name} is busy; try again when it is idle.`);
+  const producers = sessionProducers(ctx, name);
+  if (producers.length !== 1 || producers[0].agent !== agent) throw new BerthError(`No single ${agent} process is running in ${name}.`);
+  ctx.tmux.run(['send-keys', '-t', producers[0].pane, '-l', line]);
+  ctx.tmux.run(['send-keys', '-t', producers[0].pane, 'Enter']);
+}
+
 /** Rename live identity and its recovery record before hosts update their references. */
 export function rename(ctx: Context, from: string, to: string): void {
   withLock(ctx.config.stateDir, () => renameLocked(ctx, from, to));

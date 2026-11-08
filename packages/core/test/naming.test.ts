@@ -1,15 +1,16 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdirSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer, type Socket } from 'node:net';
 import { join } from 'node:path';
-import { setCodexThreadName } from '../src/agents/naming.js';
+import { renameCommand, setCodexThreadName } from '../src/agents/naming.js';
 import { handleHook, type HookReply } from '../src/agents/hooks.js';
 import { captureProfile } from '../src/agents/profile.js';
 import { getAdapter } from '../src/agents/registry.js';
-import { create, rename, stamp } from '../src/registry/sessions.js';
+import { create, rename, sendAgentLine, stamp } from '../src/registry/sessions.js';
 import { sandbox, waitFor } from './helpers.js';
+import { shellQuote } from '../src/shell.js';
 
 type Reply = (request: { id?: number; method?: string; params?: Record<string, unknown> }) => object | undefined;
 
@@ -166,4 +167,33 @@ test('Qoder takes a pending rename only from UserPromptSubmit, and resumes under
   handleHook('qoder', 'UserPromptSubmit', JSON.stringify({ session_id: 'q-1', prompt: 'hi' }), env, prompt);
   assert.deepEqual(prompt, { sessionTitle: 'after' });
   assert.match(getAdapter('qoder')!.resume!, /--name \{name\}/);
+});
+
+test('command naming is offered only to agents without a terminal-free path, from the verified version', () => {
+  assert.equal(renameCommand('kimi', '2.5.2', '前端'), '/title 前端');
+  assert.equal(renameCommand('kimi', '2.10.0', 'x'), '/title x');
+  assert.equal(renameCommand('kimi', '0.31.1', 'x'), undefined, 'older than the verified version');
+  assert.equal(renameCommand('kimi', '2.5.2-beta.1', 'x'), undefined, 'an unparseable version is not assumed');
+  assert.equal(renameCommand('kimi', undefined, 'x'), undefined);
+  assert.equal(renameCommand('kimi', '2.5.2', '名'.repeat(201)), undefined, 'longer than the command accepts');
+  assert.equal(renameCommand('copilot', '1.0.107', 'job'), '/rename job');
+  assert.equal(renameCommand('copilot', '1.0.106', 'job'), undefined);
+  for (const agent of ['claude', 'codex', 'qoder', 'opencode', 'gemini', 'cursor', 'shell']) {
+    assert.equal(renameCommand(agent, '99.0.0', 'x'), undefined, `${agent} uses another path or none`);
+  }
+});
+
+test('a confirmed command goes only to the verified agent pane and never while it is busy', async (t) => {
+  const { sessionProducers } = await import('../src/registry/discover.js');
+  const sb = sandbox(t), ctx = sb.ctx(), script = join(sb.root, 'kimi'), typed = join(sb.root, 'typed.txt');
+  writeFileSync(script, `process.stdin.on('data', (d) => require('fs').appendFileSync(${JSON.stringify(typed)}, d));`);
+  ctx.tmux.newSession('agent', sb.root, `${shellQuote(process.execPath)} ${shellQuote(script)}`);
+  sb.tmux('split-window', '-t', '=agent:', 'sleep 3600');
+  await waitFor(() => sessionProducers(ctx, 'agent')[0], 'agent process');
+  stamp(ctx, 'agent', { state: 'waiting' });
+  assert.throws(() => sendAgentLine(ctx, 'agent', 'kimi', '/title 新名'), /busy/);
+  stamp(ctx, 'agent', { state: 'done' });
+  assert.throws(() => sendAgentLine(ctx, 'agent', 'copilot', '/rename 新名'), /No single copilot/);
+  sendAgentLine(ctx, 'agent', 'kimi', '/title 新名');
+  await waitFor(() => existsSync(typed) && readFileSync(typed, 'utf8').includes('/title 新名'), 'line typed into the agent pane');
 });

@@ -35,6 +35,30 @@ export function namesConversations(agent: string | undefined): boolean {
   return Boolean(naming?.protocol || naming?.hook);
 }
 
+/**
+ * Command naming (spec §4.2.1), the fallback for agents with neither protocol
+ * nor hook naming: the line to type after the user confirms, or undefined when
+ * the installed version predates the verified one, is unknown, or the name is
+ * too long for the command.
+ */
+export function renameCommand(agent: string | undefined, version: string | undefined, name: string): string | undefined {
+  const naming = agent ? getAdapter(agent)?.naming : undefined;
+  const command = naming?.command;
+  if (!command || naming?.protocol || naming?.hook || !version || [...name].length > command.maxLength) return undefined;
+  return atLeast(version, command.since) ? command.line.replaceAll('{name}', name) : undefined;
+}
+
+/** Dotted numeric comparison; anything unparseable is not at least the bound. */
+function atLeast(version: string, bound: string): boolean {
+  const parse = (value: string) => /^\d+(\.\d+)*$/.test(value) ? value.split('.').map(Number) : undefined;
+  const have = parse(version.trim()), need = parse(bound);
+  if (!have || !need) return false;
+  for (let i = 0; i < Math.max(have.length, need.length); i++) {
+    if ((have[i] ?? 0) !== (need[i] ?? 0)) return (have[i] ?? 0) > (need[i] ?? 0);
+  }
+  return true;
+}
+
 /** Codex app-server JSON-RPC over the daemon's WebSocket control socket (verified with Codex 0.166). */
 export function setCodexThreadName(socketPath: string, threadId: string, name: string, timeoutMs = 3000): Promise<boolean> {
   return new Promise((resolve) => {

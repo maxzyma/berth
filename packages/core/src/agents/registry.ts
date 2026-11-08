@@ -58,9 +58,11 @@ export interface Adapter {
    * (spec §4.2.1), beyond launch naming, which a `{name}` placeholder in
    * launch/resume gives. `protocol` names it through the agent's interface at
    * once; `hook` returns it from the agent's next hook that accepts a title.
-   * Neither touches the agent's terminal.
+   * Neither touches the agent's terminal. `command` is the fallback for agents
+   * with neither: an in-session command typed only after the user confirms,
+   * offered from the version it was verified on (`since`).
    */
-  naming?: { protocol?: 'codex-app-server'; hook?: { events: string[] } };
+  naming?: { protocol?: 'codex-app-server'; hook?: { events: string[] }; command?: { line: string; since: string; maxLength: number } };
   source: string;
 }
 
@@ -168,6 +170,8 @@ export const ADAPTERS: Adapter[] = [
     binary: 'copilot',
     launch: 'copilot {args}',
     resume: 'copilot --resume={conversation} {args}',
+    // `/rename [NAME]` (CLI command reference); SDK `session.name.set` limits names to 100 characters.
+    naming: { command: { line: '/rename {name}', since: '1.0.107', maxLength: 100 } },
     keep: {
       '--model': true, '--reasoning-effort': true, '--allow-all-tools': false, '--add-dir': true,
       '--allow-tool': 'many', '--deny-tool': 'many', '--no-auto-update': false,
@@ -203,6 +207,8 @@ export const ADAPTERS: Adapter[] = [
     binary: 'kimi',
     launch: 'kimi {args}',
     resume: 'kimi --session {conversation} {args}',
+    // `/title [<text>]` (alias `/rename`, at most 200 characters) in the Kimi Code docs for 2.5.2.
+    naming: { command: { line: '/title {name}', since: '2.5.2', maxLength: 200 } },
     keep: { '--add-dir': true, '--model': true, '-m': true, '--yolo': false, '-y': false, '--auto': false, '--plan': false },
     discard: { '--session': true, '--continue': false, '--print': false, '--prompt': true, '--work-dir': true, '--agent': true, '--agent-file': true },
     hookTarget: 'kimi-config',
