@@ -546,3 +546,7 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
 @media (prefers-reduced-motion: reduce) {
   .codicon.codicon-modifier-spin { animation: none; }
 }
+
+/* Folder group reordering (spec §6): a line where the dragged group would land. */
+.row.drop-before { box-shadow: inset 0 2px 0 var(--vscode-list-dropBetweenBackground, var(--vscode-focusBorder)); }
+.row.drop-after { box-shadow: inset 0 -2px 0 var(--vscode-list-dropBetweenBackground, var(--vscode-focusBorder)); }

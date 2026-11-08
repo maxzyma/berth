@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { sessionChoices, buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, sessionNameProblem, type Transition } from '../src/model.js';
+import { sessionChoices, buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, sessionNameProblem, applyGroupOrder, moveGroup, shiftGroup, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -921,4 +921,22 @@ test('startup restore waits out a busy state instead of failing', async (t) => {
   await new Promise((resolve) => holder.stdout.once('data', resolve));
   assert.equal(await controller.startup(), 'gone');
   assert.deepEqual(host.terminals.map((x) => x.session), ['gone']);
+});
+
+test('folder groups follow the saved order; unplaced groups keep their default neighbours', () => {
+  const groups = ['/ws', '/ws/sub', '/out/a', '/out/b'].map((cwd) => ({ cwd }));
+  assert.deepEqual(applyGroupOrder(groups, []).map((g) => g.cwd), ['/ws', '/ws/sub', '/out/a', '/out/b']);
+  assert.deepEqual(applyGroupOrder(groups, ['/out/b', '/ws']).map((g) => g.cwd), ['/out/b', '/ws', '/ws/sub', '/out/a'],
+    'a saved order overrides places; unplaced groups follow their default predecessor');
+  assert.deepEqual(applyGroupOrder(groups, ['/gone', '/out/a']).map((g) => g.cwd), ['/ws', '/ws/sub', '/out/a', '/out/b']);
+});
+
+test('moving a folder group saves the new order and keeps absent groups where they were', () => {
+  const shown = ['/a', '/b', '/c'];
+  assert.deepEqual(moveGroup(shown, [], '/c', '/a', false), ['/c', '/a', '/b']);
+  assert.deepEqual(moveGroup(shown, [], '/a', '/c', true), ['/b', '/c', '/a']);
+  assert.deepEqual(moveGroup(shown, ['/a', '/gone', '/b', '/c'], '/c', '/a', false), ['/c', '/a', '/gone', '/b']);
+  assert.deepEqual(moveGroup(shown, ['/x'], '/a', '/a', true), ['/x'], 'dropping on itself changes nothing');
+  assert.deepEqual(shiftGroup(shown, [], '/b', -1), ['/b', '/a', '/c']);
+  assert.deepEqual(shiftGroup(shown, [], '/c', 1), [], 'the last group cannot move down');
 });

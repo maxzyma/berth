@@ -184,6 +184,21 @@
         "title": "Check Recovery Readiness",
         "category": "Berth",
         "icon": "$(checklist)"
+      },
+      {
+        "command": "berth.moveFolderUp",
+        "title": "Move Folder Up",
+        "category": "Berth"
+      },
+      {
+        "command": "berth.moveFolderDown",
+        "title": "Move Folder Down",
+        "category": "Berth"
+      },
+      {
+        "command": "berth.resetFolderOrder",
+        "title": "Reset Folder Order",
+        "category": "Berth"
       }
     ],
     "menus": {
@@ -227,6 +242,11 @@
           "command": "berth.revertLayout",
           "when": "view == berth.sessions",
           "group": "3_layout@2"
+        },
+        {
+          "command": "berth.resetFolderOrder",
+          "when": "view == berth.sessions",
+          "group": "2_session@3"
         }
       ],
       "commandPalette": [
@@ -288,6 +308,14 @@
         },
         {
           "command": "berth.checkRecovery",
+          "when": "false"
+        },
+        {
+          "command": "berth.moveFolderUp",
+          "when": "false"
+        },
+        {
+          "command": "berth.moveFolderDown",
           "when": "false"
         }
       ],
@@ -371,6 +399,16 @@
           "command": "berth.checkRecovery",
           "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /agent-session/",
           "group": "2@3"
+        },
+        {
+          "command": "berth.moveFolderUp",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'group'",
+          "group": "3_order@1"
+        },
+        {
+          "command": "berth.moveFolderDown",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'group'",
+          "group": "3_order@2"
         }
       ],
       "berth.sessionCreation": [

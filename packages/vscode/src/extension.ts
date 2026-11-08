@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { recoveryCheckItems } from './recoveryCheck.js';
 import { LayoutStore } from './layoutStore.js';
 import { Controller, type Host, type TerminalRole } from './controller.js';
-import { sessionChoices, defaultFolder, explorerTarget, launcherPicksAgent, orderAgents, placeOf, sessionNameProblem, type Place, type Transition } from './model.js';
+import { sessionChoices, defaultFolder, explorerTarget, launcherPicksAgent, moveGroup, orderAgents, placeOf, sessionNameProblem, shiftGroup, type Place, type Transition } from './model.js';
 import type { MenuContext } from './view/protocol.js';
 import { SessionsView, VIEW_ID } from './view/sessionsView.js';
 import { installBundledHooks, prepareHookRuntime } from './hookRuntime.js';
@@ -24,6 +24,7 @@ import { TmuxHooks } from './tmuxHooks.js';
 import { SETUP_DECLINED, SetupReminder } from './setupReminder.js';
 
 const REFRESH_MS = 2000;
+const GROUP_ORDER = 'berth.groupOrder';
 const LAYOUT_BACKUP = 'berth.layoutBackup';
 const LAYOUT_VALUES = 'berth.layoutAppliedValues';
 const BERTH_CONTAINER = 'workbench.view.extension.berth';
@@ -116,6 +117,7 @@ class TerminalHost implements Host {
   }
 
   focusSession?: (name: string) => void;
+  groupOrder?: () => readonly string[];
   onShown?: (row: SessionRow) => void;
 
   workspaceFolders(): string[] {
@@ -322,6 +324,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (message.type === 'new') void vscode.commands.executeCommand('berth.new');
     if (message.type === 'newIn') void startSession(message.cwd);
     if (message.type === 'detailsVisibility') void vscode.commands.executeCommand('setContext', 'berth.detailsVisible', message.visible);
+    if (message.type === 'moveGroup') reorderGroups((shown, saved) => moveGroup(shown, saved, message.cwd, message.target, message.after));
+    if (message.type === 'shiftGroup') reorderGroups((shown, saved) => shiftGroup(shown, saved, message.cwd, message.delta));
   }, vscode.Uri.joinPath(context.globalStorageUri, 'host-icons'));
   void resolveHostIcons(context.globalStorageUri.fsPath).then(icons => view.setHostIcons(icons));
   context.subscriptions.push(view, vscode.window.registerWebviewViewProvider(VIEW_ID, view));
@@ -372,6 +376,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   let refreshAgain = false;
   let terminalRevision = 0;
   const renderLocal = () => view.update(controller.tree());
+  // Folder group order is saved per workspace (spec §6).
+  host.groupOrder = () => context.workspaceState.get<string[]>(GROUP_ORDER, []);
+  const reorderGroups = (next: (shown: readonly string[], saved: readonly string[]) => string[]) => {
+    const shown = controller.tree().groups.map((group) => group.cwd);
+    void context.workspaceState.update(GROUP_ORDER, next(shown, host.groupOrder!())).then(renderLocal);
+  };
   let sampleSequence = 0;
   let publishedSequence = 0;
   let knownTask: Promise<void> | undefined;
@@ -450,6 +460,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   const command = (id: string, fn: (...args: unknown[]) => unknown) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
+  command('berth.moveFolderUp', (arg: unknown) => {
+    const cwd = (arg as MenuContext | undefined)?.groupCwd;
+    if (cwd) reorderGroups((shown, saved) => shiftGroup(shown, saved, cwd, -1));
+  });
+  command('berth.moveFolderDown', (arg: unknown) => {
+    const cwd = (arg as MenuContext | undefined)?.groupCwd;
+    if (cwd) reorderGroups((shown, saved) => shiftGroup(shown, saved, cwd, 1));
+  });
+  command('berth.resetFolderOrder', () => void context.workspaceState.update(GROUP_ORDER, undefined).then(renderLocal));
   command('berth.refresh', () => refresh());
   command('berth.dismissDetails', () => view.dismissDetails());
   command('berth.focus', guarded((name) => controller.show(name)));

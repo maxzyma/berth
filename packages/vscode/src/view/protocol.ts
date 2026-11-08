@@ -23,7 +23,8 @@ export type ToView =
   | { type: 'error'; message: string }
   | { type: 'copyResult'; id: number; success: boolean };
 
-export type FromView = { type: 'checkRecovery'; session: string } | { type: 'copy'; id: number; value: string } | { type: 'ready' } | { type: 'retry' } | { type: 'new' } | { type: 'show'; session: string } | { type: 'newIn'; cwd: string } | { type: 'detailsVisibility'; visible: boolean };
+export type FromView = { type: 'checkRecovery'; session: string } | { type: 'copy'; id: number; value: string } | { type: 'ready' } | { type: 'retry' } | { type: 'new' } | { type: 'show'; session: string } | { type: 'newIn'; cwd: string } | { type: 'detailsVisibility'; visible: boolean }
+  | { type: 'moveGroup'; cwd: string; target: string; after: boolean } | { type: 'shiftGroup'; cwd: string; delta: -1 | 1 };
 
 /** What the view puts in `data-vscode-context`; context-menu commands receive it. */
 export interface MenuContext {

@@ -173,6 +173,8 @@ export interface ViewInput {
   workspaceFolders?: readonly string[];
   /** The user's home, to shorten paths as `~/…`. */
   home?: string;
+  /** Folder groups in the order the user placed them, saved per workspace. */
+  groupOrder?: readonly string[];
   now?: number;
 }
 
@@ -331,7 +333,7 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
     }))
     .sort((a, b) => PLACE_RANK[a.place] - PLACE_RANK[b.place] || a.cwd.localeCompare(b.cwd));
   return {
-    groups: ordered,
+    groups: applyGroupOrder(ordered, input.groupOrder ?? []),
     unmanaged: [...unmanaged].sort((x, y) => compareSessionNames(x.name, y.name)),
     waiting: rows.filter((r) => r.live && r.state === 'waiting').length,
   };
@@ -482,4 +484,44 @@ export function sessionNameProblem(value: string): string | undefined {
   const issue = sessionNameIssue(value);
   if (!issue || !value.trim()) return issue;
   return `${issue} For example: ${suggestSessionName(value)}`;
+}
+
+/**
+ * Placed groups follow the saved order; a group never placed keeps its default
+ * position after the group that precedes it by default (spec §6).
+ */
+export function applyGroupOrder<T extends { cwd: string }>(defaults: readonly T[], saved: readonly string[]): T[] {
+  return mergeOrder(defaults.map((group) => group.cwd), saved).map((cwd) => defaults.find((group) => group.cwd === cwd)!);
+}
+
+/** The saved order after moving `cwd` before or after `target` in the shown order. */
+export function moveGroup(shown: readonly string[], saved: readonly string[], cwd: string, target: string, after: boolean): string[] {
+  if (cwd === target || !shown.includes(cwd) || !shown.includes(target)) return [...saved];
+  const rest = shown.filter((path) => path !== cwd);
+  const at = rest.indexOf(target) + (after ? 1 : 0);
+  return remember([...rest.slice(0, at), cwd, ...rest.slice(at)], saved);
+}
+
+/** The saved order after moving `cwd` one place up or down in the shown order. */
+export function shiftGroup(shown: readonly string[], saved: readonly string[], cwd: string, delta: -1 | 1): string[] {
+  const index = shown.indexOf(cwd);
+  const target = shown[index + delta];
+  return index < 0 || target === undefined ? [...saved] : moveGroup(shown, saved, cwd, target, delta > 0);
+}
+
+/** `items` in their default order, with every item also in `order` placed as it is there. */
+function mergeOrder(items: readonly string[], order: readonly string[]): string[] {
+  const placed = order.filter((item) => items.includes(item));
+  const result = [...placed];
+  let anchor = -1;
+  for (const item of items) {
+    if (placed.includes(item)) { anchor = result.indexOf(item); continue; }
+    result.splice(++anchor, 0, item);
+  }
+  return result;
+}
+
+/** A new shown order, keeping saved groups that are absent where they were. */
+function remember(shown: readonly string[], saved: readonly string[]): string[] {
+  return mergeOrder([...new Set([...saved, ...shown])], shown);
 }

@@ -38,17 +38,20 @@ const STATE_WORDS: Record<RowView['icon'], string> = {
 };
 
 /** One focusable line: a group header or a session card. */
-type Item = { id: string; kind: 'group'; group: GroupView | Other } | { id: string; kind: 'card'; row: RowView; level: number };
+type Item = { id: string; kind: 'group'; group: GroupView | Other } | { id: string; kind: 'card'; row: RowView; level: number; group?: string };
 type Other = { cwd: string; label: string; rows: RowView[]; other: true };
 
 class BerthSessions extends LitElement {
-  static properties = { error: { state: true }, model: { state: true }, settings: { state: true }, focusId: { state: true }, selectedSession: { state: true } };
+  static properties = { error: { state: true }, model: { state: true }, settings: { state: true }, focusId: { state: true }, selectedSession: { state: true }, drop: { state: true } };
   declare model: { tree: TreeView; flatten: boolean } | undefined;
   declare settings: ViewSettings | undefined;
   private selectedSession?: string;
   private error = '';
   declare focusId: string | undefined;
   private collapsed: Set<string>;
+  /** The folder group being dragged, and where it would land (spec §6). */
+  private dragging?: string;
+  declare drop: { cwd: string; after: boolean } | undefined;
   private readonly clipboard = new ClipboardBridge((message) => vscode.postMessage(message));
   private readonly hover = new HoverCard(
     (visible) => vscode.postMessage({ type: 'detailsVisibility', visible }),
@@ -126,9 +129,21 @@ class BerthSessions extends LitElement {
     if (tree.unmanaged.length) groups.push({ cwd: OTHER, label: 'Other tmux sessions', rows: tree.unmanaged, other: true });
     for (const group of groups) {
       out.push({ id: `g:${group.cwd}`, kind: 'group', group });
-      if (!this.collapsed.has(group.cwd)) for (const row of group.rows) out.push({ id: `s:${row.name}`, kind: 'card', row, level: 2 });
+      if (!this.collapsed.has(group.cwd)) for (const row of group.rows) out.push({ id: `s:${row.name}`, kind: 'card', row, level: 2, group: group.cwd });
     }
     return out;
+  }
+
+  /** The drop line: above a group's header, or below its last visible row. */
+  private dropMark(id: string): string {
+    if (!this.drop) return '';
+    const items = this.items();
+    const start = items.findIndex((item) => item.id === `g:${this.drop!.cwd}`);
+    if (start < 0) return '';
+    if (!this.drop.after) return id === items[start].id ? 'drop-before' : '';
+    let end = start;
+    while (items[end + 1]?.kind === 'card' && (items[end + 1] as { group?: string }).group === this.drop.cwd) end++;
+    return id === items[end].id ? 'drop-after' : '';
   }
 
   render(): TemplateResult {
@@ -141,7 +156,9 @@ class BerthSessions extends LitElement {
           ${this.model ? html`<p>Showing the last available session list.</p>` : nothing}
           <button class="view-action" @click=${() => vscode.postMessage({ type: 'retry' })}>Retry</button>
         </div>` : nothing}
-      <div class="list" role="tree" aria-label="Agent sessions" @keydown=${(e: KeyboardEvent) => this.key(e, items)}>
+      <div class="list" role="tree" aria-label="Agent sessions" @keydown=${(e: KeyboardEvent) => this.key(e, items)}
+        @dragover=${(e: DragEvent) => this.dragOver(e, items)} @drop=${(e: DragEvent) => this.dropGroup(e)}
+        @dragleave=${(e: DragEvent) => { if (!(e.relatedTarget instanceof Node && (e.currentTarget as Node).contains(e.relatedTarget))) this.drop = undefined; }}>
         ${repeat(items, (item) => item.id, (item) => (item.kind === 'group'
           ? this.groupRow(item.group, item.id === focus)
           : this.card(item.row, item.level, item.id === focus)))}
@@ -160,8 +177,17 @@ class BerthSessions extends LitElement {
     const context: MenuContext = other ? {} : { webviewSection: 'group', groupCwd: group.cwd };
     const icon = other ? 'terminal' : PLACE_ICON[group.place];
     return html`<div
-      class="row group ${other ? '' : group.place} ${attention ? `attention-${attention}` : ''}"
+      class="row group ${other ? '' : group.place} ${attention ? `attention-${attention}` : ''} ${this.dropMark(`g:${group.cwd}`)}"
       id=${`g:${group.cwd}`}
+      draggable=${other ? 'false' : 'true'}
+      @dragstart=${(e: DragEvent) => {
+        if (other || !e.dataTransfer) return;
+        this.dragging = group.cwd;
+        this.hover.hide();
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', group.label);
+      }}
+      @dragend=${() => { this.dragging = undefined; this.drop = undefined; }}
       role="treeitem"
       aria-level="1"
       aria-expanded=${open ? 'true' : 'false'}
@@ -204,7 +230,7 @@ class BerthSessions extends LitElement {
     const selected = this.selectedSession === row.name;
     const words = [row.name, row.hover.find(line => line.kind === 'title')?.sub, row.agent ? `${STATE_WORDS[row.icon]}` : STATE_WORDS.unmanaged, row.subtitle, row.details, row.active ? 'Active terminal' : ''].filter(Boolean).join(', ');
     return html`<div
-      class="row card level-${level} state-${row.icon} ${row.attention ? `attention-${row.attention}` : ''} ${selected ? 'selected' : ''} ${row.active ? 'terminal-active' : ''}"
+      class="row card ${this.dropMark(`s:${row.name}`)} level-${level} state-${row.icon} ${row.attention ? `attention-${row.attention}` : ''} ${selected ? 'selected' : ''} ${row.active ? 'terminal-active' : ''}"
       id=${`s:${row.name}`}
       role="treeitem"
       aria-level=${level}
@@ -251,6 +277,29 @@ class BerthSessions extends LitElement {
     vscode.postMessage({ type: 'show', session });
   }
 
+  /** A header takes the group before or after it by pointer half; a session places it after its group. */
+  private dragOver(e: DragEvent, items: Item[]): void {
+    if (!this.dragging) return;
+    const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('.row');
+    const item = row && items.find((i) => i.id === row.id);
+    const cwd = item?.kind === 'group' ? item.group.cwd : item?.kind === 'card' ? item.group : undefined;
+    if (!row || !cwd || cwd === OTHER || cwd === this.dragging) { this.drop = undefined; return; }
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    const box = row.getBoundingClientRect();
+    const after = item?.kind === 'card' || e.clientY > box.top + box.height / 2;
+    if (this.drop?.cwd !== cwd || this.drop.after !== after) this.drop = { cwd, after };
+  }
+
+  private dropGroup(e: DragEvent): void {
+    const cwd = this.dragging, target = this.drop;
+    this.dragging = undefined;
+    this.drop = undefined;
+    if (!cwd || !target) return;
+    e.preventDefault();
+    vscode.postMessage({ type: 'moveGroup', cwd, target: target.cwd, after: target.after });
+  }
+
   private key(e: KeyboardEvent, items: Item[]): void {
     if (e.key === 'Escape') return;
     if (e.key === 'Tab' && !e.shiftKey && this.hover.focus()) {
@@ -266,6 +315,14 @@ class BerthSessions extends LitElement {
       this.focusId = target.id;
       void this.updateComplete.then(() => document.getElementById(target.id)?.focus());
     };
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      // Alt+Up/Down moves a focused folder group, as VS Code moves lines.
+      if (item?.kind === 'group' && !('other' in item.group)) {
+        vscode.postMessage({ type: 'shiftGroup', cwd: item.group.cwd, delta: e.key === 'ArrowUp' ? -1 : 1 });
+        e.preventDefault();
+      }
+      return;
+    }
     switch (e.key) {
       case 'ArrowDown': move(index + 1); break;
       case 'ArrowUp': move(index - 1); break;

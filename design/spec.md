@@ -1078,7 +1078,15 @@ name/title/task text is suppressed. Cards use at most
     session.
   - **Groups.** A group header shows the folder's name with an icon for its
     place: this window's workspace folder, inside it, or outside it (the
-    words are in its hover), ordered in that order. When the only group is
+    words are in its hover), ordered in that order by default. The user can
+    reorder groups by dragging a header (on another header it lands before or
+    after by pointer position, on a group's sessions after that group; a line
+    marks the place) or with Alt+Up/Down and Move Folder
+    Up/Down on a focused header; the order is saved per workspace and takes
+    precedence over places. A group the user has not placed keeps its default
+    position after the group that precedes it by default. A group whose
+    sessions are gone keeps its saved position for when it returns. Reset
+    Folder Order returns to the default. When the only group is
     the workspace folder its cards sit at the top level and the view's title
     shows the folder. A collapsed group shows its most urgent session
     (waiting, else unread) with the same badge and colour.

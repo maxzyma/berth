@@ -240,6 +240,17 @@ startup and the lock wait cap; the full suite passed (397 passed, 11 skipped,
 0 failed). Candidate: `berth-vscode-0.4.5-commandnaming.vsix`, SHA-256 `cf5b8575cf6f1129d81faedb49ff8d57fa96608bb1d2f0164e979337ab3e1f0e`, installed
 locally; the daily editor needs reload. No formal release.
 
+Folder group order, `8182e44` plus candidate worktree, 2026-11-08: groups
+followed their place and path only. They can now be reordered by dragging a
+header or with Alt+Up/Down and Move Folder Up/Down; the order is saved per
+workspace and overrides places, unplaced groups keep their default neighbour,
+absent groups keep their position, and Reset Folder Order restores the default
+(spec §6). Rendered drop lines were reviewed in dark and light themes at both
+viewports. Ordering, drag, keyboard and drop-line tests pass; the unit suite
+passed (399 passed, 11 skipped, 0 failed) and the webview suite passed (122).
+Candidate: `berth-vscode-0.4.5-grouporder.vsix`, SHA-256 `7b98548244b49b5df45b4ee6b36a21c401c8d9dccdf8964a26d67ef66ea4aea7`,
+installed locally; the daily editor needs reload. No formal release.
+
 ## Automatic Berth layout preparation
 
 **State:** Local candidate. On macOS VS Code 1.143.1, the isolated native

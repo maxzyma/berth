@@ -41,6 +41,8 @@ export interface SessionLaunch {
 
 
 export interface Host {
+  /** Folder groups in the order the user placed them in this workspace. */
+  groupOrder?(): readonly string[];
   /**
    * Open a terminal running `argv` (an attach command). `main` is the one
    * most recently selected session terminal; `side` terminals are extra
@@ -148,6 +150,7 @@ export class Controller {
       branch: (cwd) => this.branch(cwd),
       workspaceFolders: this.host.workspaceFolders?.() ?? [],
       home: process.env.HOME ?? '',
+      groupOrder: this.host.groupOrder?.() ?? [],
     });
   }
 
