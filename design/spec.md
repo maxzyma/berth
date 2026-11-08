@@ -298,7 +298,11 @@ can still work but exact binding, summary and recovery remain unavailable.
 ### 4.2.1 Session names and conversation titles
 
 The tmux session name remains the stable session key and terminal title. A
-launcher may choose it; detecting an agent never renames the session or imposes
+name the user chooses (rename, `--name`) may use any characters, including CJK
+and spaces, except what tmux refuses (`:` and `.`), control characters and
+surrounding spaces; rename explains these while typing, and `--name` replaces
+them with `-`. Default names generated from a folder stay within
+`[A-Za-z0-9_-]`. A launcher may choose it; detecting an agent never renames the session or imposes
 a launcher. Agent conversation titles are separate display metadata, read only
 from the exact bound conversation ID. Titles must not replace IDs for restore,
 and a prompt excerpt must not be presented as an explicit conversation name.
@@ -478,7 +482,7 @@ The VS Code extension is published to the Marketplace, not npm.
 | `berth adopt <session> --agent <id> [--origin]` | Stamp an existing session so it is managed. |
 | `berth attach <session> [--origin]` | Attach, re-stamping origin when given. |
 | `berth stamp [--session] key=value…` | Set metadata; used by hooks and custom launchers. |
-| `berth rename <session> <new name>` | Rename a live session and its recovery record; names use letters, digits, `-` and `_`. |
+| `berth rename <session> <new name>` | Rename a live session and its recovery record (§4.2.1 name rule). |
 | `berth snapshot` | Write a snapshot (§5.3). |
 | `berth forget <session>` | Stop restoring a stopped session (§5.3). |
 | `berth ensure [--origin <o>] [<session>]` | Rebuild missing managed sessions from the newest snapshot; idempotent and lock-protected so concurrent callers rebuild once. |
@@ -1265,7 +1269,7 @@ name/title/task text is suppressed. Cards use at most
   these fields and reports an actionable error; creating a terminal is not
   attachment acknowledgement. Opening or focusing a terminal never disposes
   the previous terminal; only a failed newly created terminal is cleaned up.
-  Rename explains the accepted characters while the name is typed and runs
+  Rename explains refused characters while the name is typed and runs
   outside the editor event loop. The core validates the new name, updates tmux and immediately writes a snapshot
   before updating host references and unread keys. Snapshot failure rolls the
   tmux name back and reports failure. A collision leaves both sessions intact.

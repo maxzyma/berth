@@ -189,7 +189,20 @@ test('rename snapshot keeps saved scrollback under the new name', async (t) => {
   const snapshot = ctx.store.newest()!;
   assert.deepEqual(snapshot.sessions.map((session) => session.name), ['after']);
   assert.equal(ctx.store.scrollback(snapshot.dir, 'after'), saved);
-  const refused = sb.cli('rename', 'after', 'bad name');
+  const refused = sb.cli('rename', 'after', 'bad.name');
   assert.notEqual(refused.status, 0);
-  assert.match(refused.stderr, /invalid session name/);
+  assert.match(refused.stderr, /does not allow : or \./);
+});
+
+test('session names keep CJK and spaces through rename, creation and snapshot', (t) => {
+  const sb = sandbox(t), ctx = sb.ctx();
+  create(ctx, { agent: 'shell', cwd: sb.root, name: '前端 重构' });
+  assert.equal(sb.cli('rename', '前端 重构', '后端-接口').status, 0);
+  assert.deepEqual(ctx.store.newest()!.sessions.map((session) => session.name), ['后端-接口']);
+  assert.ok(list(ctx).some((row) => row.name === '后端-接口'));
+  assert.equal(create(ctx, { agent: 'shell', cwd: sb.root, name: 'v1.2:beta' }), 'v1-2-beta');
+  assert.match(sb.cli('rename', '后端-接口', ' padded').stderr, /spaces at the start or end/);
+  killServer(sb);
+  ensure(ctx);
+  assert.ok(ctx.tmux.hasSession('后端-接口'), 'a CJK-named session is rebuilt after server loss');
 });

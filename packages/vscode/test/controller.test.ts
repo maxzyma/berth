@@ -900,9 +900,9 @@ test('Creation snapshots workspace ownership once and completion handles an owne
   assert.equal(ctx.store.newest()?.sessions.find(row => row.name === plan.session)?.ownerWorkspace, 'other-workspace');
 });
 
-test('Rename input explains the accepted characters while typing', () => {
+test('Rename input accepts CJK and explains what tmux refuses while typing', () => {
   assert.equal(sessionNameProblem('api-v2_test'), undefined);
+  assert.equal(sessionNameProblem('前端 重构'), undefined);
   assert.equal(sessionNameProblem(''), 'Enter a name.');
-  assert.equal(sessionNameProblem('my project.v2'), 'Use letters, digits, - or _ only, for example my-project-v2.');
-  assert.equal(sessionNameProblem('前端'), 'Use letters, digits, - or _ only.');
+  assert.equal(sessionNameProblem('my project.v2'), 'tmux does not allow : or . in session names. For example: my project-v2');
 });

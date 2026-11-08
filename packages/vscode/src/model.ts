@@ -4,7 +4,7 @@ import { WORKING_ICON } from './view/iconSemantics.js';
 import { profileRoot } from '@berthdev/berth';
 /** Pure view logic for Berth for VS Code (spec §6); no `vscode` import, so it is unit-testable. */
 import { basename } from 'node:path';
-import { getAdapter, sanitizeName, type SessionRow } from '@berthdev/berth';
+import { getAdapter, sessionNameIssue, suggestSessionName, type SessionRow } from '@berthdev/berth';
 
 export type Connection = 'attached-here' | 'attached-unknown' | 'attached-elsewhere' | 'detached' | 'stopped';
 
@@ -477,10 +477,9 @@ export function sessionChoices(rows: readonly SessionRow[]): { label: string; de
   }));
 }
 
-/** Rename input check, shown while typing: the core accepts letters, digits, `-` and `_`. */
+/** Rename input check, shown while typing; the core owns the rule. */
 export function sessionNameProblem(value: string): string | undefined {
-  if (!value) return 'Enter a name.';
-  if (sanitizeName(value) === value) return undefined;
-  const suggested = sanitizeName(value);
-  return `Use letters, digits, - or _ only${suggested !== 'session' || /session/.test(value) ? `, for example ${suggested}` : ''}.`;
+  const issue = sessionNameIssue(value);
+  if (!issue || !value.trim()) return issue;
+  return `${issue} For example: ${suggestSessionName(value)}`;
 }

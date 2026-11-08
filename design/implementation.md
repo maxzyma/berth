@@ -297,7 +297,8 @@ renamed titles, missing stores and two conversations in the same directory.
 
 ### 2.4 Names and locks
 
-- Default session name: basename of the cwd, reduced to `[A-Za-z0-9_-]`;
+- Default session name: basename of the cwd, reduced to `[A-Za-z0-9_-]`; chosen
+  names follow `sessionNameIssue` (spec §4.2.1);
   on collision append `-2`, `-3`, … .
 - Restore uses the choosing/ticket ordering of [Lamport’s bakery algorithm](https://lamport.azurewebsites.net/pubs/bakery.pdf), adapted to local filesystem records (source checked 2026-11-01): publish a unique choosing record,
   atomically publish its numeric ticket, then wait for choosing contenders and

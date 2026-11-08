@@ -117,6 +117,25 @@ function inventoryLocked(ctx: Context): void {
   if (adopted.length || (server && current.some((name) => !saved.includes(name)))) takeSnapshot(ctx);
 }
 
+/**
+ * Why tmux would not keep this name unchanged, if it would not (spec §4.2.1):
+ * tmux rejects `:` and `.`; control characters and surrounding spaces are refused
+ * because they cannot be seen in a title. Any other character, including CJK, is kept.
+ */
+export function sessionNameIssue(name: string): string | undefined {
+  if (!name.trim()) return 'Enter a name.';
+  if (name !== name.trim()) return 'Remove spaces at the start or end.';
+  if (/[:.]/.test(name)) return 'tmux does not allow : or . in session names.';
+  if (/[\u0000-\u001f\u007f]/.test(name)) return 'Remove control characters.';
+  return undefined;
+}
+
+/** A chosen name with what tmux would refuse replaced by `-`. */
+export function suggestSessionName(raw: string): string {
+  return raw.replace(/[:.\u0000-\u001f\u007f]+/g, '-').trim().replace(/^-+|-+$/g, '') || 'session';
+}
+
+/** Generated default names (from a folder) stay within `[A-Za-z0-9_-]`. */
 export function sanitizeName(raw: string): string {
   const cleaned = raw.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
   return cleaned || 'session';
@@ -152,7 +171,7 @@ export function create(ctx: Context, options: NewOptions): string {
 
 function createLocked(ctx: Context, options: NewOptions): string {
   const adapter = requireAdapter(options.agent);
-  const name = options.name ? sanitizeName(options.name) : uniqueName(ctx, basename(options.cwd));
+  const name = options.name ? (sessionNameIssue(options.name) ? suggestSessionName(options.name) : options.name) : uniqueName(ctx, basename(options.cwd));
   if (ctx.tmux.hasSession(name) || ctx.store.newest()?.sessions.some((saved) => saved.name === name && !wasClosed(ctx, saved))) {
     throw new BerthError(`session name is already reserved: ${name}; resume or forget the stopped conversation first`, ExitCode.usage);
   }
@@ -224,7 +243,8 @@ export function rename(ctx: Context, from: string, to: string): void {
 
 function renameLocked(ctx: Context, from: string, to: string): void {
   requireLive(ctx, from);
-  if (!to || sanitizeName(to) !== to) throw new BerthError('invalid session name', ExitCode.usage);
+  const issue = sessionNameIssue(to);
+  if (issue) throw new BerthError(`invalid session name: ${issue}`, ExitCode.usage);
   if (from === to) return;
   if (ctx.tmux.hasSession(to) || ctx.store.newest()?.sessions.some((s) => s.name === to)) {
     throw new BerthError(`session already exists: ${to}`, ExitCode.usage);

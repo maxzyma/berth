@@ -188,18 +188,21 @@ session, in one notification with remembered answers (spec §8). The README no
 longer presents the standalone CLI as required. Diagnose Problems shows the tmux
 hook state.
 
-Rename now explains accepted characters while typing, runs through the core CLI
-outside the editor event loop and takes a change snapshot that keeps saved
-scrollback by session identity under the new name.
+Chosen session names (rename, `--name`) now accept CJK, spaces and other
+characters tmux keeps; only `:`, `.`, control characters and surrounding spaces
+are refused, explained while typing. Default folder-derived names are unchanged.
+Rename runs through the core CLI outside the editor event loop and takes a change
+snapshot that keeps saved scrollback by session identity under the new name.
 
 New regressions cover hook block inspection, the reminder policy, rename input,
-transport and snapshot; the full suite passed (385 passed, 11 skipped, 0 failed).
+transport and snapshot, and a CJK-named session through rename, snapshot and
+rebuild after server loss; the full suite passed (386 passed, 11 skipped, 0 failed).
 On the development machine the tmux block recorded an older standalone CLI; it
 was replaced through the runtime command, the configuration parsed, inspection
 reported current and the hook command started. Agent and tmux hooks there are
 healthy, so the reminder and the repair notice still need native review on a
-machine with missing or stale hooks. Candidate: `berth-vscode-0.4.5-setup.vsix`,
-SHA-256 `3826884a161534e6da2a4c870bdf0b8dd87df28882a96adfa5664069ac08c7fb`,
+machine with missing or stale hooks. Candidate: `berth-vscode-0.4.5-names.vsix`,
+SHA-256 `cece28a95d0e0f8c121f7f5fd6d300e14b6d3045d410c77bc03845571362fb04`,
 installed locally; the daily editor needs reload. No formal release.
 
 ## Automatic Berth layout preparation
