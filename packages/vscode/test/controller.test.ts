@@ -906,3 +906,19 @@ test('Rename input accepts CJK and explains what tmux refuses while typing', () 
   assert.equal(sessionNameProblem(''), 'Enter a name.');
   assert.equal(sessionNameProblem('my project.v2'), 'tmux does not allow : or . in session names. For example: my project-v2');
 });
+
+test('startup restore waits out a busy state instead of failing', async (t) => {
+  const { sb, host, controller } = setup(t);
+  sb.cli('new', 'claude', '--cwd', sb.makeDir('gone'), '--origin', 'vscode');
+  sb.cli('stamp', '--session', 'gone', 'conversation=conv-gone', 'ownerWorkspace=test-workspace');
+  sb.cli('snapshot');
+  killServer(sb);
+  const holder = spawn(process.execPath, ['--input-type=module', '-e', `
+    const { withAsyncLock } = await import(process.argv[1]);
+    await withAsyncLock(process.argv[2], async () => { process.stdout.write('held'); await new Promise((r) => setTimeout(r, 4000)); });
+  `, import.meta.resolve('@berthdev/berth'), sb.ctx().config.stateDir], { stdio: ['ignore', 'pipe', 'inherit'] });
+  t.after(() => holder.kill());
+  await new Promise((resolve) => holder.stdout.once('data', resolve));
+  assert.equal(await controller.startup(), 'gone');
+  assert.deepEqual(host.terminals.map((x) => x.session), ['gone']);
+});

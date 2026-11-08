@@ -8,21 +8,31 @@ import { agentRoot } from './roots.js';
 import type { Context } from '../context.js';
 
 /**
- * Protocol naming (spec §4.2.1): give a session's bound conversation the
- * session name through the agent's own interface, without touching its
- * terminal. Best effort: false when the agent has no such interface, the
- * conversation is unbound, or the agent's service is not running.
+ * Protocol naming (spec §4.2.1): deliver a pending rename to the session's
+ * bound conversation through the agent's own interface, without touching its
+ * terminal. Best effort: false when nothing is pending, the agent has no such
+ * interface, the conversation is unbound or the agent's service is not
+ * running; the rename stays pending for the agent's next hook to retry.
  */
 export async function nameConversation(ctx: Context, session: string): Promise<boolean> {
   const live = ctx.tmux.listSessions().find((row) => row.name === session);
   const agent = live?.meta.agent;
   const conversation = live?.meta.conversation;
-  if (!agent || !conversation || getAdapter(agent)?.naming?.protocol !== 'codex-app-server') return false;
+  if (!live?.meta.nameSync || !agent || !conversation || getAdapter(agent)?.naming?.protocol !== 'codex-app-server') return false;
   const profile = readProfile(agent, live.meta.profile);
   const socket = join(agentRoot(agent, profile ? profileEnvironment(agent, profile, ctx.env) : ctx.env), 'app-server-control', 'app-server-control.sock');
   // Connect only to a running service; never start one. The link in the agent
   // home can exceed the Unix socket path limit; its target is kept short.
-  return existsSync(socket) ? setCodexThreadName(realpathSync(socket), conversation, session) : false;
+  if (!existsSync(socket) || !await setCodexThreadName(realpathSync(socket), conversation, session)) return false;
+  // Clear only what was delivered: a later rename keeps its own pending name.
+  if (ctx.tmux.listSessions().some((row) => row.name === session && row.sessionId === live.sessionId)) ctx.tmux.setMeta(session, { nameSync: '' });
+  return true;
+}
+
+/** Whether a rename reaches this agent's conversation name beyond its next launch. */
+export function namesConversations(agent: string | undefined): boolean {
+  const naming = agent ? getAdapter(agent)?.naming : undefined;
+  return Boolean(naming?.protocol || naming?.hook);
 }
 
 /** Codex app-server JSON-RPC over the daemon's WebSocket control socket (verified with Codex 0.166). */

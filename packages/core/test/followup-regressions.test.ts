@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readdirSync, existsSync, readFileSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { create, adopt, rename, end, list, sendAgentLine, stamp } from '../src/registry/sessions.js';
+import { create, adopt, rename, end, list } from '../src/registry/sessions.js';
 import { ensure } from '../src/restore/ensure.js';
 import { takeSnapshot } from '../src/snapshot/take.js';
 import { withLock } from '../src/restore/lock.js';
@@ -156,7 +156,7 @@ test('dead lock tickets are reclaimed while live and unverified owners remain pr
   const live = join(tickets, 'live.json');
   writeFileSync(live, JSON.stringify({ id: 'live', pid: process.pid, number: 0,
     lifetime: processLifetime(process.pid)!.key, createdAt: Date.now() }));
-  assert.throws(() => withLock(dir, () => assert.fail('must not steal live lock'), 30), /another restore/);
+  assert.throws(() => withLock(dir, () => assert.fail('must not steal live lock'), 30), new RegExp(`process ${process.pid}\\) is still using`));
   assert.ok(existsSync(live));
   writeFileSync(live, '{invalid');
   assert.throws(() => withLock(dir, () => assert.fail('must not bypass unknown owner'), 30));
@@ -205,19 +205,4 @@ test('session names keep CJK and spaces through rename, creation and snapshot', 
   killServer(sb);
   ensure(ctx);
   assert.ok(ctx.tmux.hasSession('后端-接口'), 'a CJK-named session is rebuilt after server loss');
-});
-
-test('an agent line goes only to the verified agent pane and never while it is busy', async (t) => {
-  const { sessionProducers } = await import('../src/registry/discover.js');
-  const sb = sandbox(t), ctx = sb.ctx(), script = join(sb.root, 'claude'), typed = join(sb.root, 'typed.txt');
-  writeFileSync(script, `process.stdin.on('data', (d) => require('fs').appendFileSync(${JSON.stringify(typed)}, d));`);
-  ctx.tmux.newSession('agent', sb.root, `${shellQuote(process.execPath)} ${shellQuote(script)}`);
-  sb.tmux('split-window', '-t', '=agent:', 'sleep 3600');
-  await waitFor(() => sessionProducers(ctx, 'agent')[0], 'agent process');
-  stamp(ctx, 'agent', { state: 'working' });
-  assert.throws(() => sendAgentLine(ctx, 'agent', 'claude', '/rename 新名'), /busy/);
-  stamp(ctx, 'agent', { state: 'done' });
-  assert.throws(() => sendAgentLine(ctx, 'agent', 'codex', '/rename 新名'), /No single codex/);
-  sendAgentLine(ctx, 'agent', 'claude', '/rename 新名');
-  await waitFor(() => existsSync(typed) && readFileSync(typed, 'utf8').includes('/rename 新名'), 'line typed into the agent pane');
 });

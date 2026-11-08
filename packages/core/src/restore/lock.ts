@@ -35,8 +35,25 @@ function legacyOwnerAlive(stateDir: string): boolean {
   }
 }
 
+/** The state lock stayed held past the caller's wait; the operation did not run. */
+export class StateBusyError extends BerthError {
+  constructor(readonly owner: number | undefined) {
+    super(`Another Berth operation${owner ? ` (process ${owner})` : ''} is still using the session state. Try again when it finishes.`);
+  }
+}
+
+let synchronousWaitLimit: number | undefined;
+
+/**
+ * Caps synchronous waits that pass no timeout of their own. An editor host sets
+ * it so a busy state never freezes its event loop for the background default.
+ */
+export function limitSynchronousLockWait(ms: number | undefined): void {
+  synchronousWaitLimit = ms;
+}
+
 /** Immutable ticket identities avoid stale-lock replacement races. */
-function contender(stateDir: string): { blocked: () => boolean; release: () => void } {
+function contender(stateDir: string): { blocker: () => number | undefined; release: () => void } {
   const dir = join(resolve(stateDir), 'ensure-tickets');
   mkdirSync(dir, { recursive: true });
   const id = randomUUID();
@@ -56,11 +73,10 @@ function contender(stateDir: string): { blocked: () => boolean; release: () => v
     publish(0);
     const number = Math.max(0, ...readTickets(dir).map((ticket) => ticket.number)) + 1;
     publish(number);
-    return {
-      blocked: () => legacyOwnerAlive(stateDir) || readTickets(dir).some((ticket) =>
-        ticket.id !== id && (ticket.number === 0 || ticket.number < number || (ticket.number === number && ticket.id < id))),
-      release,
-    };
+    // The pid of an earlier contender, 0 for a legacy owner, undefined when free.
+    const blocker = (): number | undefined => legacyOwnerAlive(stateDir) ? 0 : readTickets(dir).find((ticket) =>
+      ticket.id !== id && (ticket.number === 0 || ticket.number < number || (ticket.number === number && ticket.id < id)))?.pid;
+    return { blocker, release };
   } catch (error) {
     release();
     throw error;
@@ -68,14 +84,14 @@ function contender(stateDir: string): { blocked: () => boolean; release: () => v
 }
 
 /** Synchronous session operations permit nested calls on their owning stack. */
-export function withLock<T>(stateDir: string, fn: () => T, timeoutMs = 30_000): T {
+export function withLock<T>(stateDir: string, fn: () => T, timeoutMs?: number): T {
   const key = resolve(stateDir);
   if (held.has(key)) return fn();
   const ticket = contender(key);
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + (timeoutMs ?? synchronousWaitLimit ?? 30_000);
   try {
-    while (ticket.blocked()) {
-      if (Date.now() >= deadline) throw new BerthError(`another restore is running (${stateDir})`);
+    for (let owner = ticket.blocker(); owner !== undefined; owner = ticket.blocker()) {
+      if (Date.now() >= deadline) throw new StateBusyError(owner || undefined);
       sleep();
     }
     held.add(key);
@@ -89,8 +105,8 @@ export async function withAsyncLock<T>(stateDir: string, fn: () => Promise<T>, t
   const ticket = contender(stateDir);
   const deadline = Date.now() + timeoutMs;
   try {
-    while (ticket.blocked()) {
-      if (Date.now() >= deadline) throw new BerthError('Another operation is using this state. Try again when it finishes.');
+    for (let owner = ticket.blocker(); owner !== undefined; owner = ticket.blocker()) {
+      if (Date.now() >= deadline) throw new StateBusyError(owner || undefined);
       await new Promise<void>((resolve) => setTimeout(resolve, 20));
     }
     return await fn();

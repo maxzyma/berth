@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { withAsyncLock, withLock } from '../src/restore/lock.js';
+import { limitSynchronousLockWait, StateBusyError, withAsyncLock, withLock } from '../src/restore/lock.js';
 
 test('async state ownership excludes another process and recovers after owner death', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'berth-test-async-lock-'));
@@ -22,8 +22,14 @@ test('async state ownership excludes another process and recovers after owner de
   const ready = once(child.stdout, 'data');
   const outcome = await Promise.race([ready.then(([data]) => String(data)), exited.then(() => 'premature exit')]);
   assert.equal(outcome, 'owned');
-  await assert.rejects(withAsyncLock(root, async () => assert.fail('must not enter'), 40), /Another operation/);
-  assert.throws(() => withLock(root, () => assert.fail('sync must not enter'), 40), /another restore/);
+  const owner = new RegExp(`Another Berth operation \\(process ${child.pid}\\) is still using the session state`);
+  await assert.rejects(withAsyncLock(root, async () => assert.fail('must not enter'), 40), owner);
+  assert.throws(() => withLock(root, () => assert.fail('sync must not enter'), 40), (error: unknown) => error instanceof StateBusyError && owner.test(error.message));
+  limitSynchronousLockWait(40);
+  const started = Date.now();
+  try { assert.throws(() => withLock(root, () => assert.fail('a capped default must not enter')), StateBusyError); }
+  finally { limitSynchronousLockWait(undefined); }
+  assert.ok(Date.now() - started < 1000, 'an editor-host cap replaces the background default wait');
   child.kill('SIGKILL');
   await exited;
   assert.equal(await withAsyncLock(root, async () => 'recovered'), 'recovered');

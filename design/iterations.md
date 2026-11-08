@@ -207,21 +207,31 @@ installed locally; the daily editor needs reload. No formal release.
 
 Conversation naming, `4d23e49` plus candidate worktree, 2026-11-08: a rename
 reached tmux and the terminal title but not the agent's conversation name.
-Adapters now declare naming paths (spec §4.2.1). Codex is named through its
-app-server `thread/name/set` over the running daemon's control socket, which
-speaks WebSocket; plain JSON lines through `codex app-server proxy` receive no
-reply. The socket link inside the Codex home can exceed the Unix socket path
-limit, so Berth connects to its target. Against an isolated Codex 0.166 daemon,
-`berth rename` updated the thread name in 132 ms; a stopped daemon is skipped.
-Claude Code is offered `/rename` after a confirmed prompt, typed into the
-verified producer pane and refused while it is working or waiting. Binding a
-conversation never pushes a default name over the agent's generated title.
-Whether a running Codex terminal UI shows the new name immediately was not
-observed. New regressions cover the WebSocket exchange, rename naming, unbound
-and other agents, binding without naming and command targeting; the full suite
-passed (390 passed, 11 skipped, 0 failed). Candidate:
-`berth-vscode-0.4.5-naming.vsix`, SHA-256
-`e43b6e9bfbb580d1b758c9cfed94f342ed6a075d4b1e4e3f304601c088e5f6f6`, installed
+Adapters now declare naming paths (spec §4.2.1), none touching the terminal.
+Codex is named through its app-server `thread/name/set` over the running
+daemon's control socket, which speaks WebSocket; plain JSON lines through
+`codex app-server proxy` receive no reply. The socket link inside the Codex home
+can exceed the Unix socket path limit, so Berth connects to its target. Against
+an isolated Codex 0.166 daemon, `berth rename` updated the thread name in
+132 ms; while the daemon is stopped the rename stays pending and the next Codex
+hook delivers it. Claude Code receives the name from its next prompt hook as the
+documented `sessionTitle` output, once, leaving later in-agent titles alone.
+Binding a conversation never pushes a default name over the agent's title.
+Whether running agent UIs show the new name immediately was not observed.
+
+State lock waits, same day: a window reload reattaches every editor terminal;
+each `client-attached` hook ran discovery under the state lock (about 0.5 s
+with 14 sessions), so startup restore, which waits 3 s, reported "another
+restore is running". Reattaching managed sessions no longer runs discovery;
+startup restore retries a busy state; lock timeouts name the holding process;
+editor-host waits are capped at 5 s.
+
+New regressions cover the WebSocket exchange, rename naming, Claude hook
+naming, delayed Codex delivery, binding without naming, managed reattach without
+discovery, busy startup and the lock wait cap; the full suite passed
+(393 passed, 11 skipped, 0 failed). Candidate:
+`berth-vscode-0.4.5-hooknaming.vsix`, SHA-256
+`7dffb0a5273b0a7639076b49d5e5899f5f37fa2f384b668b2e0b43e50c8b5982`, installed
 locally; the daily editor needs reload. No formal release.
 
 ## Automatic Berth layout preparation

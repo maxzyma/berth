@@ -12,7 +12,7 @@ import {
   presentCurrentState,
   stamp,
   rename,
-  sendAgentLine,
+  StateBusyError,
   end,
   detachTerminalClients,
   inventory,
@@ -69,6 +69,8 @@ export interface Host {
 /** How long after starting a custom launcher its session is expected. */
 const LAUNCH_WINDOW_MS = 120_000;
 const LOCK_WAIT_MS = 3_000;
+/** Startup restore retries a busy state for about half a minute before reporting it. */
+const STARTUP_ATTEMPTS = 5;
 
 /** Parent pid of `pid`, or undefined at the top. */
 function parentOf(pid: number): number | undefined {
@@ -168,7 +170,16 @@ export class Controller {
     if (this.host.terminalPidsReady?.() === false) return undefined;
     const ownerWorkspace = this.host.ownerWorkspace?.();
     if (!ownerWorkspace || !this.host.claimStartup?.()) return undefined;
-    ensure(this.ctx, { origin: 'vscode', ownerWorkspace, lockTimeoutMs: LOCK_WAIT_MS });
+    // Background work: a busy state (terminals reattaching after a reload) waits and retries.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        ensure(this.ctx, { origin: 'vscode', ownerWorkspace, lockTimeoutMs: LOCK_WAIT_MS });
+        break;
+      } catch (error) {
+        if (!(error instanceof StateBusyError) || attempt >= STARTUP_ATTEMPTS) throw error;
+        await new Promise<void>((resolve) => setTimeout(resolve, LOCK_WAIT_MS));
+      }
+    }
     if (this.host.sessionsHere().size > 0) return undefined;
     const first = list(this.ctx)
       .filter((r) => r.live && r.managed && !r.bindingIssue && r.origin === 'vscode' && r.ownerWorkspace === ownerWorkspace && r.attachedClients === 0)
@@ -368,11 +379,6 @@ export class Controller {
     this.host.renameSession?.(from, to);
     if (this.unread.delete(from)) this.unread.add(to);
     this.rows = this.rows.map((row) => row.name === from ? { ...row, name: to } : row);
-  }
-
-  /** Explicit user request only; the core picks the agent pane and refuses while busy. */
-  sendAgentLine(name: string, agent: string, line: string): void {
-    sendAgentLine(this.ctx, name, agent, line);
   }
 
   kill(name: string): void {

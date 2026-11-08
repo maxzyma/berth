@@ -12,6 +12,7 @@ import { presentState } from '../present/state.js';
 import { createContext } from '../context.js';
 import { discover, processes, sessionProducers, PRODUCER_CHANGED, BINDING_UNVERIFIED } from '../registry/discover.js';
 import { snapshotQuietly } from '../snapshot/take.js';
+import { nameConversation } from './naming.js';
 import { requireAdapter } from './commands.js';
 import { getAdapter, stateForEvent, type Adapter } from './registry.js';
 import { inspectHooks } from './hook-health.js';
@@ -122,7 +123,13 @@ export function metaForEvent(adapter: Adapter, event: string, payload: Record<st
  * Handle `berth hook <agent> <event>` inside an agent's pane. Never fails the
  * agent: problems are swallowed and the function returns what it stamped.
  */
-export function handleHook(agentId: string, event: string, stdin: string, env = process.env): Record<string, string> {
+/** What a hook returns to its agent, beyond the session metadata it records. */
+export interface HookReply { sessionTitle?: string }
+
+/** SessionStart applies a title only for these sources (Claude Code hooks reference). */
+const TITLE_SOURCES = ['startup', 'resume', 'fork'];
+
+export function handleHook(agentId: string, event: string, stdin: string, env = process.env, reply: HookReply = {}): Record<string, string> {
   try {
     const adapter = requireAdapter(agentId);
     const pane = env.TMUX_PANE;
@@ -141,7 +148,7 @@ export function handleHook(agentId: string, event: string, stdin: string, env = 
     const session = tmux.sessionOfPane(pane);
     if (!session) return {};
     const ctx = createContext({ ...env, BERTH_TMUX_SOCKET_PATH: socketPath });
-    return withLock(ctx.config.stateDir, () => {
+    const recorded = withLock(ctx.config.stateDir, () => {
       let live = tmux.listSessions().find((s) => s.name === session);
       const table = processes();
       const producers = sessionProducers(ctx, session, table);
@@ -231,12 +238,21 @@ export function handleHook(agentId: string, event: string, stdin: string, env = 
         ...(profile ? { profile: JSON.stringify(profile) } : {}),
       });
       if (meta.state !== undefined) presentState(tmux, session, meta.state, { note: meta.note });
+      // Hook naming (spec §4.2.1): a pending rename rides on the next hook that accepts a title.
+      if (live.meta.nameSync && adapter.naming?.hook === 'claude-session-title'
+        && (event === 'UserPromptSubmit' || (event === 'SessionStart' && TITLE_SOURCES.includes(String(payload.source ?? 'startup'))))) {
+        if (payload.session_title !== session) reply.sessionTitle = session;
+        tmux.setMeta(session, { nameSync: '' });
+      }
       // A new conversation id must reach the snapshot before any reboot.
       if (meta.conversation || (confirmsExisting && (profile || live.meta.bindingIssue === PRODUCER_CHANGED || live.meta.bindingIssue === BINDING_UNVERIFIED))) {
         snapshotQuietly(ctx);
       }
       return meta;
     });
+    // Protocol naming retries a pending rename once the agent is active again.
+    if (adapter.naming?.protocol) void nameConversation(ctx, session).catch(() => false);
+    return recorded;
   } catch {
     return {};
   }

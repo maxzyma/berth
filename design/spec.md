@@ -304,24 +304,26 @@ surrounding spaces; rename explains these while typing, and `--name` replaces
 them with `-`. Default names generated from a folder stay within
 `[A-Za-z0-9_-]`.
 
-The session name reaches an agent's own conversation name by the paths that
-agent offers, declared per adapter:
+A rename reaches an agent's own conversation name by the paths that agent
+offers, declared per adapter; none of them touches the agent's terminal:
 
 | Path | How | When | Agents (verified version) |
 |---|---|---|---|
-| Protocol | The agent's own interface names the bound conversation without its terminal | Automatically after rename | Codex (app-server `thread/name/set` over the running daemon's control socket, 0.166) |
-| Command | An in-session command typed into the agent's pane | Only after rename, when the user confirms a prompt; refused while the agent is working or waiting | Claude Code (`/rename`, 2.1.310) |
+| Protocol | The agent's own interface names the bound conversation | At once after rename; if the agent's service is not running, at its next hook event | Codex (app-server `thread/name/set` over the running daemon's control socket, 0.166) |
+| Hook | The agent's next hook that accepts a title returns the name | The next prompt, or a startup, resume or fork | Claude Code (`sessionTitle` hook output, documented; 2.1.310) |
 | Launch | A `{name}` argument at launch and resume | Each launch or recovery | Claude Code, Qoder (`--name`) |
 
 Naming follows only an explicit rename: binding a conversation never pushes a
-default folder-derived name over the title the agent generates. Protocol naming
-connects only to an agent service that is already running and never starts one; failure leaves the rename successful and silent. The control
+default folder-derived name over the title the agent generates. A rename stays
+pending until a protocol or hook path delivers it; a hook skips the title when
+the conversation already has it, and a title the user sets inside the agent
+afterwards is left alone. A pending rename lives with the live session and is
+not carried through a server loss; launch naming still applies on recovery.
+Protocol naming connects only to an agent service that is already running and
+never starts one; failure leaves the rename successful and silent. The control
 socket and its WebSocket transport are not a documented Codex interface, so the
-verified version is recorded with the adapter. Command naming goes to the pane
-of the single verified producer, not the active pane; its prompt says that text
-already typed into the agent would be combined with the command, because Berth
-cannot see the agent's input. Agents with no path keep their own conversation
-names, shown beside the session name.
+verified version is recorded with the adapter. Agents with no path keep their
+own conversation names, shown beside the session name.
 
 A launcher may choose the session name; detecting an agent never renames the session or imposes
 a launcher. Agent conversation titles are separate display metadata, read only
@@ -366,6 +368,10 @@ its local membership immediately; session lifetime still comes from tmux.
 Creation runs outside the editor event loop and retains its serialized core
 transaction and required snapshot. Inventory results sampled before a terminal
 lifecycle change are discarded and sampled again.
+An operation that cannot take the state lock in time reports which process holds
+it. Editor-host operations wait at most 5 s, never the 30 s background default,
+so a busy state cannot freeze the editor; startup restore is background work and
+retries a busy state for about half a minute before reporting it.
 Lock scans remove tickets whose recorded process identity is confirmed dead;
 unknown identity or access failure must not be treated as a dead owner. PID
 existence is a cheap preliminary check, never a replacement for birth identity.
@@ -464,7 +470,8 @@ empty options explicitly select agent defaults. Unknown options are rejected,
 not silently dropped. Records that replay no options need no migration prompt.
 
 Discovery runs whenever Berth looks at sessions — every full snapshot (so every
-hook-triggered snapshot), a client attaching, `berth ls`, `berth doctor`, and
+hook-triggered snapshot), a client attaching to an unmanaged session (reattaching
+managed ones, as editor terminals do on reload, does not queue on the state lock), `berth ls`, `berth doctor`, and
 each VS Code refresh — and is switched off with `[sessions] auto_adopt =
 false` or `BERTH_AUTO_ADOPT=0`. Conversation ids come from agent hooks or
 the binding authority rules for any session (§4.2).

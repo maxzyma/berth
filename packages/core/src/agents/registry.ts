@@ -54,12 +54,13 @@ export interface Adapter {
   /** A registered activity event can instead report an interrupted turn. */
   idleWhen?: (event: string, payload: Record<string, unknown>) => boolean;
   /**
-   * How a session name reaches the agent's conversation name (spec §4.2.1),
-   * beyond launch naming, which a `{name}` placeholder in launch/resume gives:
-   * `protocol` names it through the agent's own interface without its terminal;
-   * `command` is an in-session command typed only after the user confirms.
+   * How a renamed session's name reaches the agent's conversation name
+   * (spec §4.2.1), beyond launch naming, which a `{name}` placeholder in
+   * launch/resume gives. `protocol` names it through the agent's interface at
+   * once; `hook` returns it from the agent's next hook that accepts a title.
+   * Neither touches the agent's terminal.
    */
-  naming?: { protocol?: 'codex-app-server'; command?: string };
+  naming?: { protocol?: 'codex-app-server'; hook?: 'claude-session-title' };
   source: string;
 }
 
@@ -80,8 +81,8 @@ export const ADAPTERS: Adapter[] = [
     binary: 'claude',
     launch: 'claude --name {name} {args}',
     resume: 'claude --resume {conversation} --name {name} {args}',
-    // `/rename [name]`, verified in Claude Code 2.1.310.
-    naming: { command: '/rename {name}' },
+    // Hook output `sessionTitle` (SessionStart, UserPromptSubmit), documented; verified with 2.1.310.
+    naming: { hook: 'claude-session-title' },
     keep: {
       '--model': true,
       '--permission-mode': true,

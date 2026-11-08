@@ -5,7 +5,7 @@ import { mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { createServer, type Socket } from 'node:net';
 import { join } from 'node:path';
 import { setCodexThreadName } from '../src/agents/naming.js';
-import { handleHook } from '../src/agents/hooks.js';
+import { handleHook, type HookReply } from '../src/agents/hooks.js';
 import { captureProfile } from '../src/agents/profile.js';
 import { create, rename, stamp } from '../src/registry/sessions.js';
 import { sandbox, waitFor } from './helpers.js';
@@ -106,4 +106,46 @@ test('binding a Codex conversation keeps the title the agent generates', async (
   handleHook('codex', 'SessionStart', JSON.stringify({ session_id: 'thread-9' }), { ...sb.env, CODEX_HOME: home, TMUX: `${socket},1,0`, TMUX_PANE: pane });
   assert.equal(ctx.tmux.listSessions()[0].meta.conversation, 'thread-9');
   assert.deepEqual(daemon.requests, [], 'a default folder name never replaces the title Codex generates');
+});
+
+test('Claude takes a pending rename from its next prompt hook, once, without its terminal', (t) => {
+  const sb = sandbox(t), ctx = sb.ctx();
+  ctx.tmux.newSession('before', sb.root, 'sleep 3600');
+  ctx.tmux.setMeta('before', { agent: 'claude', cwd: sb.root });
+  rename(ctx, 'before', '任务乙');
+  assert.equal(ctx.tmux.listSessions()[0].meta.nameSync, '1');
+  const socket = sb.tmux('display-message', '-p', '-t', '=任务乙:', '#{socket_path}').trim();
+  const pane = sb.tmux('display-message', '-p', '-t', '=任务乙:', '#{pane_id}').trim();
+  const env = { ...sb.env, TMUX: `${socket},1,0`, TMUX_PANE: pane };
+  const compact: HookReply = {};
+  handleHook('claude', 'SessionStart', JSON.stringify({ session_id: 'c-1', source: 'compact' }), env, compact);
+  assert.deepEqual(compact, {}, 'a compaction start applies no title');
+  const first: HookReply = {};
+  handleHook('claude', 'UserPromptSubmit', JSON.stringify({ session_id: 'c-1', prompt: 'hi', session_title: 'before' }), env, first);
+  assert.deepEqual(first, { sessionTitle: '任务乙' });
+  assert.equal(ctx.tmux.listSessions()[0].meta.nameSync ?? '', '');
+  const later: HookReply = {};
+  handleHook('claude', 'UserPromptSubmit', JSON.stringify({ session_id: 'c-1', prompt: 'again', session_title: 'my own' }), env, later);
+  assert.deepEqual(later, {}, 'a title the user sets in Claude afterwards is left alone');
+});
+
+test('a Codex rename made while its service is down is delivered by the next Codex hook', async (t) => {
+  const sb = sandbox(t);
+  const home = join(sb.root, 'codex-home');
+  mkdirSync(join(home, 'app-server-control'), { recursive: true });
+  sb.env.CODEX_HOME = home;
+  const ctx = sb.ctx();
+  ctx.tmux.newSession('before', sb.root, 'sleep 3600');
+  ctx.tmux.setMeta('before', { agent: 'codex', cwd: sb.root });
+  stamp(ctx, 'before', { conversation: 'thread-5' });
+  rename(ctx, 'before', 'after');
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(ctx.tmux.listSessions()[0].meta.nameSync, '1', 'still pending without a running service');
+  const daemon = await fakeDaemon(t, codexReplies);
+  symlinkSync(daemon.path, join(home, 'app-server-control', 'app-server-control.sock'));
+  const socket = sb.tmux('display-message', '-p', '-t', '=after:', '#{socket_path}').trim();
+  const pane = sb.tmux('display-message', '-p', '-t', '=after:', '#{pane_id}').trim();
+  handleHook('codex', 'UserPromptSubmit', JSON.stringify({ session_id: 'thread-5', prompt: 'hi' }), { ...sb.env, TMUX: `${socket},1,0`, TMUX_PANE: pane });
+  await waitFor(() => (ctx.tmux.listSessions()[0].meta.nameSync ?? '') === '', 'pending rename delivered');
+  assert.deepEqual(daemon.requests.find((request) => request.method === 'thread/name/set')?.params, { threadId: 'thread-5', name: 'after' });
 });

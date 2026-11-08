@@ -305,3 +305,21 @@ test('new shell and exit remain responsive with stale tickets and snapshot hooks
   assert.ok(ctx.tmux.hasSession('keep-server'), 'unrelated session survives');
   t.diagnostic(JSON.stringify({ createdMs, exitedMs }));
 });
+
+test('reattaching a managed session skips discovery; attaching an unmanaged one still adopts', async (t) => {
+  const sb = sandbox(t), ctx = sb.ctx(), script = join(sb.root, 'claude');
+  writeFileSync(script, 'setInterval(() => {}, 10000)');
+  sb.cli('new', 'shell', '--name', 'managed', '--cwd', sb.root);
+  ctx.tmux.newSession('loose', sb.root, `${shellQuote(process.execPath)} ${shellQuote(script)}`);
+  const attach = async (session: string) => {
+    const client = spawn('tmux', ['-L', sb.socket, '-C', 'attach-session', '-t', `=${session}`], { env: sb.env, stdio: ['pipe', 'ignore', 'ignore'] });
+    t.after(() => client.kill());
+    await waitFor(() => sb.tmux('list-clients', '-t', `=${session}`, '-F', '#{client_name}').trim(), `${session} client`);
+    return sb.tmux('list-clients', '-t', `=${session}`, '-F', '#{client_tty}').trim();
+  };
+  const agentOf = (session: string) => sb.tmux('display-message', '-p', '-t', `=${session}:`, '#{@berth_agent}').trim();
+  clientAttached(ctx, { session: 'managed', tty: await attach('managed'), termtype: '' });
+  assert.equal(agentOf('loose'), '', 'a managed reattach does not scan other sessions');
+  clientAttached(ctx, { session: 'loose', tty: await attach('loose'), termtype: '' });
+  assert.equal(agentOf('loose'), 'claude');
+});

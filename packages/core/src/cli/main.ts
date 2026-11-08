@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { createContext, type Context } from '../context.js';
 import { BerthError, ExitCode } from '../errors.js';
-import { handleHook, hookHint, hookStatus, hookSetupGuidance, installHooks, uninstallHooks } from '../agents/hooks.js';
+import { handleHook, hookHint, hookStatus, hookSetupGuidance, installHooks, uninstallHooks, type HookReply } from '../agents/hooks.js';
 import { adopt, bellRang, checkOrigin, create, forget, inventory, list, rename, requireLive, stamp, type SessionRow } from '../registry/sessions.js';
 import { checkEnvironment } from '../registry/environment.js';
 import { doctor } from '../registry/doctor.js';
@@ -260,7 +260,10 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
       return ExitCode.ok;
     }
     case 'hook': {
-      handleHook(need(rest[0], 'agent'), need(rest[1], 'event'), readStdin());
+      const reply: HookReply = {};
+      handleHook(need(rest[0], 'agent'), need(rest[1], 'event'), readStdin(), process.env, reply);
+      // Hook stdout is parsed by the agent: one JSON object or nothing.
+      if (reply.sessionTitle) out(JSON.stringify({ hookSpecificOutput: { hookEventName: rest[1], sessionTitle: reply.sessionTitle } }));
       return ExitCode.ok;
     }
     default:

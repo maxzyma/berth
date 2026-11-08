@@ -63,8 +63,11 @@ function attachCurrentClient(ctx: Context, event: AttachedClient): void {
   const current = clientsOf(ctx.tmux, event.session).find((client) => client.tty === event.tty);
   if (!current) return;
   const client = { ...current, session: event.session };
-  adoptDiscovered(ctx);
-  const live = ctx.tmux.listSessions().find((s) => s.name === client.session);
+  // Discovery serves unmanaged sessions. Reattaching managed ones, as every
+  // editor terminal does on reload, needs none and must not queue on the lock.
+  const known = ctx.tmux.listSessions().find((s) => s.name === client.session);
+  if (!known?.meta.agent) adoptDiscovered(ctx);
+  const live = known?.meta.agent ? known : ctx.tmux.listSessions().find((s) => s.name === client.session);
   if (!live?.meta.agent) return;
   if (isIterm2(client.termtype)) {
     try {
