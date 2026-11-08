@@ -43,6 +43,17 @@ the directory printed by `printf '%s\n' "$BERTH_ACCEPT_ROOT"`.
 This setup is for the local macOS editor journey. iTerm2 and remote lifecycle
 checks below have their own isolation requirements.
 
+### Window-close terminal revival
+
+In the prepared Berth Profile, check persistent sessions are enabled and process
+revival is `onExitAndWindowClose`. Record terminal count, tmux attachments and
+pane PIDs, including an unrelated shell. Close the window through File → Close
+Window, then reopen the same workspace and Profile. Verify the attachments and
+pane processes survive and the terminal count does not grow. Repeat after reload.
+Do not delete fallback shells based on their names. Test with unsaved text too:
+when Hot Exit backs it up without prompting, verify the recovered content rather
+than expecting a save dialog. Explicit user persistence opt-outs must remain intact.
+
 ## Completion candidate: native journey
 
 Use the isolated profile and socket above. Agree on a
@@ -73,6 +84,10 @@ terminals and agent conversations untouched.
 ## V9 — clicking a system notification brings the editor forward
 
 Needs, on macOS, `terminal-notifier` (`brew install terminal-notifier`).
+Notifications must also be allowed for that helper in System Settings. With
+permission denied or the helper unavailable, verify the editor fallback instead
+and record the notification-click case as unverified. Do not reset OS permissions
+or treat helper exit status as proof that a banner was visible.
 
 1. In VS Code, open a folder and run **Berth: New Agent Session**, pick Shell for this notification-only check. A terminal opens attached to the new session; note its name.
 2. Switch to another application so VS Code is not focused.
@@ -92,10 +107,19 @@ activation. Verify **Open** in the issuing window before passing session opening
 
 ## I5 — iTerm2 restores its layout and every pane's session
 
-Run I5 in a disposable macOS user account with no daily terminals. Install the
-candidate CLI into that account's local prefix and configure iTerm2 there. Its
-AutoLaunch scripts must use that account's HOME, not the temporary editor HOME
-above. Record the isolated iTerm2 process PID and account before crash testing;
+Run I5 in a disposable macOS user account with no daily terminals, or a verified
+isolated iTerm2 instance. For iTerm2 3.7.0, use a dedicated official application
+copy and a unique `-suite`; verify its preferences, Application Support, SavedState
+and API socket are separate before connecting. Python API authentication must
+target that application path (`IT2_APP_PATH`) and socket suite (`IT2_SUITE`).
+Never copy daily API authorization state. Record the exact PID before quit/crash
+testing. Do not use `--command`, which suppresses AutoLaunch. This alternative
+is supported by the pinned [suite initialization](https://github.com/gnachman/iTerm2/blob/v3.7.0/sources/AppKit/main.m)
+and [support directory selection](https://github.com/gnachman/iTerm2/blob/v3.7.0/sources/Categories/NSFileManager%2BiTerm.m). Install the
+candidate CLI into the isolated test environment. In a disposable account,
+AutoLaunch uses that account's HOME. With a dedicated suite, install the script
+into that suite's Application Support and give the CLI its isolated test HOME
+and tmux endpoint; never install it into daily Application Support. Record the isolated iTerm2 process PID and account before crash testing;
 never use a process-name-wide kill command. Reboot only the disposable test machine
 or VM after agreeing the interruption window.
 
@@ -111,8 +135,14 @@ startup script that reopens one tab per session.
 2. **Quit.** Quit iTerm2 (⌘Q) and start it again. Expected: the same windows,
    tabs and splits; within a few seconds every pane is back in the session it
    showed.
-3. **Crash.** From a terminal outside iTerm2: `kill -9 <verified-isolated-iTerm2-pid>`;
-   start iTerm2. Expected: as in step 2.
+3. **Crash.** First activate iTerm2 and switch to another application so native
+   restoration state is saved; verify the saved process identities match the live
+   panes. From a terminal outside iTerm2: `kill -9 <verified-isolated-iTerm2-pid>`;
+   start iTerm2. Expected: as in step 2. Separately test a crash before the next
+   native save: iTerm2 may restore old shells and adopt surviving processes in an
+   orphan window. Berth must not add duplicate connections to sessions already
+   shown by those surviving terminals. Record layout recovery and connection
+   safety separately; the latter does not prove layout restoration.
 4. **State.** `berth stamp --session <name> state=waiting note="manual check"`.
    Expected: that pane's tab shows a status dot and the subtitle "manual
    check"; `state=` clears it.
@@ -141,11 +171,27 @@ use the same endpoint for CLI commands below.
    opens.
 4. Reload the window (**Developer: Reload Window**). Expected: the session's
    terminal is reopened automatically and the agent is still running.
-5. `BERTH_TMUX_SOCKET=berth-test-remote berth stamp --session <name> state=done` in a remote terminal. Expected:
-   an in-editor notification, the row shows done.
+5. Switch to another application, then run
+   `BERTH_TMUX_SOCKET=berth-test-remote berth stamp --session <name> state=done`
+   remotely. Expected: an in-editor notification and the done state in the row.
+   No notification helper runs on the remote server. While the editor is focused,
+   completion stays in the row without an extra notification.
 6. Clean up only the isolated remote session: `tmux -L berth-test-remote kill-session -t =<name>`.
 
-## Recording
+## Platform coverage
+
+Record the client OS and execution-host OS separately. macOS/Linux runtime
+regression, Linux Xvfb editor integration and Windows activation-boundary tests
+are different evidence. A Linux VM is useful for a clean dependency check; it
+does not establish WSL or Remote-SSH reconnect behavior.
+
+Without another test machine, run the available local journey and automated
+matrix. Leave Windows desktop, WSL, remote reconnect, OS notification clicks and
+iTerm2 application restart explicitly unverified until exercised. A new iTerm2
+test window can verify attach, pane markers, detach and reconnect without
+restarting daily windows; it does not replace I5.
+
+## Results
 
 | Case | Date | Environment | Result | Notes |
 |---|---|---|---|---|

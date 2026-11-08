@@ -9,6 +9,8 @@ test('Native layout template isolates settings and pins the installed extension'
   const settings = JSON.parse(JSON.parse(template.settings).settings);
   assert.equal(settings['workbench.sideBar.location'], 'right');
   assert.equal(settings['terminal.integrated.tabs.title'], '${sequence}');
+  assert.equal(settings['terminal.integrated.enablePersistentSessions'], true);
+  assert.equal(settings['terminal.integrated.persistentSessionReviveProcess'], 'onExitAndWindowClose');
   assert.deepEqual(settings['workbench.editor.autoLockGroups'], { terminalEditor: true });
   assert.equal(settings['terminal.integrated.tabs.enabled'], undefined);
   assert.equal(settings['workbench.settings.applyToAllProfiles'], undefined);

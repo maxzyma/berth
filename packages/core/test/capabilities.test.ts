@@ -26,16 +26,19 @@ test('CR51 capability evidence never treats newer or opaque versions as verified
 });
 
 test('CR51 version inspection is bounded, deduplicated and rejects ambiguous output', (t) => {
-  const sb = sandbox(t), bin = sb.makeDir('bin'), script = join(bin, 'claude'), calls = join(bin, 'calls');
-  writeFileSync(script, `#!${process.execPath}\nrequire('node:fs').appendFileSync(${JSON.stringify(calls)},process.argv.slice(2).join(' ')+'\\n');process.stdout.write('v2.1.310 (Claude Code)');`);
-  chmodSync(script, 0o755);
+  const sb = sandbox(t), bin = sb.makeDir('bin'), script = join(bin, 'claude');
+  writeFileSync(script, '', { mode: 0o755 });
   const env = { ...sb.env, PATH: `${bin}:${sb.env.PATH}` }, adapter = getAdapter('claude')!;
-  const inspect = versionInspector(env);
+  let calls = 0;
+  const inspect = versionInspector(env, (executable) => {
+    assert.equal(executable, script);
+    calls += 1;
+    return { status: 0, stdout: 'v2.1.310 (Claude Code)' };
+  });
   assert.equal(inspect(adapter).version, '2.1.310');
   assert.equal(inspect(adapter).version, '2.1.310');
-  assert.equal(readFileSync(calls, 'utf8'), '--version\n');
-  writeFileSync(script, `#!${process.execPath}\nprocess.stdout.write('CLI 2.1.310 Node 22.0.0');`);
-  assert.equal(versionInspector(env)(adapter).version, undefined);
+  assert.equal(calls, 1);
+  assert.equal(versionInspector(env, () => ({ status: 0, stdout: 'CLI 2.1.310 Node 22.0.0' }))(adapter).version, undefined);
   writeFileSync(script, `#!${process.execPath}\nprocess.on('SIGTERM',()=>{});setTimeout(()=>process.exit(0),3500);`);
   const started = performance.now();
   assert.equal(versionInspector(env)(adapter).version, undefined);
@@ -64,17 +67,21 @@ test('CR51 doctor inspects the configured context PATH once and skips custom lau
 
 test('CR55 version probes resolve per launch directory, cache executables and cap native queries', (t) => {
   const sb = sandbox(t), adapter = getAdapter('claude')!;
-  const inspect = versionInspector({ ...sb.env, PATH: '.' });
+  let calls: string[] = [];
+  const inspect = versionInspector({ ...sb.env, PATH: '.' }, (executable, cwd) => {
+    assert.equal(executable, join(cwd, 'claude'));
+    calls = [...calls, executable];
+    return { status: 0, stdout: readFileSync(executable, 'utf8').trim() };
+  });
   const dirs = Array.from({ length: 9 }, (_, index) => {
     const cwd = sb.makeDir(`version-${index}`);
-    writeFileSync(join(cwd, 'claude'), `#!${process.execPath}\nrequire('node:fs').writeFileSync('queried','yes');process.stdout.write('2.1.${index}');`, { mode: 0o755 });
+    writeFileSync(join(cwd, 'claude'), `2.1.${index}`, { mode: 0o755 });
     return cwd;
   });
   for (let i = 0; i < 8; i++) assert.equal(inspect(adapter, dirs[i]).version, `2.1.${i}`);
   assert.equal(inspect(adapter, dirs[0]).version, '2.1.0');
   assert.match(inspect(adapter, dirs[8]).detail!, /limit reached/);
-  assert.equal(readFileSync(join(dirs[7], 'queried'), 'utf8'), 'yes');
-  assert.throws(() => readFileSync(join(dirs[8], 'queried')), /ENOENT/);
+  assert.deepEqual(calls, dirs.slice(0, 8).map(cwd => join(cwd, 'claude')));
 });
 
 test('CR55 doctor distinguishes same-named standard CLIs in different session directories', (t) => {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveTerminalPids, sampleDoctor, sampleInventory, sampleSessions } from '../src/inventory.js';
+import { createSession, renameSession, resolveTerminalPids, sampleEnvironment, sampleDoctor, sampleInventory, sampleSessions } from '../src/inventory.js';
 
 test('Slow core inspection leaves the host event loop available', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'berth-inventory-'));
@@ -78,4 +78,52 @@ test('unresolved or rejected terminal PID cannot block inventory; later resoluti
   finish(20);
   assert.deepEqual(await resolveTerminalPids([pending]), { pids: [20], ready: true });
   assert.deepEqual(first.pids, [10, undefined, undefined], 'late completion cannot mutate a published sample');
+});
+
+
+test('environment transport forwards explicit standalone scope and rejects malformed checks', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'berth-test-environment-worker-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const cli = join(dir, 'fixture.cjs');
+  writeFileSync(cli, "if(!process.argv.includes('--external-node')||!process.argv.includes('--editor'))process.exit(7);process.stdout.write(JSON.stringify({ready:false,checks:[{id:'external-node',label:'Node',ok:false,required:true,detail:'missing',repair:'node'}]}));");
+  const report = await sampleEnvironment(cli, {}, { externalNode: true });
+  assert.equal(report.ready, false);
+  assert.equal(report.checks[0].repair, 'node');
+  writeFileSync(cli, "process.stdout.write(JSON.stringify({ready:false,checks:[{id:'tmux',label:'tmux',ok:false,required:true,detail:'missing',repair:'arbitrary-command'}]}));");
+  await assert.rejects(sampleEnvironment(cli, {}), /Invalid environment report/);
+});
+
+
+test('creation worker keeps editor events available and preserves argument boundaries', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'berth-test-create-worker-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const cli = join(dir, 'fixture.cjs');
+  const cwd = join(dir, 'folder with spaces');
+  const expected = ['new', 'shell', '--cwd', cwd, '--origin', 'vscode', '--owner-workspace', 'workspace identity'];
+  writeFileSync(cli, `if(JSON.stringify(process.argv.slice(2))!==${JSON.stringify(JSON.stringify(expected))})process.exit(9);setTimeout(()=>process.stdout.write('created-session\\n'),150);`);
+  const pending = createSession(cli, process.env, { agent: 'shell', cwd, ownerWorkspace: 'workspace identity' });
+  assert.equal(await Promise.race([pending.then(() => 'created'), new Promise(resolve => setImmediate(() => resolve('event')))]), 'event');
+  assert.equal(await pending, 'created-session');
+  writeFileSync(cli, "process.stderr.write('creation failed');process.exit(2)");
+  await assert.rejects(createSession(cli, process.env, { agent: 'shell', cwd }), /creation failed/);
+});
+
+test('rename worker keeps editor events available and reports the core reason', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'berth-test-rename-worker-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const cli = join(dir, 'fixture.cjs');
+  writeFileSync(cli, `if(JSON.stringify(process.argv.slice(2))!=='["rename","before","after"]')process.exit(9);setTimeout(()=>{},150);`);
+  const pending = renameSession(cli, process.env, 'before', 'after');
+  assert.equal(await Promise.race([pending.then(() => 'renamed'), new Promise(resolve => setImmediate(() => resolve('event')))]), 'event');
+  await pending;
+  writeFileSync(cli, "process.stderr.write('berth: session already exists: after\\n');process.exit(2)");
+  await assert.rejects(renameSession(cli, process.env, 'before', 'after'), (error: Error) => error.message === 'session already exists: after');
+});
+
+test('Known-session transport skips discovery without changing normal inventory', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'berth-test-known-worker-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const cli = join(dir, 'fixture.cjs');
+  writeFileSync(cli, "if(process.argv.slice(2).join(' ')!=='ls --json --known-only')process.exit(7);process.stdout.write('[]');");
+  assert.deepEqual(await sampleSessions(cli, process.env, process.execPath, true), []);
 });

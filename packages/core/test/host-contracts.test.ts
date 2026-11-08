@@ -67,7 +67,7 @@ for name, options, change in [
     ('changed_job', {}, 'job'), ('changed_prompt', {}, 'prompt'), ('changed_owner', {}, 'owner')]:
     pane = Pane(**options)
     calls = []
-    def attach(name):
+    def attach(name, existing_ttys=()):
         assert not active
         calls.append(name)
         if change == 'job': pane.job = 'vim'

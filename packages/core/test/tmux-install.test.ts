@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs, { chmodSync, lstatSync, readFileSync, readdirSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { join } from 'node:path';
-import { installTmux, uninstallTmux, tmuxConfPath } from '../src/tmux/install.js';
+import { inspectTmuxHooks, installTmux, uninstallTmux, tmuxConfPath } from '../src/tmux/install.js';
 import { sandbox } from './helpers.js';
 
 const BEGIN = '# >>> berth >>>', END = '# <<< berth <<<';
@@ -73,4 +73,27 @@ test('CR69 live installation and removal failures report partial completion and 
   installTmux(ctx.tmux, '/fixture/cli.js', sb.env);
   uninstallTmux(ctx.tmux, sb.env);
   uninstallTmux(ctx.tmux, sb.env);
+});
+
+test('tmux hook inspection tells current, other, broken and missing blocks apart', (t) => {
+  const sb = sandbox(t), ctx = sb.ctx(), file = tmuxConfPath(sb.env);
+  const dir = join(sb.root, 'Editor Helper (Plugin) #1');
+  fs.mkdirSync(dir, { recursive: true });
+  const runtime = { executable: join(dir, 'helper'), electron: true };
+  writeFileSync(runtime.executable, '');
+  chmodSync(runtime.executable, 0o755);
+  const cli = join(dir, 'cli.mjs'), other = join(sb.root, 'other-cli.js');
+  writeFileSync(cli, '');
+  writeFileSync(other, '');
+  assert.equal(inspectTmuxHooks(cli, sb.env, runtime).state, 'missing');
+  ctx.tmux.newSession('live', sb.root, 'sleep 3600');
+  installTmux(ctx.tmux, cli, sb.env, runtime);
+  assert.equal(inspectTmuxHooks(cli, sb.env, runtime).state, 'current');
+  assert.match(sb.tmux('show-hooks', '-g', 'session-created[97]'), /ELECTRON_RUN_AS_NODE=1/);
+  installTmux(ctx.tmux, other, sb.env, { executable: process.execPath, electron: false });
+  assert.deepEqual(inspectTmuxHooks(cli, sb.env, runtime), { state: 'other', block: inspectTmuxHooks(cli, sb.env, runtime).block, target: other });
+  installTmux(ctx.tmux, join(sb.root, 'removed.js'), sb.env, { executable: process.execPath, electron: false });
+  assert.equal(inspectTmuxHooks(cli, sb.env, runtime).state, 'broken');
+  writeFileSync(file, `${BEGIN}\nset-hook -g session-created[97] 'unrecognized'\n${END}\n`);
+  assert.equal(inspectTmuxHooks(cli, sb.env, runtime).state, 'broken');
 });

@@ -30,6 +30,11 @@ const variants = Object.fromEntries(Object.entries({
   here: new Set(), unread: new Set(name === 'unread' ? ['03-session'] : []), workspaceFolders: ['/workspace/product'], branch: () => '',
 })]));
 
+const activeShellFixture = buildTree([
+  { ...base, name: 'new-shell', managed: false, agent: '', topic: '', attachedClients: 1,
+    connections: [{ pid: 101, ancestors: [101], terminal: 'tty', application: 'VS Code' }] },
+], { here: new Set(), unread: new Set(), terminalPids: new Set([101]), activeTerminalPid: 101, branch: () => '' });
+
 const iconFixture = buildTree([
   ...['claude', 'codex', 'gemini', 'cursor', 'copilot', 'kimi', 'opencode', 'qoder', 'shell', 'custom-agent'].map(agent => ({
     ...base, name: agent, agent, topic: '', hooks: 'none',
@@ -76,7 +81,7 @@ function documentHtml(theme) {
 </head>
 <body data-vscode-context='{"preventDefaultContextMenuItems":true}' class="${theme === 'hc' ? 'vscode-high-contrast' : theme === 'hclight' ? 'vscode-high-contrast-light' : `vscode-${theme}`} vscode-reduce-motion">
 <script>
-    let saved; window.messages=[]; window.fixture=${JSON.stringify(model)}; window.variants=${JSON.stringify(variants)}; window.iconFixture=${JSON.stringify(iconFixture)}; window.orderFixture=${JSON.stringify(orderFixture)}; window.identityFixture=${JSON.stringify(identityFixture)};
+    let saved; window.messages=[]; window.fixture=${JSON.stringify(model)}; window.variants=${JSON.stringify(variants)}; window.iconFixture=${JSON.stringify(iconFixture)}; window.orderFixture=${JSON.stringify(orderFixture)}; window.identityFixture=${JSON.stringify(identityFixture)}; window.activeShellFixture=${JSON.stringify(activeShellFixture)};
     window.sendModel=(model=fixture,flatten=true)=>window.dispatchEvent(new MessageEvent('message',{data:{type:'model',model,flatten}}));
     window.acquireVsCodeApi=()=>({postMessage(m){messages.push(m);if(m.type==='copy'&&!window.deferCopy)queueMicrotask(()=>{window.dispatchEvent(new MessageEvent('message',{data:{type:'copyResult',id:m.id,success:!window.copyFailure}}));});if(m.type==='ready')queueMicrotask(()=>{window.dispatchEvent(new MessageEvent('message',{data:{type:'settings',settings:{indent:8,indentGuides:'always',hoverDelay:80,details:true,agentIcons:'/agents'}}}));sendModel();});},getState(){return saved},setState(s){saved=s}});
     

@@ -334,6 +334,17 @@ Window membership is a separate check. Until terminal PIDs or process ancestry
 are available, a connected session's window may be unknown; it is never detached
 for that reason. Terminal PID collection is bounded so one unresolved terminal
 cannot block the inventory refresh. Terminal lifecycle changes request refresh.
+Local terminal and editor-group events update the active marker from known
+terminal identities without waiting for agent discovery. This applies equally to
+managed agent sessions, managed shells and unmanaged tmux sessions. Closing a view removes
+its local membership immediately; session lifetime still comes from tmux.
+Creation runs outside the editor event loop and retains its serialized core
+transaction and required snapshot. Inventory results sampled before a terminal
+lifecycle change are discarded and sampled again.
+Lock scans remove tickets whose recorded process identity is confirmed dead;
+unknown identity or access failure must not be treated as a dead owner. PID
+existence is a cheap preliminary check, never a replacement for birth identity.
+
 Host lifetime identity uses the OS boot-session identifier and process birth,
 not a formatted boot-time clock reading. On macOS this is `kern.bootsessionuuid`;
 on Linux it is `/proc/sys/kernel/random/boot_id`. Legacy macOS keys have no stable boot identifier; their upgrade compatibility
@@ -427,7 +438,7 @@ Review Recovery Options or `berth recovery-options <session> -- <options>`;
 empty options explicitly select agent defaults. Unknown options are rejected,
 not silently dropped. Records that replay no options need no migration prompt.
 
-Discovery runs whenever Berth looks at sessions — every snapshot (so every
+Discovery runs whenever Berth looks at sessions — every full snapshot (so every
 hook-triggered snapshot), a client attaching, `berth ls`, `berth doctor`, and
 each VS Code refresh — and is switched off with `[sessions] auto_adopt =
 false` or `BERTH_AUTO_ADOPT=0`. Conversation ids come from agent hooks or
@@ -467,6 +478,7 @@ The VS Code extension is published to the Marketplace, not npm.
 | `berth adopt <session> --agent <id> [--origin]` | Stamp an existing session so it is managed. |
 | `berth attach <session> [--origin]` | Attach, re-stamping origin when given. |
 | `berth stamp [--session] key=value…` | Set metadata; used by hooks and custom launchers. |
+| `berth rename <session> <new name>` | Rename a live session and its recovery record; names use letters, digits, `-` and `_`. |
 | `berth snapshot` | Write a snapshot (§5.3). |
 | `berth forget <session>` | Stop restoring a stopped session (§5.3). |
 | `berth ensure [--origin <o>] [<session>]` | Rebuild missing managed sessions from the newest snapshot; idempotent and lock-protected so concurrent callers rebuild once. |
@@ -478,7 +490,7 @@ The VS Code extension is published to the Marketplace, not npm.
 | `berth hooks upgrade codex` | Add missing events to a recognized legacy Berth installation; preserve existing definitions and native trust settings. |
 | `berth tmux install\|uninstall` | Managed block in the user's tmux config: snapshot, bell and attach hooks. |
 | `berth iterm2 install\|uninstall` | Install the iTerm2 AutoLaunch script (§7.3). |
-| `berth iterm2 reattach <session>` | Rebuild the session if missing, then print its attach command (§7.3). |
+| `berth iterm2 reattach <session> [--existing-tty T]` | Rebuild if missing and print its attach command; repeated startup ttys defer attachment when a matching live client already shows this session (§7.3). |
 
 Tmux installation recognizes only complete standalone managed-block markers.
 Unpaired, reversed or repeated markers fail before changing configuration. Text
@@ -491,8 +503,9 @@ so retry is explicit rather than reporting a successful installation.
 
 Every command accepts `--socket <name>` (a tmux `-L` server) and
 `--socket-path <path>` (a `-S` server). Run by hooks, not by people: `hook
-<agent> <event>` (§4.2), `bell --session <s>` (§4.2), `attached --session <s>
---tty <t> --termtype <x>` (§7.3). Berth's tmux hooks pass the socket of the
+<agent> <event>` (§4.2), `bell --session <s>` (§4.2), `attached --client <name>`
+(§7.3). The older `attached --session <s> --tty <t> --termtype <x>` form remains
+accepted for installed hooks. Berth's tmux hooks pass the socket of the
 server they run in, so each server's state stays separate.
 
 ### 5.2 Launch
@@ -794,6 +807,13 @@ panes remain untouched and receive a deferred-reattachment message in the script
 - Triggers: `berth snapshot`; tmux hooks on session created / renamed / closed
   (installed by `berth tmux install`, which also hooks `alert-bell`, §4.2,
   and `client-attached` / `client-session-changed`, §7.3).
+- Creating or renaming a session takes a change snapshot inside its
+  transaction: it records every managed session as a full snapshot does, but
+  runs no discovery and keeps the scrollback the newest snapshot saved for each
+  live session with the same identity (tmux session id and server lifetime),
+  under any name; only the created session, or a session with no saved
+  scrollback, is captured. Saved scrollback is therefore never older than
+  before the change; the next full snapshot refreshes it.
 - A snapshot also carries forward the sessions still waiting to be restored:
   sessions in the previous snapshot that were seen in an earlier tmux server,
   are not live now, and were not forgotten. A server that ends (reboot, crash)
@@ -814,6 +834,9 @@ panes remain untouched and receive a deferred-reattachment message in the script
   template. Missing IDs, missing directories, missing executables and binding
   conflicts produce distinct skipped results. No failure silently starts a new
   conversation or substitutes a shell. Shell sessions reopen in their cwd.
+  Creating or restoring a plain shell explicitly replaces the staging process
+  with tmux's configured default shell; an omitted respawn command would repeat
+  the staging process and is not a successful launch.
 - Issuing the resume command is `resume-requested`, not confirmation. A guarded
   start hook for the exact expected ID confirms recovery and restores normal
   pane exit behavior. A different ID reports
@@ -846,45 +869,66 @@ Berth runs with no config file.
 
 ## 6. Berth for VS Code
 
-- **Layout profile.** Optional layout uses an independent VS Code Profile.
-  *Create Agent Layout Profile* prepares a local `.code-profile` template and
-  opens VS Code's native import review. Creation, naming and activation require
-  the native confirmation; opening the review is not reported as successful
-  creation or activation. Reusing an existing name opens native Replace review;
-  only the user can choose Replace. Cancel must preserve that existing profile.
-  The template contains only the Berth layout settings and the installed Berth
-  extension version. Native extension import may access Marketplace. For offline
-  use or an unpublished VSIX installed in Default, select Extensions → Default
-  in the import review to reuse those installed extensions. Other extensions and
-  customizations can be selected in VS Code's Profiles editor. It does not clone credentials or export user data.
-  The layout places Berth in the left secondary side bar, the Explorer on the
-  right, locks terminal editor groups, and displays session title/progress in
-  terminal tabs. The optional `berth.layout.hideTerminalTabs` affects the template.
-  *Switch Layout Profile* opens the native profile picker, including the user's
-  original profile. VS Code owns profile identity, workspace association and
-  switching. Berth cannot infer the original profile from its shared storage
-  URI and does not claim automatic return to it. Cancel leaves configuration
-  unchanged. The command IDs `berth.applyLayout` and `berth.revertLayout` remain
-  available for existing shortcuts with these new meanings.
-  Berth never writes layout settings through the global configuration API.
-  Settings applied to all profiles, remote-user settings and workspace overrides
-  can override the imported profile; Berth does not alter those targets to force
-  the preset. Profile-local import and switching must leave their files unchanged.
-  Unsupported profile import must show an actionable error, not silently fall
-  back to editing current settings. Profile import uses the running editor's URI
-  scheme and a local file, without uploading the template. Create/import from a
-  local editor window; remote windows use the native profile switcher afterward.
-  Berth must not misinterpret a remote file path as a client-local template.
-  Legacy layout journals remain intact. Because earlier journals do not identify
-  the configuration target reliably, migration does not auto-restore or delete
-  them. On an explicit Create Layout Profile request, users acknowledge the
-  retained legacy changes once per unchanged backup and may inspect the originals.
-  Startup itself does not issue a migration notice. Switching profiles does not undo
-  layout changes made by the old Apply command.
-  First activation does not switch views or advertise a layout. Users open Berth
-  from its activity icon and may choose the optional layout command themselves.
-  This workflow uses [VS Code Profiles](https://code.visualstudio.com/docs/configure/profiles);
-  it is distinct from terminal shell profiles and agent conversation profiles.
+- **Layout profile.** *Use Berth Layout* enables the supplied Berth layout.
+  If its Profile is absent, Berth prepares the Profile, layout settings and its
+  extension automatically before switching the current window. If already
+  prepared, reuse it. Do not open Create Profile, import review, a name field,
+  or a profile picker as part of this first-use action. User-created Profiles
+  are managed separately through VS Code; they are not part of Berth onboarding.
+  The preset places sessions on the left and Explorer on the right, locks
+  terminal editor groups and uses session titles/progress in terminal tabs.
+  The optional `berth.layout.hideTerminalTabs` controls the preset's terminal tabs.
+  Preserve the exact current folder or multi-root/untitled workspace. VS Code
+  owns dirty-editor save prompts and reload. Do not open an unrelated window
+  or replace a multi-root workspace with its first folder.
+  Preparation may continue across the native window reload in an owned helper.
+  The same window may temporarily be empty during preparation; restore the
+  exact saved workspace automatically before reporting completion.
+  VS Code alone creates and registers the destination Profile. The helper reads
+  the native registry to locate that new destination; it never writes the registry.
+  It writes the preset only to the new, otherwise empty settings resource and
+  installs a local snapshot of the running extension with the native CLI. No
+  Marketplace download, import review or extra foreground window is required.
+  The destination must acknowledge loading its settings before preparation is
+  complete. Restore the saved workspace only during first preparation, never
+  redirect later windows that intentionally use the prepared Profile elsewhere.
+  Existing settings and same-name collisions are never overwritten. Profile settings
+  accept VS Code JSONC comments and trailing commas; identity checks read them
+  without rewriting user formatting. Malformed settings stop preparation. Record the
+  Profile ID and preparation token, not just its display name; retries reuse the
+  same unfinished destination. Version or storage-layout incompatibility must
+  stop before switching rather than start manual setup.
+  Profile preparation must preserve the source Profile, shared settings,
+  workspace overrides and all existing user-created Profiles. Do not overwrite
+  an existing same-named Profile merely because its name matches. Failed or
+  interrupted preparation must be recoverable without duplicate Profiles;
+  do not report activation until the prepared layout is actually active.
+  An unsupported host reports the specific limitation and leaves the current
+  layout intact; redirecting the user to manual creation does not satisfy Use.
+  *Switch Layout Profile* is a separate optional action opening VS Code's native
+  picker. It is not the implementation of first-use setup. VS Code owns Profile
+  identity and workspace association. Shared extension storage is not proof of
+  the current or original Profile. Keep `berth.applyLayout` and
+  `berth.revertLayout` command IDs for existing shortcuts.
+  Legacy layout journals are read-only evidence. Do not auto-restore or delete
+  them, and do not make their inspection a mandatory onboarding step. Switching
+  profiles does not undo changes made by the retired in-place Apply operation.
+  On first activation in a trusted local window, offer Use Berth Layout and
+  Keep Current Layout without requiring the sessions view to be opened.
+  Explain that the optional layout uses a separate VS Code Profile with its
+  settings and extensions. Do not change layout until Use is chosen. Persist
+  Keep Current Layout as an explicit opt-out. Use does not suppress future
+  onboarding until the managed Profile is active; failed preparation remains
+  eligible after reload. Old acknowledgement booleans cannot distinguish a
+  failed Use from Keep and are not treated as a verified opt-out. Dismissal retains
+  the current layout for this activation and may be offered next activation;
+  never prompt twice in one activation. The old pre-display seen flag is not
+  acknowledgement. Existing legacy-layout users need not receive the prompt.
+  The sessions title overflow permanently exposes Use Berth Layout and Switch
+  Layout Profile in a separate group. Native bootstrap acceptance is tracked
+  in [iterations](iterations.md).
+  [VS Code Profiles](https://code.visualstudio.com/docs/configure/profiles) are
+  distinct from terminal shell profiles and agent conversation profiles.
 - **Session view.** The rich session list, contributed as a webview view so
   the user can place it in any side bar. VS Code's native tree has one line
   per row, a fixed hover delay and no way to wrap; a session needs a second
@@ -1077,7 +1121,11 @@ name/title/task text is suppressed. Cards use at most
   rebuilt first. Selection never disposes another session's terminal.
   Selecting a session connected outside this window directly opens a local
   Editor attachment without a confirmation prompt; external clients stay
-  connected. Unresolved local PIDs defer attachment. “Open to the Side” explicitly adds an Editor view. Startup opens
+  connected. Unresolved local PIDs defer a new attachment only when the target
+  already has live clients whose local ownership may be unknown. They must not
+  block opening a detached target or focusing a verified owned view. Handoff
+  still detaches only clients matched to identified local terminals; unresolved
+  terminals are never disposed or assigned ownership. “Open to the Side” explicitly adds an Editor view. Startup opens
   at most one eligible session, not tabs for every background session.
 - **Find a session.** A native Quick Pick searches session name, exact-bound
   conversation title and folder across live and stopped inventory. Results show
@@ -1108,9 +1156,12 @@ name/title/task text is suppressed. Cards use at most
   waiting/completion events. In a focused editor, the visible active terminal
   needs no popup; other sessions waiting for input receive an editor notification.
   Finished turns use the unread marker without a foreground popup. In a background
-  editor, a new waiting/completion event uses the OS channel when enabled, otherwise
-  the editor channel; never both. A failed OS-helper launch falls back to the
-  editor notification, but successful launch is not proof of OS delivery.
+  editor, a new waiting/completion event uses the OS channel when enabled and
+  keeps an editor notification with an Open action in the originating window.
+  The OS notification attracts attention and may activate the application; the
+  editor action targets the exact session. Without the OS channel, use the editor
+  notification alone. Helper success never removes the session action and is not
+  proof of OS delivery. Foreground suppression still applies to new events.
 - **Diagnose Problems.** A host-native command lists core health findings: missing
   directories/executables, missing hooks, unbound/conflicting conversations and
   unconfirmed/failed recovery. Selecting a hook finding offers that agent's
@@ -1214,7 +1265,8 @@ name/title/task text is suppressed. Cards use at most
   these fields and reports an actionable error; creating a terminal is not
   attachment acknowledgement. Opening or focusing a terminal never disposes
   the previous terminal; only a failed newly created terminal is cleaned up.
-  Rename validates the new name, updates tmux and immediately writes a snapshot
+  Rename explains the accepted characters while the name is typed and runs
+  outside the editor event loop. The core validates the new name, updates tmux and immediately writes a snapshot
   before updating host references and unread keys. Snapshot failure rolls the
   tmux name back and reports failure. A collision leaves both sessions intact.
 - **Startup.** Restore ownership records the verified workspace identity at
@@ -1225,7 +1277,22 @@ name/title/task text is suppressed. Cards use at most
   One live window holds the startup claim for a workspace; duplicate windows
   can open sessions explicitly without both auto-restoring. Dead process claims
   can be replaced. The first eligible detached session in natural name order is
-  shown; others remain listed. Terminal titles still follow tmux.
+  shown; others remain listed. If this window already has a live session, do not
+  auto-open another one. Determine presence from terminal PID ancestry and live
+  tmux clients, including native-restored terminals whose creation metadata is
+  unavailable. Presence does not grant Berth ownership of an unrelated terminal.
+  For native-revived terminals, ownership may be recovered from the matching
+  per-window owner marker in the live terminal process environment, together with
+  verified PID-to-session attachment. Missing or foreign markers do not permit
+  reuse as an owned terminal; never infer ownership from a title or folder.
+  Terminal titles still follow tmux.
+  The prepared Berth Profile enables persistent terminals and process revival
+  on both application exit and window close. Upgrades fill missing values once
+  in a verified prepared Profile; explicit user or workspace settings remain
+  unchanged. Other Profiles are not modified. Native revival failure must not
+  authorize deletion of a fallback shell: a title such as `bash` is not evidence
+  of ownership. Acceptance covers window close/reopen as well as reload, checking
+  terminal counts, live tmux attachment and preservation of unrelated shells.
 - **Host registration.** Each editor window registers its workspace label and
   terminal PIDs in the tmux server's local state directory. Live client ancestry
   may then display the registered workspace alongside its application. Expired
@@ -1244,6 +1311,60 @@ name/title/task text is suppressed. Cards use at most
   requires the user's explicit action; activation only updates the runtime.
 
 ### Installation and upgrade experience
+
+Before inventory or session creation, check dependencies in the execution host
+(local desktop, Remote-SSH, container or WSL). Run the same checks without any
+existing sessions. Check the platform, actual Node runtime (core minimum 20),
+configured tmux executable/version (minimum 3.0), and access to configured state,
+snapshot and configuration locations. Missing directories are normal when their
+nearest existing parent is writable; inaccessible paths are actionable failures.
+macOS Perl availability affects recovery inspection, not basic session use.
+Report `lsof` and `sqlite3` as optional capabilities: their absence limits passive
+Codex conversation discovery and native state lookup, respectively. Explain the
+effect in diagnostics without blocking session use or prompting at startup.
+
+The VS Code extension uses its bundled core and editor runtime; neither a global
+Berth install nor a separate PATH Node is a prerequisite. Explicit standalone-CLI
+setup additionally checks PATH Node and npm. Inspect selected Agent launchers
+before creation; custom scripts remain terminal-owned and are never replaced.
+The built-in Shell adapter delegates an empty launch command to tmux’s default
+shell. Do not treat that intentional empty command as a missing executable.
+Existing hook health checks verify the recorded executable and runtime files.
+
+tmux hooks follow the same runtime rule. Installing them from VS Code writes the
+managed block with the editor runtime and the Berth-owned runtime file, so an
+extension upgrade updates what the hooks run without reinstallation. On
+activation the extension compares an existing managed block with the block it
+would write. A block whose runtime or CLI file no longer exists runs nothing
+(its failures are silenced so panes stay clean); the extension rewrites it and
+says so. Diagnose Problems reports the state and offers installation or update.
+
+Users are not expected to learn hook setup from documentation. The extension
+offers missing setup when it starts to matter: once startup and its own first-run
+prompts finish, for agents running in live sessions; and right after the user
+creates an agent session. One notification lists the missing items — agent hooks
+that are missing or unusable, and tmux hooks that are absent or run another
+Berth installation — and **Set Up…** installs the selected ones. Each item is
+offered at most once per activation; **Don't Ask Again** is remembered per item
+(per block for another installation). A shell-only user is not prompted. The
+standalone CLI is never prompted for: the extension does not need it.
+
+Healthy startup is silent. When required dependencies are missing, offer one
+Review Setup action per extension activation and defer layout onboarding until
+basic setup succeeds. Dismissal never launches installers or repeats the prompt
+on inventory refresh. Diagnose Problems always exposes environment results,
+including checks that passed, and allows an explicit standalone-CLI check.
+
+Repair Berth-owned runtime files using the existing atomic runtime updater.
+For system software, show the resolved absolute package-manager executable, arguments and execution host
+before the user chooses Install. Use an already available Homebrew, apt-get or
+DNF; never install a package manager, rewrite PATH/shell files or fetch and pipe a
+remote script. Run approved installation as a visible native task, let the user
+handle privilege prompts, and recheck the actual executable/version after exit.
+An installer exit code is not proof that the dependency is usable. Unsupported
+managers, custom executable paths and user-owned launchers receive specific
+instructions instead of a guessed repair. Dependency installation is the explicit
+network-access exception to passive local discovery.
 
 New installation and upgrade preserve existing windows, layout and terminals.
 Agent configuration changes are limited to the hook-maintenance boundary in §9.
@@ -1264,7 +1385,11 @@ No restart, re-adoption, fabricated event or configuration rewrite is required.
 ### Session row state separation
 
 Window membership is connection metadata, never selection. List selection follows
-explicit row activation; keyboard focus has its own outline. The current terminal
+explicit row activation and verified changes of the current terminal. A newly
+active terminal selects its session row, so the background and accent marker
+move together. Unrelated refreshes preserve selection; switching to a file
+clears the terminal marker but retains the last selection. Selection updates do
+not move keyboard focus or scroll position. Keyboard focus has its own outline. The current terminal
 session has a thin accent marker, at most one per window; an active non-terminal
 editor clears that marker. No marker is inferred merely from window membership.
 Running-session details omit internal recovery diagnostics and check buttons.
@@ -1311,7 +1436,15 @@ these sessions Berth writes the state itself.
 ### 7.3 Restoring panes
 
 1. **Marking.** `berth tmux install` also hooks tmux's `client-attached` and
-   `client-session-changed`. When the client is iTerm2 (tmux's
+   `client-session-changed`. Hooks pass `hook_client`, then resolve that exact
+   client's current session, tty and terminal type from live tmux evidence under
+   the shared lock. Generic current-client formats can refer to another client;
+   client hooks need not expose a hook-session field. A vanished client is ignored.
+   Terminal identification may arrive after attachment, especially in inactive tabs.
+   The background hook waits at most five seconds for an empty type to resolve,
+   outside the state lock, then rechecks live identity under the lock. Unknown
+   types are never guessed to be iTerm2.
+   When the client is iTerm2 (tmux's
    `client_termtype`), Berth writes `OSC 1337 ; SetUserVar=berthSession=<name,
    base64>` to that client's tty and stamps the session's origin `iterm2`
    (§4.1). The variable belongs to the iTerm2 pane and is saved with it.
@@ -1324,7 +1457,16 @@ these sessions Berth writes the state itself.
    pane whose `user.berthSession` is set and which is not attached to tmux,
    it runs `berth iterm2 reattach <name>`: the core rebuilds the session if it
    is missing (resuming its conversation) and prints the attach command, which
-   the script sends to the pane's shell. The attach command is configurable
+   the script sends to the pane's shell. Before restoring any pane, the adapter
+   records the ttys already running tmux in this iTerm2 instance. The core checks
+   these ttys against the target session's live clients and defers automatic
+   attachment if one already shows that session. This prevents duplicate clients
+   when stale native restoration records produce both a replacement shell and an
+   orphan terminal. The startup snapshot is shared across the whole pass, so two
+   restored shells can still reconnect to the same session. Manual reattachment
+   remains explicit and unrestricted by this guard. Berth does not move or close
+   iTerm2's orphan windows; restoring layout requires a current native save.
+   The attach command is configurable
    (`[iterm2] attach`, default `tmux attach-session -t ={session}`), so a user
    whose launcher also attaches can keep using it.
 3. A pane whose session no longer exists and is in no snapshot is left as a
@@ -1432,8 +1574,36 @@ filling its row and passing the adapter tests; no change elsewhere.
   limited to explicit hook installation/uninstallation and the conservative
   upgrade of an existing, unchanged legacy Berth hook installation described
   in §8. Native hook trust remains agent-owned.
-- No network access. Berth reads local files and talks to tmux only.
+- Passive discovery has no network access. User-approved dependency installation
+  delegates downloads to the existing package manager; Berth reads local files
+  and talks to tmux for session discovery.
 - Snapshot data stays out of repositories.
+
+### 9.1 Execution platforms
+
+The execution host must be macOS or Linux, with tmux 3.0 or later. Windows users
+run Berth in a WSL, Remote-SSH or Dev Container workspace whose extension host
+is Linux. Native Windows activation must show this route before any process
+inspection, hook preparation or tmux action. Browser-only execution without a
+Node extension host is unsupported.
+
+Client and execution-host capabilities are separate. Remote workspaces use
+VS Code APIs for clipboard and editor notifications; do not invoke a remote
+system notification helper or alter the client's Profile from the server.
+Automatic Profile preparation currently applies to local macOS/Linux desktop
+windows. iTerm2 integration applies only to macOS and reconnects iTerm2-owned
+panes; it does not take over layouts or daily application lifecycle.
+
+CI must build on Windows, run platform-boundary checks there, and run the core
+and extension logic on Linux and macOS. Native Windows compilation does not
+certify WSL. Linux headless tests do not certify desktop notifications, Remote-SSH,
+or a reboot. Record those native journeys separately; mark unavailable-platform
+checks unverified rather than extrapolating a pass from another OS.
+
+References: [VS Code remote extension placement](https://code.visualstudio.com/api/advanced-topics/remote-extensions),
+[tmux installation platforms](https://github.com/tmux/tmux/wiki/Installing),
+[GitHub-hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
+Reviewed 2026-11-07 for host placement, tmux prerequisites and CI runner options.
 
 ## 10. Prior art
 
@@ -1535,6 +1705,25 @@ and bounded as well. Deadline expiry forcibly terminates the inspection child,
 including one that ignores graceful termination, and releases the refresh queue.
 Process ancestry lookups also have a deadline. Interactive terminal attachment
 has no inspection deadline. Sampling must not occupy the extension-host event loop.
+Repeated successful readiness checks do not start another full inventory when
+the environment is already ready; terminal lifecycle events request the update.
+A newly created session has no source terminal to take over. Its first editor
+attachment skips the existing-session handoff scan and preserves any clients
+that attach concurrently; opening an existing session still verifies handoff
+sources before changing their connections.
+Built-in creation records the requesting workspace owner in its initial core
+transaction and recovery snapshot. Once attachment is verified, presentation
+acknowledges the current bell and reads the resulting row without rewriting an
+unchanged origin/owner or taking another full snapshot. If workspace ownership
+changed while the terminal was opening, the normal ownership update still runs.
+Terminal open/close events also request a separate, coalesced read of known
+sessions. This read uses tmux and saved closure evidence without waiting for agent
+discovery, native conversation inspection or Git branches. It updates membership
+and connections, preserving previously sampled activity until full inspection
+finishes; it does not emit activity notifications. Closing a terminal alone never
+removes a surviving tmux session or its recovery record. Results predating a
+terminal lifecycle change are discarded, and an older read cannot overwrite a
+newer published result. Failed reads retain the last inventory.
 A refresh samples the process table and tmux pane inventory once per operation.
 Codex title lookup searches its index once for the requested bound IDs and uses
 one read-only SQLite query for remaining IDs, rather than spawning a query per

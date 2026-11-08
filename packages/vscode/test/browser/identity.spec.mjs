@@ -72,7 +72,7 @@ test('window membership is not selection and recovery readiness stays in details
     window.sendModel(model);
   });
   await expect(frame.locator('.binding-warning')).toHaveCount(0);
-  await expect(frame.locator('.row.selected')).toHaveCount(0);
+  await expect(frame.locator('[id="s:job-2"]')).toHaveAttribute('aria-selected', 'true');
   await expect(frame.locator('.row.terminal-active')).toHaveCount(1);
   const second = frame.locator('[id="s:job-3"]');
   await second.click();
@@ -197,5 +197,56 @@ for (const theme of ['dark', 'light']) {
     expect((await row.locator('.activity-slot').boundingBox()).x).toBe(activity.x);
     await page.mouse.move(0, 0);
     await page.locator('iframe').screenshot({ path: info.outputPath('right-markers.png') });
+  });
+}
+
+for (const theme of ['dark', 'light']) {
+  test(`new unmanaged shell keeps its active marker ${theme}`, async ({ page }, info) => {
+    await page.goto(`${server.url}/frame?theme=${theme}&width=300`);
+    const frame = page.frameLocator('iframe');
+    await expect(frame.getByRole('tree')).toBeVisible();
+    await frame.locator('body').evaluate(() => window.sendModel(window.activeShellFixture, false));
+    await frame.getByRole('treeitem', { name: 'Other tmux sessions', exact: true }).click();
+    const shell = frame.locator('[id="s:new-shell"]');
+    await expect(shell).toHaveClass(/terminal-active/);
+    await expect(shell).toHaveClass(/selected/);
+    await expect(shell).toHaveAttribute('aria-label', /Active terminal/);
+    await expect(shell).toBeVisible();
+    await page.locator('iframe').screenshot({ path: info.outputPath(`new-shell-${theme}.png`) });
+  });
+}
+
+for (const theme of ['dark', 'light']) {
+  test(`terminal activation moves the selection background without stealing focus ${theme}`, async ({ page }, info) => {
+    await page.goto(`${server.url}/frame?theme=${theme}&width=300`);
+    const frame = page.frameLocator('iframe');
+    await expect(frame.getByRole('tree')).toBeVisible();
+    const activate = name => frame.locator('body').evaluate((_, name) => {
+      const model = structuredClone(window.identityFixture);
+      model.groups = model.groups.map(group => ({ ...group, rows: group.rows.map(row => ({ ...row, active: row.name === name })) }));
+      window.sendModel(model);
+    }, name);
+    const first = frame.locator('[id="s:job-2"]');
+    const second = frame.locator('[id="s:job-3"]');
+    await activate('job-2');
+    await expect(first).toHaveClass(/selected/);
+    await second.focus();
+    await activate('job-3');
+    await expect(second).toHaveClass(/selected/);
+    await expect(first).not.toHaveClass(/selected/);
+    await expect(frame.locator('.row.selected')).toHaveCount(1);
+    await expect(second).toBeFocused();
+    await second.press('Escape');
+    await second.evaluate(element => element.blur());
+    await page.mouse.move(850, 600);
+    await page.locator('iframe').screenshot({ path: info.outputPath(`activation-background-${theme}.png`) });
+    await first.click();
+    await activate('job-3');
+    await expect(first).toHaveClass(/selected/); // No terminal change: preserve explicit selection.
+    await activate('');
+    await expect(first).toHaveClass(/selected/);
+    await expect(frame.locator('.terminal-active')).toHaveCount(0);
+    await activate('job-3');
+    await expect(second).toHaveClass(/selected/);
   });
 }

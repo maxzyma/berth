@@ -14,7 +14,12 @@ permissions:
   id-token: write   # npm and Marketplace trusted publishing
 
 jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+    permissions:
+      contents: read
   release:
+    needs: verify
     # macOS: the tests drive tmux, BSD script(1) and zsh.
     runs-on: macos-latest
     steps:

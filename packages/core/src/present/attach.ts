@@ -7,6 +7,7 @@ import { stamp } from '../registry/sessions.js';
 import { clientsOf, isIterm2, presentState } from './state.js';
 import { hookHint, hookStatus } from '../agents/hooks.js';
 import { adoptDiscovered } from '../snapshot/take.js';
+import { formatFields, readFields } from '../tmux/fields.js';
 
 /** iTerm2 user variable naming the session a pane shows (spec §7.3). */
 export const PANE_VARIABLE = 'berthSession';
@@ -21,14 +22,41 @@ export interface AttachedClient {
   termtype: string;
 }
 
+function namedClient(ctx: Context, name: string): AttachedClient | undefined {
+  const result = ctx.tmux.run(['list-clients', '-F', formatFields(['client_name', 'session_name', 'client_tty', 'client_termtype'])], true);
+  if (!result.ok) return undefined;
+  const found = readFields(result.stdout, 4).find(([clientName]) => clientName === name);
+  if (!found) return undefined;
+  const [, session, tty, termtype] = found;
+  return { session, tty, termtype };
+}
+
+/** Terminal identification may arrive after client-attached; never hold the state lock while waiting. */
+export function clientAttachedWhenReady(ctx: Context, name: string): void {
+  if (!name) return;
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    const client = namedClient(ctx, name);
+    if (!client) return;
+    if (client.termtype || Date.now() >= deadline) break;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+  }
+  clientAttached(ctx, { name });
+}
+
 /**
  * A client attached to a session, or switched to one (tmux hooks
  * client-attached / client-session-changed). For iTerm2 the pane is marked
  * with the session's name and the session's origin becomes iterm2; every
  * client is shown the session's current state.
  */
-export function clientAttached(ctx: Context, client: AttachedClient): void {
-  withLock(ctx.config.stateDir, () => attachCurrentClient(ctx, client), 3000);
+export function clientAttached(ctx: Context, client: AttachedClient | { name: string }): void {
+  withLock(ctx.config.stateDir, () => {
+    if (!('name' in client)) return attachCurrentClient(ctx, client);
+    if (!client.name) return;
+    const found = namedClient(ctx, client.name);
+    if (found) attachCurrentClient(ctx, found);
+  }, 3000);
 }
 
 function attachCurrentClient(ctx: Context, event: AttachedClient): void {

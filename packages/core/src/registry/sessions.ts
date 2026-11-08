@@ -6,7 +6,7 @@ import { processLifetime } from '../process-owner.js';
 import { applyLaunchEnvironment, captureProfile, profileEnvironment, profileKey, readProfile, type AgentProfile } from '../agents/profile.js';
 import { withLock } from '../restore/lock.js';
 import { nameCollision, COLLISION_HINT } from '../snapshot/identity.js';
-import { withPlaceholder } from './launch.js';
+import { startStagedPane, withPlaceholder } from './launch.js';
 import { usableDirectory } from './directory.js';
 import { wasClosed } from '../snapshot/lifecycle.js';
 import { recoveryStatus, type RecoveryStatus } from '../restore/status.js';
@@ -21,7 +21,7 @@ import { hooksInstalled, hookStatus, hookSetupGuidance, type HookStatus } from '
 import { registeredHosts } from './hosts.js';
 import { discover, sessionProducers } from './discover.js';
 import { getAdapter } from '../agents/registry.js';
-import { snapshotQuietly, takeSnapshot } from '../snapshot/take.js';
+import { snapshotCreated, snapshotQuietly, takeSnapshot } from '../snapshot/take.js';
 import { presentState } from '../present/state.js';
 
 /** One row of `berth ls` (implementation §2.2). */
@@ -102,20 +102,19 @@ export function inventory(ctx: Context): SessionRow[] {
   const observations = observeNativeState(ctx, candidates);
   withLock(ctx.config.stateDir, () => {
     applyNativeState(ctx, observations);
-    return inventoryLocked(ctx);
+    inventoryLocked(ctx);
   });
   reconcileCodexSelection(ctx);
   return withCodexScreenActivity(ctx, list(ctx));
 }
 
-function inventoryLocked(ctx: Context): SessionRow[] {
+function inventoryLocked(ctx: Context): void {
   const adopted = discover(ctx);
   const live = ctx.tmux.listSessions();
   const server = live[0]?.serverStart;
   const current = live.filter((session) => session.meta.agent).map((session) => session.name).sort();
   const saved = (ctx.store.newest()?.sessions ?? []).filter((session) => session.serverStart === server).map((session) => session.name).sort();
   if (adopted.length || (server && current.some((name) => !saved.includes(name)))) takeSnapshot(ctx);
-  return list(ctx);
 }
 
 export function sanitizeName(raw: string): string {
@@ -144,6 +143,7 @@ export interface NewOptions {
   name?: string;
   origin?: string;
   extraArgs?: string[];
+  ownerWorkspace?: string;
 }
 
 export function create(ctx: Context, options: NewOptions): string {
@@ -168,10 +168,11 @@ function createLocked(ctx: Context, options: NewOptions): string {
       cwd: options.cwd,
       argv: command, argvVerified: '1',
       origin,
+      ownerWorkspace: options.ownerWorkspace,
     });
     ctx.tmux.setTitle(name);
-    ctx.tmux.run(['respawn-pane', '-k', '-t', `=${name}:`, ...(command ? [command] : [])]);
-    snapshotQuietly(ctx);
+    startStagedPane(ctx, name, command);
+    snapshotCreated(ctx, name);
     return name;
   });
 }
@@ -232,7 +233,7 @@ function renameLocked(ctx: Context, from: string, to: string): void {
   const collision = nameCollision(ctx, live, ctx.store.newest()?.sessions ?? []);
   ctx.tmux.renameSession(from, to);
   try {
-    takeSnapshot(ctx, new Date(), collision ? [] : [from], collision ? [collision] : []);
+    takeSnapshot(ctx, new Date(), collision ? [] : [from], collision ? [collision] : [], {});
   } catch (error) {
     ctx.tmux.renameSession(to, from);
     snapshotQuietly(ctx);

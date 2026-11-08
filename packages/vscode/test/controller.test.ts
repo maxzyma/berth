@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { sessionChoices, buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, type Transition } from '../src/model.js';
+import { sessionChoices, buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, sessionNameProblem, type Transition } from '../src/model.js';
 
 interface Sandbox {
   socket: string;
@@ -29,7 +29,7 @@ const { sandbox, killServer, waitFor } = (await import(helpersPath)) as Helpers;
 class FakeHost implements Host {
   ownerWorkspace() { return "test-workspace"; }
   claimStartup() { return true; }
-  terminals: { session: string; argv: string[]; role: TerminalRole; cwd?: string }[] = [];
+  terminals: { session: string; argv: string[]; role: TerminalRole; cwd?: string; newlyCreated?: boolean }[] = [];
   notified: Transition[] = [];
   shown: string[] = [];
   /** pid of a real tmux client standing in for the main terminal, when a test provides one. */
@@ -37,8 +37,8 @@ class FakeHost implements Host {
   localPids = new Set<number>();
   terminalPids() { return this.localPids; }
   main?: string;
-  openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string) {
-    this.terminals.push({ session, argv, role, cwd });
+  openTerminal(session: string, argv: string[], role: TerminalRole, cwd?: string, options?: { newlyCreated: boolean }) {
+    this.terminals.push({ session, argv, role, cwd, newlyCreated: options?.newlyCreated });
     if (role === 'main') { this.main = session; if (!session) this.mainPid ??= process.pid; }
   }
   async mainTerminalPid() {
@@ -178,7 +178,7 @@ test('V3 new / detach / rename / kill / adopt act on the test server', async (t)
   await controller.detach('v3');
   assert.equal(host.terminals.length, 1, 'detach does not dispose a terminal from cached ownership');
   assert.ok(sb.ctx().tmux.hasSession('v3'), 'detach keeps the session');
-  controller.rename('v3', 'v3b');
+  await controller.rename('v3', 'v3b');
   assert.ok(sb.ctx().tmux.hasSession('v3b'));
   sb.tmux('new-session', '-d', '-s', 'loose', 'sleep 3600');
   controller.adopt('loose', 'gemini');
@@ -251,6 +251,8 @@ test('V7 the layout preset writes only its listed settings, tab hiding off by de
     'workbench.editor.autoLockGroups',
     'workbench.sideBar.location',
     'workbench.secondarySideBar.defaultVisibility',
+    'terminal.integrated.enablePersistentSessions',
+    'terminal.integrated.persistentSessionReviveProcess',
     'terminal.integrated.tabs.title',
     'terminal.integrated.tabs.description',
   ]);
@@ -336,6 +338,8 @@ test('V12 a shell never goes through the launcher; a launcher without {agent} pi
   const dir = sb.makeDir('sh');
   const name = await controller.newSession('shell', dir, '/x/open --cli {agent} {relative}', [dir]);
   assert.equal(name, 'sh', 'Berth starts the shell itself');
+  assert.equal(host.terminals.at(-1)?.newlyCreated, true, 'first attachment does not take over other clients');
+  assert.ok(controller.tree().groups.some(group => group.rows.some(row => row.name === name)), 'new session is listed before the next inventory');
   assert.equal(host.terminals.at(-1)?.argv.join(' ').includes('/x/open'), false);
 
   // The launcher asked the user and started kimi: the pane runs a `kimi` binary.
@@ -466,12 +470,12 @@ test('Rename updates snapshot, host references and unread; collision preserves b
   await controller.show('before');
   await controller.openToSide('before');
   controller.unread.add('before');
-  controller.rename('before', 'after');
+  await controller.rename('before', 'after');
   assert.deepEqual([...host.sessionsHere()], ['after']);
   assert.deepEqual([...controller.unread], ['after']);
   assert.deepEqual(sb.ctx().store.newest()?.sessions.map((s) => s.name), ['after']);
   sb.cli('new', 'shell', '--cwd', sb.makeDir('other'), '--name', 'occupied');
-  assert.throws(() => controller.rename('after', 'occupied'), /already exists/);
+  await assert.rejects(controller.rename('after', 'occupied'), /already exists/);
   assert.equal(sb.ctx().tmux.hasSession('after'), true);
   assert.equal(sb.ctx().tmux.hasSession('occupied'), true);
 });
@@ -485,6 +489,17 @@ test('Startup uses the same natural order as the session list', async (t) => {
   assert.equal(await controller.startup(), 'job-2');
 });
 
+
+test('Startup preserves a live native-restored terminal without assuming ownership', async (t) => {
+  const { sb, controller, host } = setup(t);
+  sb.cli('new', 'shell', '--cwd', sb.makeDir('detached'), '--name', 'detached', '--origin', 'vscode');
+  sb.cli('stamp', '--session', 'detached', 'ownerWorkspace=test-workspace');
+  host.sessionsHere = () => new Set(['native-restored']);
+  assert.equal(host.main, undefined);
+  assert.equal(await controller.startup(), undefined);
+  assert.deepEqual(host.terminals, []);
+  assert.equal(host.main, undefined);
+});
 
 test('Pending attachment leaves state unchanged until the host acknowledges', async (t) => {
   const { sb, controller, host } = setup(t);
@@ -510,7 +525,7 @@ test('Rename rolls back tmux and preserves host references on snapshot write fai
   const controller = new Controller(ctx, host);
   host.main = 'before';
   controller.unread.add('before');
-  assert.throws(() => controller.rename('before', 'after'), /disk unavailable/);
+  await assert.rejects(controller.rename('before', 'after'), /disk unavailable/);
   assert.equal(ctx.tmux.hasSession('before'), true);
   assert.equal(ctx.tmux.hasSession('after'), false);
   assert.deepEqual([...host.sessionsHere()], ['before']);
@@ -614,7 +629,11 @@ test('CR7 detach waits for a pending main open without disposing cached terminal
 
 test('CR14 stale host references cannot dispose a client switched to another session', async (t) => {
   const { sb, host, controller } = setup(t);
-  for (const name of ['a', 'b']) sb.cli('new', 'shell', '--cwd', sb.makeDir(name), '--name', name);
+  for (const name of ['a', 'b']) {
+    sb.cli('new', 'shell', '--cwd', sb.makeDir(name), '--name', name);
+    // script's /dev/null input sends EOF; this case tests clients, not shell exit.
+    sb.tmux('respawn-pane', '-k', '-t', `=${name}:`, 'sleep 3600');
+  }
   await controller.show('a');
   const client = attachPty(sb.socket, 'a');
   t.after(() => client.kill());
@@ -735,6 +754,11 @@ test('binding risks and current terminal are independent of window membership', 
   }
   assert.equal(buildTree([{ ...rows[0], live: false }], input).groups[0].rows[0].details, 'stopped');
   assert.ok(buildTree(rows, { ...input, activeTerminalPid: undefined }).groups[0].rows.every(row => !row.active));
+  const shell = { ...rows[0], managed: false, agent: '', state: '', hooks: 'none' as const };
+  assert.equal(buildTree([shell], input).unmanaged[0].active, true, 'unmanaged shell is still the active terminal');
+  assert.equal(buildTree([shell], { ...input, activeTerminalPid: undefined }).unmanaged[0].active, false);
+  assert.equal(buildTree([{ ...shell, managed: true, agent: 'shell' }], input).groups[0].rows[0].active, true);
+  assert.equal(buildTree([{ ...shell, managed: true, agent: 'claude' }], input).groups[0].rows[0].active, true);
 });
 
 for (const agent of ['claude', 'codex']) {
@@ -755,12 +779,18 @@ for (const agent of ['claude', 'codex']) {
   });
 }
 
-test('stable navigation: pending terminal identity cannot create a duplicate attachment', async t => {
+for (const attached of [false, true]) test(`stable navigation: pending terminal identity with target attached=${attached}`, async t => {
   const { sb, host } = setup(t);
   sb.cli('new', 'codex', '--cwd', sb.makeDir('pending'));
+  if (attached) {
+    const client = attachPty(sb.socket, 'pending');
+    t.after(() => client.kill());
+    await waitFor(() => sb.tmux('list-clients', '-t', '=pending', '-F', '#{client_pid}').trim(), 'target attachment');
+  }
   const controller = new Controller(sb.ctx(), Object.assign(host, { terminalPidsReady: () => false }));
-  await assert.rejects(controller.show('pending'), /identification is still in progress/);
-  assert.equal(host.terminals.length, 0);
+  if (attached) await assert.rejects(controller.show('pending'), /identification is still in progress/);
+  else await controller.show('pending');
+  assert.equal(host.terminals.length, attached ? 0 : 1);
 });
 
 for (const agent of ['claude', 'codex']) {
@@ -782,7 +812,7 @@ for (const agent of ['claude', 'codex']) {
 
 test('prepared launch waits for attachment acknowledgement', async t => {
   const { sb, host, controller } = setup(t);
-  const plan = controller.prepareNewSession('codex', sb.makeDir('profile'));
+  const plan = await controller.prepareNewSession('codex', sb.makeDir('profile'));
   assert.equal(plan.custom, false);
   assert.ok(sb.ctx().tmux.hasSession(plan.session));
   assert.deepEqual(plan.argv.slice(-3), ['attach-session', '-t', `=${plan.session}`]);
@@ -794,15 +824,15 @@ test('prepared launch waits for attachment acknowledgement', async t => {
   assert.equal(sb.ctx().tmux.listSessions().find(row => row.name === plan.session)?.meta.ownerWorkspace, 'test-workspace');
 });
 
-test('prepared custom launcher uses the same quoting and shell exception', t => {
+test('prepared custom launcher uses the same quoting and shell exception', async t => {
   const { sb, controller } = setup(t);
   const cwd = sb.makeDir('folder with spaces');
-  const plan = controller.prepareNewSession('codex', cwd, 'launcher --agent {agent} --cwd {cwd}');
+  const plan = await controller.prepareNewSession('codex', cwd, 'launcher --agent {agent} --cwd {cwd}');
   assert.equal(plan.custom, true);
   assert.equal(plan.session, '');
   assert.ok(plan.argv.at(-1)?.includes(shellQuote(cwd)));
   assert.equal(sb.ctx().tmux.listSessions().length, 0, 'preparing launcher creates no extra tmux session');
-  const shell = controller.prepareNewSession('shell', cwd, 'launcher');
+  const shell = await controller.prepareNewSession('shell', cwd, 'launcher');
   assert.equal(shell.custom, false);
   assert.ok(sb.ctx().tmux.hasSession(shell.session));
 });
@@ -835,4 +865,44 @@ test('reload startup waits for restored terminal identity instead of opening a f
   const controller = new Controller(sb.ctx(), Object.assign(host, { terminalPidsReady: () => false }));
   assert.equal(await controller.startup(), undefined);
   assert.equal(host.terminals.length, 0);
+});
+
+test('Known-session refresh updates membership without clearing sampled activity or replaying notifications', t => {
+  const { controller, host } = setup(t);
+  const row = { name: 'observed', cwd: '/synthetic', agent: 'shell', managed: true, conversation: '', origin: 'vscode', state: 'working', note: 'current task', topic: '', live: true, hooks: 'none' as const, attachedClients: 0, connections: [] };
+  controller.acceptInventory([row], new Map([['/synthetic', 'main']]));
+  const before = host.notified.length;
+  controller.acceptKnownSessions([{ ...row, state: '', note: '', attachedClients: 1 }, { ...row, name: 'created' }]);
+  assert.equal(controller.row('observed')?.state, 'working');
+  assert.equal(controller.row('observed')?.note, 'current task');
+  assert.equal(controller.row('observed')?.attachedClients, 1);
+  assert.equal(controller.row('created')?.live, true);
+  assert.equal(host.notified.length, before);
+  const tree = controller.acceptKnownSessions([{ ...row, name: 'created' }]);
+  assert.equal(tree.groups.flatMap(group => group.rows).some(row => row.name === 'observed'), false);
+});
+
+test('Creation snapshots workspace ownership once and completion handles an ownership change', async t => {
+  const sb = sandbox(t);
+  const ctx = sb.ctx();
+  const host = new FakeHost();
+  const controller = new Controller(ctx, host);
+  const cwd = sb.makeDir('owned-shell');
+  const plan = await controller.prepareNewSession('shell', cwd);
+  const initial = ctx.store.newest();
+  assert.equal(initial?.sessions.find(row => row.name === plan.session)?.ownerWorkspace, 'test-workspace');
+  controller.completeNewSession(plan);
+  assert.equal(ctx.store.newest()?.dir, initial?.dir, 'unchanged ownership must not take another snapshot');
+  assert.equal(controller.row(plan.session)?.ownerWorkspace, 'test-workspace');
+  const otherHost = { ...host, ownerWorkspace: () => 'other-workspace', sessionsHere: () => new Set<string>(), notify: () => {}, mainTerminalPid: async () => undefined, openTerminal: () => {}, focusExisting: async () => false };
+  const other = new Controller(ctx, otherHost);
+  other.completeNewSession(plan);
+  assert.equal(ctx.store.newest()?.sessions.find(row => row.name === plan.session)?.ownerWorkspace, 'other-workspace');
+});
+
+test('Rename input explains the accepted characters while typing', () => {
+  assert.equal(sessionNameProblem('api-v2_test'), undefined);
+  assert.equal(sessionNameProblem(''), 'Enter a name.');
+  assert.equal(sessionNameProblem('my project.v2'), 'Use letters, digits, - or _ only, for example my-project-v2.');
+  assert.equal(sessionNameProblem('前端'), 'Use letters, digits, - or _ only.');
 });

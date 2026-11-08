@@ -20,6 +20,11 @@ function bootIdentity(): string {
 export function processLifetime(pid: number): ProcessLifetime | undefined {
   if (!Number.isSafeInteger(pid) || pid <= 0) return undefined;
   if (pid === process.pid && own) return own;
+  // Dead owners are common after a terminated worker; avoid spawning ps for each.
+  try { process.kill(pid, 0); } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ESRCH') return undefined;
+    // Permission failures are inconclusive. Exact lifetime inspection must decide.
+  }
   const result = spawnSync('ps', ['-p', String(pid), '-o', 'lstart='], {
     env: { ...process.env, LC_ALL: 'C' }, encoding: 'utf8', timeout: 1000, killSignal: 'SIGKILL',
   });

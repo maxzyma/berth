@@ -42,7 +42,9 @@ test('CR68 installed and reloaded tmux hooks preserve literal CLI paths', async 
     for (const args of batch) {
       assert.equal(args[0], '--socket-path');
       assert.equal(args[1], socket);
-      if (args[2] !== 'snapshot') assert.deepEqual(args.slice(3, 5), ['--session', 'probe']);
+      if (args[2] === 'bell') assert.deepEqual(args.slice(3, 5), ['--session', 'probe']);
+      // Manually running a hook has no triggering client; never substitute the current one.
+      if (args[2] === 'attached') assert.deepEqual(args.slice(3), ['--client=']);
     }
   }
 });

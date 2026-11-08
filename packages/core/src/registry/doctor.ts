@@ -1,7 +1,7 @@
+import { checkEnvironment } from './environment.js';
 import { assessCapability, versionInspector } from '../agents/capabilities.js';
 import { profileKey, type AgentProfile } from '../agents/profile.js';
 import { usableDirectory } from './directory.js';
-import { existsSync } from 'node:fs';
 import type { Context } from '../context.js';
 import { launchCommand } from '../agents/commands.js';
 import { shellSplit } from '../shell.js';
@@ -19,13 +19,11 @@ export interface Finding {
 
 /** Drift and gaps worth a user's attention; empty when all is well. */
 export function doctor(ctx: Context, env = ctx.env): Finding[] {
-  const findings: Finding[] = [];
-  if (process.platform === 'darwin' && !existsSync('/usr/bin/perl')) findings.push({ problem: 'System Perl is unavailable; macOS launch arguments cannot be verified for recovery.' });
+  const environment = checkEnvironment(ctx);
+  const findings: Finding[] = environment.checks.filter(check => !check.ok)
+    .map(check => ({ problem: `${check.label}: ${check.detail}`, severity: check.required ? 'warning' : 'info' }));
   if (ctx.config.legacySnapshotRoot) findings.push({ problem: `Legacy snapshots require endpoint verification: ${ctx.config.legacySnapshotRoot}. After verifying the source server, use berth restore with an explicit snapshot directory.` });
-  const version = ctx.tmux.run(['-V'], true);
-  const major = /tmux\s+(\d+)/.exec(version.stdout)?.[1];
-  if (!version.ok || !major) findings.push({ problem: 'Could not verify tmux version. Berth requires tmux 3.0 or later.' });
-  else if (Number(major) < 3) findings.push({ problem: `Unsupported tmux version: ${version.stdout.trim()}; install tmux 3.0 or later.` });
+  if (environment.checks.some(check => ['platform', 'tmux'].includes(check.id) && !check.ok)) return findings;
   const checkedProfiles = new Set<string>();
   const checkedVersions = new Set<string>();
   const inspectVersion = versionInspector(env);

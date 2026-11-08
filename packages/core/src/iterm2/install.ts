@@ -5,6 +5,7 @@ import type { Context } from '../context.js';
 import { BerthError, ExitCode } from '../errors.js';
 import { ensure } from '../restore/ensure.js';
 import { renderTemplate, shellQuote } from '../shell.js';
+import { formatFields, readFields } from '../tmux/fields.js';
 import { PANE_VARIABLE } from '../present/attach.js';
 
 /**
@@ -48,7 +49,11 @@ export function attachCommand(ctx: Context, tools: Tools, session: string): stri
 }
 
 /** `berth iterm2 reattach <session>`: rebuild the session if missing, return its attach command. */
-export function reattach(ctx: Context, tools: Tools, session: string): string {
+export function reattach(ctx: Context, tools: Tools, session: string, existingTtys: readonly string[] = []): string {
+  if (existingTtys.length && ctx.tmux.hasSession(session)) {
+    const clients = ctx.tmux.run(['list-clients', '-t', `=${session}`, '-F', formatFields(['client_tty', 'client_termtype'])]);
+    if (readFields(clients.stdout, 2).some(([tty]) => existingTtys.includes(tty))) return '';
+  }
   if (!ctx.tmux.hasSession(session)) ensure(ctx, { session });
   if (!ctx.tmux.hasSession(session)) throw new BerthError(`cannot restore session ${session}`, ExitCode.notFound);
   return attachCommand(ctx, tools, session);
@@ -78,9 +83,10 @@ ENV = dict(os.environ, **${JSON.stringify(tools.env ?? {})})
 ENV["PATH"] = ${JSON.stringify(tools.path ?? '')} or os.environ.get("PATH", "")
 
 
-def attach_command(session_name):
+def attach_command(session_name, existing_ttys=()):
     try:
-        done = subprocess.run(BERTH + ["iterm2", "reattach", session_name], capture_output=True, text=True, timeout=120, env=ENV)
+        args = [arg for tty in existing_ttys for arg in ("--existing-tty", tty)]
+        done = subprocess.run(BERTH + ["iterm2", "reattach", session_name] + args, capture_output=True, text=True, timeout=120, env=ENV)
     except (OSError, subprocess.SubprocessError):
         return None
     command = done.stdout.strip()
@@ -106,16 +112,16 @@ async def ready_prompt(connection, session, name):
     return None
 
 
-async def restore_pane(connection, session, name):
+async def restore_pane(connection, session, name, existing_ttys=()):
     try:
         async with iterm2.Transaction(connection):
             prompt_id = await ready_prompt(connection, session, name)
         if not prompt_id:
             print("Berth: reattach deferred for %s; use berth iterm2 reattach from a ready shell." % name)
             return
-        command = await asyncio.get_running_loop().run_in_executor(None, attach_command, name)
+        command = await asyncio.get_running_loop().run_in_executor(None, attach_command, name, existing_ttys)
         if not command:
-            print("Berth: could not restore %s; inspect berth doctor." % name)
+            print("Berth: automatic reattachment deferred for %s; check existing terminals or berth doctor." % name)
             return
         async with iterm2.Transaction(connection):
             if await ready_prompt(connection, session, name) == prompt_id:
@@ -134,11 +140,18 @@ async def main(connection):
             break
         await asyncio.sleep(0.5)
     await asyncio.sleep(1)
+    existing_ttys = []
+    async for session in panes(app):
+        job = await session.async_get_variable("jobName")
+        if os.path.basename(job or "").lstrip("-") == "tmux":
+            tty = await session.async_get_variable("tty")
+            if tty:
+                existing_ttys.append(tty)
     async for session in panes(app):
         name = await session.async_get_variable(VARIABLE)
         if not name:
             continue
-        await restore_pane(connection, session, name)
+        await restore_pane(connection, session, name, tuple(existing_ttys))
 
 
 iterm2.run_until_complete(main)

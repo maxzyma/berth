@@ -12,7 +12,12 @@ function readTickets(dir: string): Ticket[] {
   return readdirSync(dir).filter((name) => name.endsWith('.json')).flatMap((name) => {
     try {
       const value = JSON.parse(readFileSync(join(dir, name), 'utf8')) as Ticket;
-      return value.id === name.slice(0, -5) && Number.isSafeInteger(value.number) && value.number >= 0 && processOwnerAlive(value.pid, value.lifetime, value.createdAt ?? statSync(join(dir, name)).mtimeMs) ? [value] : [];
+      if (value.id !== name.slice(0, -5) || !Number.isSafeInteger(value.number) || value.number < 0
+        || !Number.isSafeInteger(value.pid) || value.pid <= 0) throw new Error('Invalid lock ticket.');
+      if (processOwnerAlive(value.pid, value.lifetime, value.createdAt ?? statSync(join(dir, name)).mtimeMs)) return [value];
+      // UUID ticket paths are never reused. A dead owner cannot publish again.
+      rmSync(join(dir, name), { force: true });
+      return [];
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
       throw error; // A corrupt active contender must not be silently bypassed.

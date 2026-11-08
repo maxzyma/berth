@@ -22,18 +22,38 @@ see the [core principle](design/spec.md#21-core-principle-terminal-led-launch-ev
 
 ## Install
 
-Requires tmux ≥ 3.0 and Node ≥ 20. macOS process discovery also uses the
-system `/usr/bin/perl` to read exact launch arguments and process directories.
+Requires tmux ≥ 3.0 on the machine running your sessions. The VS Code extension
+includes Berth and uses the editor's Node.js runtime; a global Berth install and
+a separate Node.js installation are not required. The standalone CLI requires
+Node.js ≥ 20 and npm for installation. macOS recovery inspection also uses the
+system `/usr/bin/perl` to read launch arguments and process directories.
+`lsof` and `sqlite3` enable optional Codex discovery and conversation lookup;
+**Diagnose Problems** reports when they are missing.
+
+| Where sessions run | Support |
+|---|---|
+| Local macOS or Linux | CLI and VS Code extension; tmux required |
+| Linux/macOS over Remote-SSH, Linux container, or WSL | Install Berth and tmux in the remote execution host; native remote lifecycle acceptance is tracked separately |
+| Native Windows | Use WSL, Remote-SSH or a Dev Container; the local extension provides setup guidance |
+
+The automatic layout Profile is for local macOS/Linux desktop windows. iTerm2
+integration is macOS-only. A browser-only editor cannot run the tmux backend.
+See [acceptance requirements](design/manual-acceptance.md#platform-coverage) for
+the distinction between automated platform checks and native host verification.
 
 ```sh
-npm install -g @berthdev/berth
 code --install-extension berthdev.berth   # VS Code Marketplace; the .vsix is also on GitHub Releases
 ```
 
-Then, once per machine:
+The extension carries its own Berth and needs no separate CLI. When you first
+create or run an agent session, it offers to install that agent's hooks and the
+tmux hooks; **Diagnose Problems** offers them at any time.
+
+The standalone CLI is optional, for using Berth from other terminals:
 
 ```sh
-berth hooks install claude    # once per agent you use; Diagnose Problems reports missing hooks
+npm install -g @berthdev/berth
+berth hooks install claude    # once per agent you use
 berth tmux install            # snapshot, bell and attach hooks
 berth iterm2 install          # optional: Berth for iTerm2
 ```
@@ -41,14 +61,32 @@ berth iterm2 install          # optional: Berth for iTerm2
 For Codex, review new or changed Berth hook definitions with `/hooks` inside
 Codex. Installing the configuration does not grant hook trust.
 
+Hooks installed from VS Code run the extension's own Berth, so extension updates
+reach them. If the tmux hooks point to a removed Berth installation, the
+extension repairs them on startup; if they run another installed Berth, it asks
+whether to switch them to the extension's Berth.
+
 After a reboot, VS Code restores sessions explicitly owned by its workspace;
 legacy host-only records remain available for manual opening. iTerm2 reattaches
 its recorded sessions, and `berth ensure` requests recovery from any terminal.
 Agent recovery requires a bound conversation ID and its profile. A resume request is confirmed
 only when the agent acknowledges that ID; unavailable confirmation is shown.
 
+Choose **Use Berth Layout** in the first-run prompt or Berth **…** menu for
+sessions on the left and Explorer on the right. This uses a separate VS Code
+Profile, including its settings and extensions. Berth prepares the preset and
+its extension automatically, then restores the current workspace after reload. **Keep Current Layout** leaves your layout unchanged.
+**Switch Layout Profile…** lets you return to another profile. Automatic setup
+currently targets local desktop windows with an open folder or workspace.
+
 In VS Code, **Find a Session** searches names, conversation titles and folders.
-**Diagnose Problems** explains missing prerequisites and recovery limits. Details let
+**Diagnose Problems** checks the execution host even before any sessions exist.
+Startup offers setup only when required dependencies are unavailable. Select a
+failed dependency to review an installation through an existing Homebrew, apt-get
+or DNF; Berth shows the command and host before running it, then checks again.
+User-managed runtimes and custom executable paths are left unchanged. Use
+**Check standalone CLI dependencies** to check PATH Node.js and npm separately.
+Session and hook diagnostics explain recovery limits. Details let
 you copy full values. Failed or unconfirmed recovery offers **Retry Recovery**;
 a stopped record can use **Choose Recovery Folder** after its folder moves.
 Legacy records without a profile offer **Choose Recovery Profile**, or use

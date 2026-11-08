@@ -23,6 +23,15 @@ cannot consume a newer launch. `tools.executableOnPath` owns executable lookup
 for diagnostics, recovery preflight and resolved integration commands. Callers
 that launch in a session pass its cwd; relative/empty PATH entries use that cwd.
 Version diagnosis caches resolved executables and limits each run to eight probes.
+Lock-ticket scans first reject nonexistent PIDs without starting a subprocess,
+then verify boot and process-birth identity for live owners. Only confirmed stale
+UUID tickets are reclaimed; malformed or inaccessible records fail closed.
+VS Code creation invokes the existing core CLI asynchronously through the main
+action queue. Mutation workers are not automatically timed out and retried.
+Local activation is rendered from cached inventory and current terminal identity;
+terminal lifecycle revisions discard older in-flight inventory. Explorer follow
+cancels focus restoration when the selected terminal or editor group changes.
+
 Internal placeholder commands use the current runtime path, independent of PATH.
 Editor hook installation uses an asynchronous bounded child process. A host-local
 queue serializes runtime replacement and installer execution; failed requests
@@ -39,6 +48,27 @@ window PID readiness remains separate from connection presence. Refresh bounds
 PID collection and resamples it after inventory acquisition. Regression cases
 cover zero stale counts with live clients, pending PIDs, failed client queries,
 and stable marker placement with working/waiting/unread states.
+
+Automatic layout preparation is capability-gated against VS Code 1.143.1.
+The adapter checks native commands, uses `_files.newWindow` with reuse and Profile
+options to initialize the destination, then restores the exact workspace with
+`vscode.openFolder`. A detached helper installs the running extension snapshot
+and writes only the newly created Profile's settings. The destination acknowledges
+its preparation token before completion. Native VS Code owns Profile registration;
+Berth reads that registry without rewriting it. Existing prepared Profiles are
+matched by ID and token. Unsupported hosts stop before switching, without opening
+a manual import or selection flow. Source references:
+[profile actions](https://github.com/microsoft/vscode/blob/e646868227c3e3a9e3f24277c8c7220be42c0be7/src/vs/workbench/contrib/userDataProfile/browser/userDataProfile.ts),
+[default profile identity](https://github.com/microsoft/vscode/blob/e646868227c3e3a9e3f24277c8c7220be42c0be7/src/vs/platform/userDataProfile/common/userDataProfile.ts),
+and [workspace command options](https://github.com/microsoft/vscode/blob/e646868227c3e3a9e3f24277c8c7220be42c0be7/src/vs/workbench/browser/actions/workspaceCommands.ts)
+(checked 2026-11-07). These commands are version-bound, not a general Profile API.
+Profile settings use Microsoft’s [jsonc-parser](https://github.com/microsoft/node-jsonc-parser)
+with comments and trailing commas enabled, and reject parse errors. Bundles prefer
+ESM module entry points; a subprocess smoke check loads the packaged helper to
+catch unresolved UMD dependency imports.
+Native acceptance must cover one-click preparation, source settings preservation,
+exact multi-root restoration, reuse and dirty-editor cancellation. Unit routing
+checks do not establish those outcomes.
 
 ## 1. Stack
 
@@ -93,7 +123,8 @@ assessment, connection/name changes and current validation evidence.
 The editor samples the bundled CLI asynchronously with a 10-second deadline,
 an 8 MiB output limit and one in-flight request. Branch reads run asynchronously
 at concurrency four with individual deadlines. Bounded child-process calls use
-SIGKILL at expiry so signal handlers cannot keep a query pending. Tests separate host responsiveness
+SIGKILL at expiry so signal handlers cannot keep a query pending. Dependency
+version probes use the same forced-termination rule at their 2.5-second deadline. Tests separate host responsiveness
 from core sampling duration. Native integration fixtures use an isolated editor
 profile and `berth-test-*` socket; they require an agreed foreground window.
 
@@ -386,21 +417,58 @@ configuration, or editor settings.
 
 ### 5.3 VS Code
 
+`registry/environment.ts` checks the host without reading session inventory.
+The CLI `environment --json` is transported asynchronously by the extension;
+`doctor` skips discovery when tmux/platform prerequisites fail. Startup gates
+inventory and layout onboarding on these base checks. Explicit launcher checks
+preserve terminal-owned scripts; a selected built-in agent is checked only when
+there is no custom launcher. The optional standalone scope checks PATH Node/npm,
+while the extension checks its actual editor runtime.
+Optional `lsof` and `sqlite3` findings describe the affected Codex capabilities
+without changing environment readiness. Native Windows activation returns a
+setup view before constructing any Unix backend or host registration.
+
+`.github/workflows/verify.yml` builds on macOS ARM/Intel, Linux and Windows.
+Unix jobs run the runtime suite; Windows runs the activation boundary and
+onboarding tests. Linux also launches the built extension in an Xvfb desktop.
+This is not a WSL, Remote-SSH or system notification click test. Release jobs
+depend on this matrix. Remote hosts route notifications through the editor API;
+local notification helpers must exit successfully within three seconds or the
+extension falls back to an editor notification.
+
+`dependency-install.ts` returns package-manager argument arrays without executing
+them. The extension confirms the host and command, runs a native task with a unique
+execution token, and rechecks on task completion, including failure or cancellation.
+It does not install a package manager or change shell initialization. Installation
+commands follow the [tmux installation guide](https://github.com/tmux/tmux/wiki/Installing)
+and [Homebrew Node formula](https://formulae.brew.sh/formula/node); other Node
+installations use the [official download guidance](https://nodejs.org/en/download)
+(checked 2026-11-07). Tests inject executable/version/access probes and inspect
+plans without installing system packages.
+
+
 - The extension's logic lives in a view model and a controller that never
   import `vscode`; they talk to the editor through a small host interface.
   `npm test` runs them against a fake host and a test tmux server (§5.1), which
   covers V1–V7 without opening an editor window.
-- Layout uses a local `.code-profile` template containing nested settings JSON
-  and an extension descriptor for the installed Berth version. The profile-file
-  URI opens native import review; VS Code owns creation, collision handling and
-  switching. No global layout settings are updated by the extension. Remote
-  creation is rejected before writing a client-local URI. The native switcher
-  remains available in remote windows. Legacy journals are read-only evidence;
-  no automatic restoration is attempted because earlier records lack target IDs.
-  `layoutProfile.test.ts` checks the portable template boundary. Native tests
-  must verify creation/cancel, switch/return, repeated invocation, source settings
-  preservation and all-profile overrides. OS protocol registration and remote
-  behavior require their own evidence.
+- Layout preparation uses `profileSetup.ts` and a bundled detached bootstrap
+  worker. The desktop adapter accepts local `file:` and `vscode-userdata:`
+  storage, reads the native registry without modifying it, and identifies owned
+  Profiles by ID and token. The native `_files.newWindow` command reuses the
+  current window to create the absent Profile; reopening the already open
+  workspace directly would bypass creation. After installation, the destination
+  restores the exact saved workspace. Existing owned Profiles use their native
+  Profile-entry command. These native internals require version-specific checks.
+  The worker writes settings only to a new resource, snapshots the installed
+  Berth payload and installs it through the native CLI. Same-token retries preserve
+  subsequent user settings. Native settings watchers may start after the worker
+  creates the file; the worker refreshes its modification time until the destination
+  acknowledges the token. A configuration-change listener completes activation.
+  Workspace restoration is limited to first preparation. Source settings and
+  legacy journals remain untouched.
+  `profileBootstrap.test.ts` covers destination ownership, retries, installation
+  failure and path boundaries; native acceptance must additionally verify reload,
+  source/shared settings, workspace restoration and extension availability.
 - Find a Session passes an asynchronous session-list promise to native Quick Pick;
   branch enrichment is separate and only used for sidebar inventory.
 - Connection labels prefer the application declared by a matching live host
@@ -651,14 +719,18 @@ manual cases are recorded as checked, and the de-identification check passes.
   External connections open directly in a local Editor without a confirmation
   prompt, preserving external clients. Repeated selection reuses the owned view;
   handoff must not leave an incidental +1. Genuine external or explicit side-view
-  connections remain counted. Unknown PIDs defer attachment. Stopped sessions
+  connections remain counted. Unknown PIDs defer a new attachment only when the
+  target already has clients. A detached target and a verified owned view remain
+  usable; only identified local clients qualify as handoff sources. Stopped sessions
   rebuild first; open to the side explicitly adds a view. Agent identity does
   not change these rules. Explorer follows only local folders.
   Reload acceptance: with native persistence enabled, open multiple Berth Editor
   terminals and a side view, reload, and verify the same native terminals remain
   connected without focus changes, extra clients or a fallback tab. Recreated
-  extension hosts recover ownership from explicit creation metadata and resolve
-  current sessions from live PIDs. Unknown terminal identities defer startup;
+  extension hosts recover ownership from explicit creation metadata, or the
+  matching marker in a verified live terminal process when native revival omits
+  that metadata. Cache process evidence only for that terminal object and PID;
+  discard it when the terminal disappears. Resolve current sessions from live PIDs. Unknown terminal identities defer startup;
   mismatched owner tokens must not confer Berth ownership.
 - **V3** New / attach / detach / rename / kill / adopt act on the test server;
   a custom launcher runs in the session terminal in the chosen folder with its

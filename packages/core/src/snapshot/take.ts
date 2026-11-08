@@ -3,7 +3,7 @@ import { nameCollision } from './identity.js';
 import { watchClosures, wasClosed } from './lifecycle.js';
 import { recoveryStatus } from '../restore/status.js';
 import type { Context } from '../context.js';
-import type { SnapshotSession } from './store.js';
+import type { SnapshotSession, StoredSnapshot } from './store.js';
 import { withLock } from '../restore/lock.js';
 import { discover } from '../registry/discover.js';
 
@@ -11,6 +11,24 @@ import { discover } from '../registry/discover.js';
 export function snapshotQuietly(ctx: Context): void {
   try {
     takeSnapshot(ctx);
+  } catch {
+    // The next change or hook snapshots again.
+  }
+}
+
+/**
+ * A change snapshot (spec §5.3) for a Berth transaction that changed one
+ * session: it records every managed session like a full snapshot, captures
+ * only `capture`'s scrollback, keeps the newest saved scrollback of every other
+ * live session with the same identity, and leaves discovery to the next full
+ * snapshot.
+ */
+export interface ChangeScope { capture?: string }
+
+/** The snapshot a creation requires, never throwing, like snapshotQuietly. */
+export function snapshotCreated(ctx: Context, name: string): void {
+  try {
+    takeSnapshot(ctx, undefined, [], [], { capture: name });
   } catch {
     // The next change or hook snapshots again.
   }
@@ -30,14 +48,14 @@ export function adoptDiscovered(ctx: Context): string[] {
  * forgotten. A session missing from the same server ended on purpose (exit,
  * kill) and is dropped. Returns the snapshot directory.
  */
-export function takeSnapshot(ctx: Context, now?: Date, forget: readonly string[] = [], pending: readonly SnapshotSession[] = []): string {
-  return withLock(ctx.config.stateDir, () => collectSnapshot(ctx, now ?? new Date(), forget, pending));
+export function takeSnapshot(ctx: Context, now?: Date, forget: readonly string[] = [], pending: readonly SnapshotSession[] = [], change?: ChangeScope): string {
+  return withLock(ctx.config.stateDir, () => collectSnapshot(ctx, now ?? new Date(), forget, pending, change));
 }
 
-function collectSnapshot(ctx: Context, now: Date, forget: readonly string[], pending: readonly SnapshotSession[]): string {
+function collectSnapshot(ctx: Context, now: Date, forget: readonly string[], pending: readonly SnapshotSession[], change?: ChangeScope): string {
   const sessions: SnapshotSession[] = [];
   watchClosures(ctx);
-  discover(ctx);
+  if (!change) discover(ctx);
   const live = ctx.tmux.listSessions();
   const serverStart = live[0]?.serverStart;
   const previous = ctx.store.newest();
@@ -59,7 +77,8 @@ function collectSnapshot(ctx: Context, now: Date, forget: readonly string[], pen
   }
   const scrollback = Object.fromEntries(sessions.flatMap((session): [string, string][] => {
     if (liveNames.has(session.name)) {
-      return [[session.name, ctx.tmux.capturePane(session.name, ctx.config.scrollbackLines)]];
+      const saved = change && session.name !== change.capture ? savedScrollback(ctx, previous, session) : undefined;
+      return [[session.name, saved ?? ctx.tmux.capturePane(session.name, ctx.config.scrollbackLines)]];
     }
     const text = previous ? ctx.store.optionalScrollback(previous.dir, session.name) : undefined;
     return text === undefined ? [] : [[session.name, text]];
@@ -67,4 +86,13 @@ function collectSnapshot(ctx: Context, now: Date, forget: readonly string[], pen
   const dir = ctx.store.write(sessions, scrollback, now);
   ctx.store.prune(ctx.config.retention);
   return dir;
+}
+
+/** Scrollback the previous snapshot saved for this same live session, under any name; any doubt captures it again. */
+function savedScrollback(ctx: Context, previous: StoredSnapshot | undefined, session: SnapshotSession): string | undefined {
+  if (!previous || !session.sessionId || !session.serverStart) return undefined;
+  const record = previous.sessions.find((saved) => saved.sessionId === session.sessionId && saved.serverStart === session.serverStart);
+  if (!record) return undefined;
+  try { return ctx.store.optionalScrollback(previous.dir, record.name); }
+  catch { return undefined; }
 }

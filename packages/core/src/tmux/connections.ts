@@ -34,9 +34,11 @@ export function processAncestry(pid: number, table: string): { ancestors: number
   return { ancestors, application };
 }
 
+const CLIENT_FIELDS = ['client_session', 'client_pid', 'client_tty', 'client_termtype'];
+
 /** Live clients only; restore ownership is deliberately not consulted. */
 export function connections(tmux: Tmux, hosts: readonly HostRecord[] = [], strict = false): ReadonlyMap<string, ConnectionInfo[]> {
-  const result = tmux.run(['list-clients', '-F', formatFields(['client_session', 'client_pid', 'client_tty', 'client_termtype'])], true);
+  const result = tmux.run(['list-clients', '-F', formatFields(CLIENT_FIELDS)], true);
   if (!result.ok && strict) throw new BerthError(`Could not read terminal connections: ${result.stderr.trim()}`);
   if (!result.ok || !result.stdout.trim()) return new Map();
   const processes = spawnSync('ps', ['-axo', 'pid=,ppid=,comm='], { encoding: 'utf8', timeout: 2000, killSignal: 'SIGKILL' });
@@ -59,8 +61,12 @@ export async function waitForAttachment(
   const deadline = Date.now() + (options.timeoutMs ?? 5000);
   do {
     if (options.exited?.()) throw new Error(`Terminal exited before attaching to ${session}. Try opening it again.`);
-    const clients = connections(tmux).get(session) ?? [];
-    if (clients.some((client) => client.ancestors.includes(terminalPid))) return;
+    // The terminal process is usually the client itself; read process ancestry
+    // only when the session has a client that is not.
+    const listed = tmux.run(['list-clients', '-F', formatFields(CLIENT_FIELDS)], true);
+    const pids = listed.ok ? readFields(listed.stdout, CLIENT_FIELDS.length).filter(([name]) => name === session).map(([, pid]) => Number(pid)) : [];
+    if (pids.includes(terminalPid)) return;
+    if (pids.length && (connections(tmux).get(session) ?? []).some((client) => client.ancestors.includes(terminalPid))) return;
     if (Date.now() >= deadline) break;
     await new Promise<void>((resolve) => setTimeout(resolve, 50));
   } while (true);

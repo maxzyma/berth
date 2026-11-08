@@ -17,7 +17,7 @@ function accessible(file: string, mode: number): boolean {
   } catch { return false; }
 }
 
-function targetsExist(runtime: string, cli: string): boolean {
+export function targetsExist(runtime: string, cli: string): boolean {
   return accessible(runtime, constants.X_OK) && accessible(cli, constants.R_OK);
 }
 

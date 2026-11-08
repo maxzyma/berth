@@ -1,9 +1,10 @@
 import { activityTimeLines } from './activityTime.js';
+import { terminalPersistenceSettings } from './terminalPersistence.js';
 import { WORKING_ICON } from './view/iconSemantics.js';
 import { profileRoot } from '@berthdev/berth';
 /** Pure view logic for Berth for VS Code (spec §6); no `vscode` import, so it is unit-testable. */
 import { basename } from 'node:path';
-import { getAdapter, type SessionRow } from '@berthdev/berth';
+import { getAdapter, sanitizeName, type SessionRow } from '@berthdev/berth';
 
 export type Connection = 'attached-here' | 'attached-unknown' | 'attached-elsewhere' | 'detached' | 'stopped';
 
@@ -212,11 +213,14 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
   if (conn === 'attached-unknown' && locations.length) connectionLines.push({ icon: 'info', text: CONNECTION_TEXT[conn] });
   if (locations.length && count > locations.length) connectionLines.push({ icon: 'terminal', text: `${count - locations.length} other terminal(s)` });
   const unread = input.unread.has(row.name);
+  const active = !!input.activeTerminalPid && !!row.live
+    && clients.some(client => client.ancestors.includes(input.activeTerminalPid!));
   if (!row.managed) {
     return {
       name: row.name,
       label: row.name,
       agent: '',
+      active,
       subtitle: '',
       subtitleKind: '',
       details: summary,
@@ -275,7 +279,7 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
   return {
     name: row.name,
     label: row.name,
-    active: !!input.activeTerminalPid && !!row.live && !!row.connections?.some(client => client.ancestors.includes(input.activeTerminalPid!)),
+    active,
     agent: row.agent,
     subtitle: supporting,
     subtitleKind: note ? 'note' : supporting ? 'topic' : '',
@@ -368,6 +372,7 @@ export function layoutChanges(current: (key: string) => unknown, hideTerminalTab
     { key: 'workbench.editor.autoLockGroups', value: { ...(asObject(current('workbench.editor.autoLockGroups'))), terminalEditor: true } },
     { key: 'workbench.sideBar.location', value: 'right' },
     { key: 'workbench.secondarySideBar.defaultVisibility', value: 'visible' },
+    ...terminalPersistenceSettings,
     {
       // Tabs show the title tmux sends: the session name with its state.
       key: 'terminal.integrated.tabs.title',
@@ -470,4 +475,12 @@ export function sessionChoices(rows: readonly SessionRow[]): { label: string; de
     detail: [row.conversationTitle || row.topic, row.cwd].filter(Boolean).join(' · '),
     session: row.name,
   }));
+}
+
+/** Rename input check, shown while typing: the core accepts letters, digits, `-` and `_`. */
+export function sessionNameProblem(value: string): string | undefined {
+  if (!value) return 'Enter a name.';
+  if (sanitizeName(value) === value) return undefined;
+  const suggested = sanitizeName(value);
+  return `Use letters, digits, - or _ only${suggested !== 'session' || /session/.test(value) ? `, for example ${suggested}` : ''}.`;
 }

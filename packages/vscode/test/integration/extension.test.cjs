@@ -101,3 +101,64 @@ suite('Berth for VS Code (integration)', () => {
     await config.update('terminal.integrated.tabs.location', undefined, vscode.ConfigurationTarget.Global);
   });
 });
+
+suite('Session responsiveness', () => {
+  test('switching terminals follows the selected terminal and shell exit removes its attachment', async () => {
+    const socket = process.env.BERTH_TMUX_SOCKET;
+    assert.ok(socket?.startsWith('berth-test-'), 'isolated tmux required');
+    const { promisify } = require('node:util');
+    const { execFile } = require('node:child_process');
+    const { join } = require('node:path');
+    const run = promisify(execFile);
+    const ext = vscode.extensions.getExtension('berthdev.berth');
+    await ext.activate();
+    const cli = join(ext.extensionPath, 'dist', 'cli.mjs');
+    const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
+    const cwd = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    const names = [`responsive-first-${process.pid}`, `responsive-second-${process.pid}`];
+    const opened = [];
+    const timings = [];
+    try {
+      for (const name of names) {
+        const started = Date.now();
+        await run(process.execPath, [cli, 'new', 'shell', '--cwd', cwd, '--name', name], { env });
+        await vscode.commands.executeCommand('berth.focus', name);
+        opened.push(vscode.window.activeTerminal);
+        timings.push(Date.now() - started);
+      }
+      assert.notEqual(opened[0], opened[1]);
+      opened[0].show();
+      await until(() => vscode.window.activeTerminal === opened[0], 'first terminal selected');
+      await vscode.commands.executeCommand('berth.refresh');
+      assert.equal(vscode.window.activeTerminal, opened[0], 'folder reveal must not focus the older main');
+      for (const terminal of [opened[1], opened[0], opened[1], opened[0]]) {
+        terminal.show();
+        await until(() => vscode.window.activeTerminal === terminal, 'rapid terminal selection');
+      }
+      const file = vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, '.berth-responsive-file.txt');
+      await vscode.workspace.fs.writeFile(file, Buffer.from('File focus acceptance'));
+      const document = await vscode.workspace.openTextDocument(file);
+      await vscode.window.showTextDocument(document, { viewColumn: vscode.ViewColumn.Beside });
+      await vscode.commands.executeCommand('berth.refresh');
+      assert.equal(vscode.window.activeTextEditor?.document.uri.toString(), file.toString(), 'folder follow must not steal file focus');
+      const tab = vscode.window.tabGroups.all.flatMap(group => group.tabs).find(tab => tab.input.uri?.toString() === file.toString());
+      if (tab) await vscode.window.tabGroups.close(tab);
+      await vscode.workspace.fs.delete(file);
+      const started = Date.now();
+      opened[0].sendText('exit');
+      await until(() => opened[0].exitStatus !== undefined || !vscode.window.terminals.includes(opened[0]), 'shell terminal exits');
+      const exitMs = Date.now() - started;
+      await vscode.commands.executeCommand('berth.refresh');
+      const rows = JSON.parse((await run(process.execPath, [cli, 'ls', '--json'], { env })).stdout);
+      assert.equal(rows.some(row => row.name === names[0] && row.live), false);
+      assert.ok(rows.some(row => row.name === names[1] && row.live), 'other session remains alive');
+      await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, '.berth-responsive-result.json'), Buffer.from(JSON.stringify({ openMs: timings, exitMs })));
+    } finally {
+      for (const terminal of opened) terminal?.dispose();
+      for (const name of names) {
+        try { await run('tmux', ['-L', socket, 'kill-session', '-t', `=${name}`], { env }); }
+        catch { /* The exit test already removed the first session. */ }
+      }
+    }
+  });
+});

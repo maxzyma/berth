@@ -9,22 +9,24 @@ import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { createContext, type Context } from '../context.js';
 import { BerthError, ExitCode } from '../errors.js';
 import { handleHook, hookHint, hookStatus, hookSetupGuidance, installHooks, uninstallHooks } from '../agents/hooks.js';
-import { adopt, bellRang, checkOrigin, create, forget, inventory, list, requireLive, stamp, type SessionRow } from '../registry/sessions.js';
+import { adopt, bellRang, checkOrigin, create, forget, inventory, list, rename, requireLive, stamp, type SessionRow } from '../registry/sessions.js';
+import { checkEnvironment } from '../registry/environment.js';
 import { doctor } from '../registry/doctor.js';
 import { adoptDiscovered, takeSnapshot } from '../snapshot/take.js';
 import { ensure, restoreFrom, retryRecovery, setRecoveryProfile, setRecoveryOptions, type RestoreResult } from '../restore/ensure.js';
 import { presentState } from '../present/state.js';
 import { installTmux, uninstallTmux } from '../tmux/install.js';
 import { installIterm2, reattach, uninstallIterm2 } from '../iterm2/install.js';
-import { clientAttached } from '../present/attach.js';
+import { clientAttached, clientAttachedWhenReady } from '../present/attach.js';
 import { toolsFor } from '../tools.js';
 
 const USAGE = `usage: berth <command> [options]
 
-  ls [--json]                                   all sessions
+  ls [--json] [--known-only]                    all sessions; optionally skip discovery
   new <agent> [--name N] [--cwd D] [--origin O] [-- agent args]
   adopt <session> --agent <id> [--origin O]
   attach <session> [--origin O]
+  rename <session> <new name>                  rename a live session and its recovery record
   stamp [--session S] key=value...
   recovery-options <session> -- [options]       review saved recovery options
   recovery-profile <session> --root <dir>       choose a stopped conversation profile
@@ -34,18 +36,19 @@ const USAGE = `usage: berth <command> [options]
   retry <session>
   restore [--origin O] [--session S] [<snapshot dir>]
   show <session> [<snapshot dir>]
+  environment [--json] [--external-node]        host prerequisites, even without sessions
   doctor [--json]
   hooks install|uninstall <agent>
   hooks upgrade codex                          add events to a legacy Berth installation
   tmux install|uninstall                       snapshot hooks in ~/.tmux.conf
   iterm2 install|uninstall                     Berth for iTerm2 (AutoLaunch script)
-  iterm2 reattach <session>                    rebuild if missing, print attach command
+  iterm2 reattach <session> [--existing-tty T]   rebuild if missing; defer if T already shows it
   present <session>                            show its state on attached terminals
 
 global: --socket <name>        tmux -L socket (overrides BERTH_TMUX_SOCKET)
         --socket-path <path>   tmux -S socket (set by Berth's tmux hooks)
 
-run by hooks: hook <agent> <event>, bell --session S, attached --session S --tty T --termtype X`;
+run by hooks: hook <agent> <event>, bell --session S, attached --client NAME`;
 
 type Out = (text: string) => void;
 
@@ -97,8 +100,8 @@ function readStdin(): string {
 function run(ctx: Context, command: string, rest: string[], out: Out): number {
   switch (command) {
     case 'ls': {
-      const { values } = parse(rest, { json: { type: 'boolean' } });
-      const rows = inventory(ctx);
+      const { values } = parse(rest, { json: { type: 'boolean' }, 'known-only': { type: 'boolean' } });
+      const rows = values['known-only'] ? list(ctx) : inventory(ctx);
       out(values.json ? JSON.stringify(rows, null, 2) : formatRows(rows));
       return ExitCode.ok;
     }
@@ -106,16 +109,21 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
       const dash = rest.indexOf('--');
       const own = dash >= 0 ? rest.slice(0, dash) : rest;
       const extraArgs = dash >= 0 ? rest.slice(dash + 1) : [];
-      const { values, positionals } = parse(own, { name: { type: 'string' }, cwd: { type: 'string' }, origin: { type: 'string' } });
+      const { values, positionals } = parse(own, { name: { type: 'string' }, cwd: { type: 'string' }, origin: { type: 'string' }, 'owner-workspace': { type: 'string' } });
       const name = create(ctx, {
         agent: need(positionals[0], 'agent'),
         cwd: resolve(values.cwd ?? process.cwd()),
         name: values.name,
         origin: values.origin,
+        ownerWorkspace: values['owner-workspace'],
         extraArgs,
       });
       out(name);
       hintHooks(positionals[0]);
+      return ExitCode.ok;
+    }
+    case 'rename': {
+      rename(ctx, need(rest[0], 'session'), need(rest[1], 'new name'));
       return ExitCode.ok;
     }
     case 'recovery-options': {
@@ -182,13 +190,17 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
     case 'iterm2': {
       if (rest[0] === 'install') out(installIterm2(toolsFor(ctx, cliPath())).script);
       else if (rest[0] === 'uninstall') out(uninstallIterm2().script);
-      else if (rest[0] === 'reattach') out(reattach(ctx, toolsFor(ctx, cliPath()), need(rest[1], 'session')));
+      else if (rest[0] === 'reattach') {
+        const { values, positionals } = parse(rest.slice(1), { 'existing-tty': { type: 'string', multiple: true } });
+        out(reattach(ctx, toolsFor(ctx, cliPath()), need(positionals[0], 'session'), values['existing-tty'] ?? []));
+      }
       else throw new BerthError(`iterm2: expected install, uninstall or reattach\n${USAGE}`, ExitCode.usage);
       return ExitCode.ok;
     }
     case 'attached': {
-      const { values } = parse(rest, { session: { type: 'string' }, tty: { type: 'string' }, termtype: { type: 'string' } });
-      clientAttached(ctx, { session: need(values.session, '--session'), tty: need(values.tty, '--tty'), termtype: values.termtype ?? '' });
+      const { values } = parse(rest, { client: { type: 'string' }, session: { type: 'string' }, tty: { type: 'string' }, termtype: { type: 'string' } });
+      if (values.client !== undefined) clientAttachedWhenReady(ctx, values.client);
+      else clientAttached(ctx, { session: need(values.session, '--session'), tty: need(values.tty, '--tty'), termtype: values.termtype ?? '' });
       return ExitCode.ok;
     }
     case 'ensure': {
@@ -214,9 +226,18 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
       out(ctx.store.scrollback(dir, need(positionals[0], 'session')));
       return ExitCode.ok;
     }
+    case 'environment': {
+      const { values } = parse(rest, { json: { type: 'boolean' }, 'external-node': { type: 'boolean' },
+        editor: { type: 'boolean' }, agent: { type: 'string' }, launcher: { type: 'string' }, cwd: { type: 'string' } });
+      const report = checkEnvironment(ctx, { externalNode: values['external-node'], editor: values.editor,
+        agent: values.agent, launcher: values.launcher, cwd: values.cwd });
+      out(values.json ? JSON.stringify(report) : report.checks.map(c => `${c.ok ? 'OK' : c.required ? 'REQUIRED' : 'INFO'} ${c.label}: ${c.detail}`).join('\n'));
+      return ExitCode.ok;
+    }
     case 'doctor': {
       const { values } = parse(rest, { json: { type: 'boolean' } });
-      adoptDiscovered(ctx);
+      const environment = checkEnvironment(ctx);
+      if (environment.checks.every(c => !['tmux', 'platform'].includes(c.id) || c.ok)) adoptDiscovered(ctx);
       const findings = doctor(ctx);
       out(values.json ? JSON.stringify(findings, null, 2) : findings.map((f) => `${f.session ? `${f.session}: ` : ''}${f.problem}`).join('\n') || 'ok');
       return ExitCode.ok;

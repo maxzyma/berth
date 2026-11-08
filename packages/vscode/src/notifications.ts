@@ -12,10 +12,10 @@ const MAC_BUNDLES: Record<string, string> = {
 export function launchNotification(command: string, args: string[]): Promise<boolean> {
   return new Promise((resolve) => {
     try {
-      const child = spawn(command, args, { stdio: 'ignore', detached: true });
-      child.once('error', () => resolve(false));
-      child.once('spawn', () => resolve(true));
-      child.unref();
+      const child = spawn(command, args, { stdio: 'ignore' });
+      const timer = setTimeout(() => { child.kill('SIGKILL'); resolve(false); }, 3000);
+      child.once('error', () => { clearTimeout(timer); resolve(false); });
+      child.once('exit', (code) => { clearTimeout(timer); resolve(code === 0); });
     } catch { resolve(false); }
   });
 }
@@ -41,9 +41,17 @@ export async function notifySystem(title: string, body: string, appName: string)
   return invocation ? launchNotification(invocation.command, invocation.args) : false;
 }
 
-/** Choose one channel for a new transition; visible work needs no interruption. */
+/** Choose the attention channel; the originating editor retains the session action. */
 export function notificationChannel(state: 'waiting' | 'done', focused: boolean,
-  current: boolean, systemEnabled: boolean): 'none' | 'editor' | 'system' {
+  current: boolean, systemEnabled: boolean, remote = false): 'none' | 'editor' | 'system' {
   if (focused) return current || state === 'done' ? 'none' : 'editor';
-  return systemEnabled ? 'system' : 'editor';
+  return systemEnabled && !remote ? 'system' : 'editor';
+}
+
+/** Keep Open available without waiting for an OS helper or losing it on success. */
+export async function deliverNotification(channel: 'none' | 'editor' | 'system',
+  editor: () => void, system: () => Promise<boolean>): Promise<void> {
+  if (channel === 'none') return;
+  editor();
+  if (channel === 'system') await system();
 }

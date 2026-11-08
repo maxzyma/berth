@@ -27,7 +27,12 @@ export function assessCapability(agent: string, version: string): CapabilityAsse
 }
 
 /** Query only a standard adapter executable; never invoke a custom launcher. */
-export function versionInspector(env: NodeJS.ProcessEnv): (adapter: Adapter, cwd?: string) => VersionObservation {
+type VersionProbe = (executable: string, cwd: string) => { status: number | null; stdout: string; error?: Error };
+
+export function versionInspector(env: NodeJS.ProcessEnv, probe: VersionProbe = (executable, cwd) =>
+  spawnSync(executable, ['--version'], { env, cwd, encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'], timeout: 1000, killSignal: 'SIGKILL', maxBuffer: 16 * 1024 }),
+): (adapter: Adapter, cwd?: string) => VersionObservation {
   const cache = new Map<string, VersionObservation>();
   let probes = 0;
   return (adapter, cwd = process.cwd()) => {
@@ -39,8 +44,7 @@ export function versionInspector(env: NodeJS.ProcessEnv): (adapter: Adapter, cwd
     probes++;
     let observation: VersionObservation;
     try {
-      const result = spawnSync(executable, ['--version'], { env, cwd, encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'], timeout: 1000, killSignal: 'SIGKILL', maxBuffer: 16 * 1024 });
+      const result = probe(executable, cwd);
       const output = result.status === 0 && !result.error ? result.stdout.trim() : '';
       const matches = [...output.matchAll(/(?:^|\s)v?(\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)(?=$|\s|\()/g)].map((match) => match[1]);
       const version = new Set(matches).size === 1 ? matches[0] : undefined;

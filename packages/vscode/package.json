@@ -130,7 +130,7 @@
       },
       {
         "command": "berth.applyLayout",
-        "title": "Create Agent Layout Profile…",
+        "title": "Use Berth Layout",
         "category": "Berth"
       },
       {
@@ -217,6 +217,16 @@
           "command": "berth.checkSetup",
           "when": "view == berth.sessions",
           "group": "2_setup@1"
+        },
+        {
+          "command": "berth.applyLayout",
+          "when": "view == berth.sessions",
+          "group": "3_layout@1"
+        },
+        {
+          "command": "berth.revertLayout",
+          "when": "view == berth.sessions",
+          "group": "3_layout@2"
         }
       ],
       "commandPalette": [
@@ -447,6 +457,12 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Show compact connection markers on the right of the session title. Full connection details remain available on hover."
+        },
+        "berth.layout.managedProfile": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "Identity of the automatically prepared Berth layout Profile. Managed by Berth; leave unchanged."
         }
       }
     },
@@ -475,7 +491,7 @@
   },
   "scripts": {
     "test:webview": "playwright test --config playwright.config.mjs",
-    "build": "tsc -p tsconfig.extension.json && tsc -p tsconfig.webview.json && tsc -p tsconfig.json && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs && esbuild ../core/src/cli/main.ts --bundle --platform=node --format=esm --outfile=dist/cli.mjs && node scripts/build-webview.mjs",
+    "build": "tsc -p tsconfig.extension.json && tsc -p tsconfig.webview.json && tsc -p tsconfig.json && esbuild src/extension.ts --bundle --platform=node --main-fields=module,main --format=cjs --external:vscode --outfile=dist/extension.cjs && esbuild ../core/src/cli/main.ts --bundle --platform=node --format=esm --outfile=dist/cli.mjs && esbuild src/profileBootstrap.ts --bundle --platform=node --main-fields=module,main --format=cjs --outfile=dist/profile-bootstrap.cjs && node scripts/build-webview.mjs",
     "test:integration": "vscode-test --config .vscode-test.mjs"
   },
   "dependencies": {
@@ -489,6 +505,8 @@
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.1.0",
     "esbuild": "^0.24.0",
+    "fflate": "0.8.2",
+    "jsonc-parser": "3.3.1",
     "lit": "^3.3.3",
     "typescript": "^5.6.0"
   },

@@ -1,7 +1,7 @@
 /** Asynchronous host transport; session decisions stay in the bundled core CLI. */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { Finding, SessionRow } from '@berthdev/berth';
+import type { EnvironmentOptions, EnvironmentReport, Finding, SessionRow } from '@berthdev/berth';
 
 const run = promisify(execFile);
 const branchCache = new Map<string, { value: string; checkedAt: number }>();
@@ -21,8 +21,8 @@ async function branch(cwd: string, env: NodeJS.ProcessEnv): Promise<string> {
   }
 }
 
-export async function sampleSessions(cli: string, env: NodeJS.ProcessEnv, runtime = process.execPath): Promise<SessionRow[]> {
-  const result = await run(runtime, [cli, 'ls', '--json'], {
+export async function sampleSessions(cli: string, env: NodeJS.ProcessEnv, runtime = process.execPath, knownOnly = false): Promise<SessionRow[]> {
+  const result = await run(runtime, [cli, 'ls', '--json', ...(knownOnly ? ['--known-only'] : [])], {
     env: { ...env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8', timeout: 10_000, killSignal: 'SIGKILL', maxBuffer: 8 * 1024 * 1024,
   });
   const data: unknown = JSON.parse(result.stdout);
@@ -76,4 +76,48 @@ export async function resolveTerminalPids(
     await Promise.race([Promise.all(reads), new Promise<void>(resolve => { timer = setTimeout(resolve, timeoutMs); })]);
     return { pids: values.map(value => value.pid), ready: values.every(value => value.ready) };
   } finally { if (timer) clearTimeout(timer); }
+}
+
+/** Base checks must work before tmux or any agent has been installed. */
+export async function sampleEnvironment(cli: string, env: NodeJS.ProcessEnv,
+  options: EnvironmentOptions = {}, runtime = process.execPath): Promise<EnvironmentReport> {
+  const args = [cli, 'environment', '--json', '--editor',
+    ...(options.externalNode ? ['--external-node'] : []),
+    ...Object.entries({ agent: options.agent, launcher: options.launcher, cwd: options.cwd })
+      .flatMap(([key, value]) => value ? [`--${key}`, value] : [])];
+  const result = await run(runtime, args, { env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
+    encoding: 'utf8', timeout: 15000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024 });
+  const data = JSON.parse(result.stdout);
+  if (!data || typeof data.ready !== 'boolean' || !Array.isArray(data.checks)
+    || !data.checks.every((c: Record<string, unknown>) => c && typeof c.id === 'string'
+      && typeof c.label === 'string' && typeof c.detail === 'string' && typeof c.ok === 'boolean'
+      && typeof c.required === 'boolean' && (c.repair === undefined || ['tmux', 'node'].includes(String(c.repair))))) {
+    throw new Error('Invalid environment report from Berth core.');
+  }
+  return data as EnvironmentReport;
+}
+
+/** Run the same core creation transaction without blocking the editor event loop. */
+/** Rename through the core, off the editor event loop; the core rolls tmux back if its snapshot fails. */
+export async function renameSession(cli: string, env: NodeJS.ProcessEnv, from: string, to: string, runtime = process.execPath): Promise<void> {
+  try {
+    await run(runtime, [cli, 'rename', from, to], { env: { ...env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8', maxBuffer: 1024 * 1024 });
+  } catch (error) {
+    const reported = (error as { stderr?: string }).stderr?.trim().replace(/^berth:\s*/, '');
+    throw new Error(reported || (error as Error).message);
+  }
+}
+
+export async function createSession(cli: string, env: NodeJS.ProcessEnv,
+  options: { agent: string; cwd: string; origin?: string; ownerWorkspace?: string }, runtime = process.execPath): Promise<string> {
+  const result = await run(runtime, [cli, 'new', options.agent, '--cwd', options.cwd,
+    '--origin', options.origin ?? 'vscode',
+    ...(options.ownerWorkspace ? ['--owner-workspace', options.ownerWorkspace] : [])], {
+    env: { ...env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8',
+    maxBuffer: 1024 * 1024,
+  });
+  // Do not timeout/retry a mutation: it could already have created a session.
+  const name = result.stdout.trim();
+  if (!name || /[\r\n]/.test(name)) throw new Error('Creation result is unavailable. Refresh the session list before trying again.');
+  return name;
 }

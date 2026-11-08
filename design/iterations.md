@@ -35,6 +35,452 @@ serve concrete automation needs through existing CLI operations first. Revisit
 an additional interface only when a specific workflow cannot be served by these
 mechanisms, with its scope and maintenance cost justified separately.
 
+## Session responsiveness investigation
+
+**State:** Fixed in the locally installed candidate; the daily window needs reload.
+The core removes confirmed stale UUID tickets and avoids `ps` for nonexistent
+PIDs while retaining exact identity checks for live owners. Creation uses an
+asynchronous core CLI worker and preserves the transaction and snapshot. Local
+activation no longer waits for full discovery; terminal lifecycle revisions
+reject stale inventory. Successful creation adds its verified row immediately.
+Explorer follow returns focus to its triggering terminal and cancels obsolete
+requests rather than focusing the older main terminal.
+
+Pre-fix baseline (superseded): `593b1e9` plus local candidate worktree,
+2026-11-07 23:05 +0800. Three inventory samples against 12 sessions took about
+6–10 seconds. One sample started 2,082 `ps` processes; a call-site trace attributed
+2,048 to ticket checks. Of 410 ticket records, 407 had nonexistent owner PIDs.
+The old scan ignored those records without removing them and inspected each via
+`ps` before checking existence. Worker timeout causing more stale tickets remains
+an unverified amplification hypothesis.
+
+Post-fix samples on the same host, now with 11 sessions: 1,361 ms / 45 `ps` calls
+and 1,317 ms / 28 calls. These are individual samples with a changed session count,
+not percentiles or a controlled end-to-end comparison. An isolated real-tmux
+case with 500 dead tickets and snapshot hooks created a usable shell; creation
+returned in 335 ms and `exit` removed its session in 14 ms. The closure snapshot
+was verified and the unrelated session survived. These times exclude editor
+rendering. A regression fixture now keeps a waiting command alive when its
+pseudo-terminal supplies EOF; it no longer relies on the old idle-placeholder bug.
+
+The final native API run in the isolated VS Code window passed creation plus
+Berth opening, rapid terminal switching, file focus in another editor group,
+exit, list reconciliation and preservation of the other session. Creation plus
+opening measured 1,410 / 1,273 ms; terminal exit measured 308 ms. This verifies
+API-observed focus and lifecycle, not a visual review of the rendered marker or
+an automated traversal of the New Session picker.
+
+The serial suite ran 383 cases: 370 passed, 11 skipped, and two failed. One was
+the obsolete assertion that a dead ticket remains on disk; its replacement
+retains the six-process mutual-exclusion check and requires reclamation. The
+other was a version-probe failure that passed in isolation; the initial failed
+probe's cause was not captured. Both and the new lock, worker and focus cases
+passed the final five-case focused run. The full suite was not rerun after the
+test-only assertion update.
+
+Earlier candidate (superseded): `berth-vscode-0.4.5-responsive.vsix`, SHA-256
+`3861e8f8761b2d07a1ed699055c5e5ca2dd7b050cd70473907e166be73aea894`.
+That candidate was verified in both installations before the later updates.
+Selection and the active-terminal marker remain distinct. Existing persistence
+and recovery gates still apply; this is not a formal release.
+
+
+Lifecycle update, baseline `593b1e9` plus candidate worktree, verified
+2026-11-08 00:50 +0800: terminal open/close events now request a separate
+coalesced `ls --json --known-only` read. Full discovery no longer gates membership
+updates. Lifecycle revisions and publication order reject obsolete results;
+known-session reads preserve sampled activity and do not emit notifications.
+The full inventory also no longer computes and discards a duplicate list.
+
+One same-host comparison of 11 sessions measured 129 ms for the known-session
+read and 1,121 ms for full inspection. In the isolated editor, the actual sidebar
+New Session / Shell picker and subsequent `exit` were exercised against both
+candidates. The previous candidate measured 1,584 ms from command invocation to
+the row appearing and 1,418 ms from sending `exit` to removal from the view model.
+The new candidate measured 1,496 ms and 422 ms respectively. These are single
+samples, not percentiles; creation improvement is small. The measurement includes
+automated picker acceptance and observes the model sent to the sidebar, not pixel
+paint timing. Creation remains a follow-up performance target.
+
+All 68 controller/transport cases and the new real-tmux lifecycle case passed.
+The latter verifies removal after closure evidence, preservation of an unattached
+live session and recovery after server death. Build, whitespace and public-content
+checks passed. Lifecycle candidate (superseded):
+`berth-vscode-0.4.5-lifecycle.vsix`, SHA-256
+`15f208e54477a2f9b7b66b794605768811b71c812c7af93b9a9c454b24112240`.
+Both installed bundles match the archive; temporary native diagnostic commands
+were removed. The isolated editor was reloaded. The daily editor needs reload.
+No formal release was performed.
+
+Creation follow-up, baseline `593b1e9` plus candidate worktree, 2026-11-08:
+built-in creation now includes workspace ownership in the first snapshot.
+Attachment completion acknowledges current activity and reads the row without
+repeating that snapshot; a changed workspace still takes the normal ownership
+update path. First attachment skips existing-client handoff inspection and does
+not detach clients arriving concurrently. Existing-session opening keeps its
+handoff checks. An already-ready environment no longer triggers full inventory
+again before each creation.
+
+Native diagnostic timing before these changes: preparation 360 ms, opening
+314 ms (including 114 ms handoff inspection), completion 351 ms, command-to-row
+1,240 ms. The final candidate measured preparation 602 ms, opening 285 ms,
+completion 135 ms and command-to-row 1,340 ms; exit-to-row-removal was 210 ms.
+Intermediate command-to-row samples were 1,254 and 1,341 ms. The removed repeated
+work is verified, but these samples do not establish lower end-to-end latency;
+preparation cost and contention remain an investigation target. Measurements
+include picker acceptance and observe the view model, not native pixel painting.
+
+The controller/transport regression run passed 69 cases. After the final
+first-attachment change, the three affected shell, ownership and existing-client
+handoff cases passed. The new ownership test proves the initial recovery record
+contains its owner, unchanged completion adds no snapshot, and changed ownership
+is still saved. Build and public-content checks passed. Creation candidate (superseded):
+`berth-vscode-0.4.5-create.vsix`, SHA-256
+`cb4ec8eb56ee70e22892608a9880ac45897cffd3746d06362dc53dbefc205b63`.
+Daily and isolated installed bundles match this archive; native diagnostic
+commands were removed. The daily editor needs reload. No formal release.
+
+Selection background follow-up, `593b1e9` plus candidate worktree,
+2026-11-08: the terminal accent used host activity, while the background used
+only the last clicked row. Verified terminal changes now select the corresponding
+row, including a newly created unmanaged shell. Unrelated inventory preserves
+explicit selection; opening a file clears the terminal accent without clearing
+selection. Keyboard focus and scroll are not moved. This resolves the identified
+background synchronization defect; the unmanaged marker fix remains in place.
+
+Ten targeted Chrome cases passed across dark/light themes at 1440×900 and
+1280×800. Four switching cases were then rerun to capture the unfocused sidebar
+background; all passed. The dark and light rendered captures were visually
+reviewed. Current candidate: `berth-vscode-0.4.5-selection.vsix`, SHA-256
+`6cad79c281fa71dfa81396686f0a9f5a432cafd97c4c245960932bb112ae45cf`.
+Installed payloads match the archive (the editor adds package metadata). The
+isolated window was reloaded; daily-window acceptance needs reload. No formal
+release. This change does not establish an end-to-end creation speed improvement.
+
+Creation preparation follow-up, `593b1e9` plus candidate worktree, 2026-11-08:
+profiling `berth new` showed most of its time in the snapshot it requires:
+discovery read the whole process table and every pane's process arguments, and
+every managed pane was captured again. The creation snapshot now skips discovery
+and keeps each other live session's newest saved scrollback when its identity
+matches (spec §5.3). Session metadata is written in one tmux call; a value's
+final `;` is escaped, which also stops tmux from truncating such values.
+Attachment confirmation compares the terminal PID with the session's client PIDs
+before reading process ancestry.
+
+On an isolated server with 12 shell sessions, `berth new` took 379–588 ms
+(median 547 ms, five samples) before and 181–352 ms (median 204 ms) after. These
+are CLI samples, not editor command-to-row timings. Three new regressions cover
+the creation snapshot, metadata separators and attachment; the full suite passed
+(378 passed, 11 skipped, 0 failed). Candidate:
+`berth-vscode-0.4.5-create2.vsix`, SHA-256
+`711522b22287e80e181ee90fb2b2e6cd5103d0be76bc0ca8486d6578884c4617`, installed
+locally; the daily editor needs reload. No formal release.
+
+Hook setup and maintenance, same baseline, 2026-11-08: hooks written by
+`berth tmux install` record the runtime and CLI that ran the installer. A
+standalone CLI that is never upgraded keeps running old code against current
+state, and a removed runtime silently disables the hooks; setup also depended on
+users reading the README. VS Code now installs tmux hooks with the editor runtime
+and the Berth-owned runtime file and repairs a block whose targets are gone. A
+setup reminder offers missing or unusable agent hooks and absent or foreign tmux
+hooks after startup (agents in live sessions) and after creating an agent
+session, in one notification with remembered answers (spec §8). The README no
+longer presents the standalone CLI as required. Diagnose Problems shows the tmux
+hook state.
+
+Rename now explains accepted characters while typing, runs through the core CLI
+outside the editor event loop and takes a change snapshot that keeps saved
+scrollback by session identity under the new name.
+
+New regressions cover hook block inspection, the reminder policy, rename input,
+transport and snapshot; the full suite passed (385 passed, 11 skipped, 0 failed).
+On the development machine the tmux block recorded an older standalone CLI; it
+was replaced through the runtime command, the configuration parsed, inspection
+reported current and the hook command started. Agent and tmux hooks there are
+healthy, so the reminder and the repair notice still need native review on a
+machine with missing or stale hooks. Candidate: `berth-vscode-0.4.5-setup.vsix`,
+SHA-256 `3826884a161534e6da2a4c870bdf0b8dd87df28882a96adfa5664069ac08c7fb`,
+installed locally; the daily editor needs reload. No formal release.
+
+## Automatic Berth layout preparation
+
+**State:** Local candidate. On macOS VS Code 1.143.1, the isolated native
+command path creates the independent Profile, loads the preset, installs Berth,
+restores the original folder and reuses the same Profile on a second invocation.
+Source settings remain byte-for-byte unchanged. Focused bootstrap checks and seven onboarding tests pass. Failed Use leaves
+onboarding eligible after reload; only Keep persists an opt-out. The older
+acknowledgement boolean is ignored because it was written before setup succeeded. This is command-path evidence, not visual acceptance or
+a completed cross-platform release gate.
+
+Remaining acceptance: dirty-editor cancellation, untitled workspaces, all-profile
+overrides, installer failure after native switching, named source Profiles, and
+other editor versions. Multi-root restoration and JSONC preservation passed in
+the native candidate journey below. The older
+manual-import native runner does not validate this bootstrap.
+
+Selecting Use must automatically prepare and activate the preset in the same
+window. Verify absent, existing, already-active and same-name user-created
+Profiles; cancellation of dirty-editor prompts; interrupted preparation and
+retry; multi-root/untitled workspaces; unchanged source/shared settings; and
+availability of the installed Berth extension after switching. Merely creating
+an empty Profile or opening a creation/import screen is a failure.
+
+Investigation baseline: `593b1e9` plus local layout changes, 2026-11-07.
+VS Code 1.143.1 creates an empty missing Profile during window opening with
+`forceProfile`; CLI extension installation with `--profile` requires that
+Profile to exist (isolated probe returned `Profile 'Berth' not found`). These are
+different paths. Native import offers configuration review, not unattended
+preset creation. Reopening an already open workspace bypasses Profile creation
+in the native window manager. The adapter must initialize within the same window
+and then restore the exact workspace; it must not fall back to manual creation.
+Native desktop extension storage uses `vscode-userdata:` as well as `file:`;
+rejecting the former incorrectly rejects supported local windows.
+
+The pre-0.4.0 implementation applied layout settings directly and opened the
+sessions container. It did not create an independent Profile. The later native
+acceptance runner explicitly clicks Create; its passing result does not verify
+unattended setup. Source inspection at the same VS Code commit confirms that
+[Profile URLs](https://github.com/microsoft/vscode/blob/e646868227c3e3a9e3f24277c8c7220be42c0be7/src/vs/workbench/contrib/userDataProfile/browser/userDataProfile.ts)
+open the Profiles editor, while
+[createAndEnterProfile](https://github.com/microsoft/vscode/blob/e646868227c3e3a9e3f24277c8c7220be42c0be7/src/vs/workbench/services/userDataProfile/browser/userDataProfileManagement.ts)
+is an internal service rather than an exposed extension command. The selected
+design retains an independent Profile and automatic preparation; direct changes
+to the source Profile are outside the onboarding contract.
+
+## Candidate native acceptance
+
+Window-close follow-up (2026-11-07, baseline `593b1e9` plus local changes):
+VS Code 1.143.1 failed to attach saved PTYs after window close and launched
+default shells; Berth then opened the detached managed session. The prepared
+Profile now enables persistence across window close as well as application exit.
+Verified prepared Profiles receive missing settings once, preserving explicit
+overrides. Existing fallback shells are retained because their titles do not
+prove ownership. The follow-up candidate is installed only in the isolated
+acceptance environment. The build and 69 affected controller, Profile and persistence
+checks passed. One native File-menu close/reopen round preserved the four-terminal
+count (three pre-existing fallback shells and one managed attachment), all three
+tmux pane PIDs, and one client attached to the intended managed session. The
+prepared Profile has both persistence settings. Existing fallback shells still
+logged missing-PTY warnings; they were not deleted. This verifies the managed
+attachment in this round, not cleanup of historical native terminal state.
+The earlier candidate hash below does not describe this follow-up build.
+The local full regression after the persistence change passed 364 tests with
+11 expected skips and no failures. The window-revival archive hash is
+`b036f519353ebc7faf904f12fbed403df3e680eb8deaa8fc872d5379e88940f8`;
+all 33 installed payload files matched it (installation metadata excluded).
+
+Notification follow-up: a system banner was reported visible, but its click/Open
+outcome was reported ineffective. Runtime inspection found the named target active
+with a matching tmux client, so application focus and user action attribution
+remain unresolved. Inspection also found that helper success omitted the editor
+Open action. The candidate now retains that action in the originating window
+independently of OS delivery, with foreground suppression unchanged. This change
+passed all six targeted notification tests. Its isolated installed archive hash is
+`229daebb419652b015793669b4dab8ec2a778595077b05349b46fce14a13816e`;
+all 33 payload files matched. Native reacceptance is pending; the full regression
+above predates this change.
+
+**State:** Release acceptance remains open. Baseline `593b1e9` plus local changes,
+2026-11-07 12:27 +0800; VS Code 1.143.1 on macOS arm64.
+The isolated installation uses temporary HOME, state and tmux endpoints, with
+in-memory secret storage. No production agent credentials are required.
+
+The candidate VSIX SHA-256 is
+`8cafee9c5f72dac590bdad5da1279ddf529f5c5ea3da863c8ae682426c5acf0e`.
+The isolated installed payload matches all 33 packaged files, excluding only
+VS Code's added manifest installation metadata.
+
+Native testing found and corrected these defects:
+
+- Environment preflight rejected Shell's intentional empty launch command.
+  It now accepts tmux's default shell while rejecting missing explicit overrides.
+- A version process that ignored termination could outlive its deadline. Dependency
+  probes now use forced termination after the existing timeout.
+- Profile reuse parsed user settings as JSON, rejecting valid comments and trailing
+  commas. It now reads JSONC without rewriting the file and rejects malformed input.
+- The JSONC dependency's CommonJS entry left unresolved modules in the packaged
+  extension. Both extension and bootstrap builds now prefer the package's module
+  entry; a test loads the actual bootstrap bundle in a separate process.
+- Native terminal revival omitted creation metadata, causing startup to overlook
+  a live local session and open another detached session. Window presence now
+  includes verified terminal-PID/tmux-client mappings. Reuse additionally requires
+  the matching owner marker from creation metadata or the live process; foreign
+  and missing markers cannot establish ownership. The process check is bounded
+  and never logs the environment.
+- Install confirmation omitted the selected package manager's absolute path.
+  It now displays the executable and target host before execution.
+- Native Windows activation constructed Unix host registration before its
+  environment check. It now offers remote-host guidance before backend access.
+- System notifications treated process spawn as successful delivery. Helpers now
+  have a three-second deadline and must exit successfully; failure falls back to
+  the editor. Remote extension hosts use editor notifications directly.
+- A clean Linux installation lacked optional `lsof` and `sqlite3`. Diagnostics
+  now explain the affected Codex capabilities without blocking basic use.
+- A stale native terminal with an unresolved PID blocked every session open.
+  Controller and host checks now scope the wait to new attachments whose target
+  already has clients. Detached targets and verified owned views remain usable;
+  unknown terminals never become handoff sources.
+
+Completed native cases: automatic layout preparation, four packaged integration
+cases, both Shell creation routes, empty and matching session search, details
+open/close, terminal-preserving window reload, working/done/unread transitions,
+and file browsing in a separate editor group. Normal installed-window Profile
+round trips preserved an unsaved draft, the multi-root workspace and JSONC
+comments without creating another Profile.
+
+The missing-tmux journey passed cancellation without execution and approved-task
+execution followed by a real tmux version recheck. The package manager was an
+isolated fixture; this does not certify a real package installation. Optional
+standalone Node/npm diagnostics were visible. An earlier environment probe
+resolved system Homebrew through VS Code's login-shell PATH; Homebrew rejected
+this host OS before installing a package. The corrected test supplies an exact
+isolated PATH and verifies the executable in the confirmation before proceeding.
+
+Browser coverage passed 110 cases at both declared viewports. Five isolated native
+Claude/Codex lifecycle cases passed against a loopback model fixture. Before the final controller guard change,
+complete macOS regression passed 362 tests, with 11 skipped and no failures.
+Ubuntu 24.04 ARM64 with Node 22.22.0 passed 359, with 14 skipped and no failures.
+VS Code 1.145.2 on the same Linux VM passed all four native integration cases
+(activation, file/terminal group placement, real attachment/detach and settings);
+the separate cross-process ownership case was not enabled in that runner.
+The first Linux run failed four Codex cases because the clean host lacked `lsof`
+and `sqlite3`; after installing these prerequisites, the affected nine cases and
+the complete suite passed. The release matrix now installs these test prerequisites.
+After narrowing the controller guard, all 64 affected controller, ownership and
+platform tests passed on each OS. The packaged native notification journey then
+passed with a genuinely unresolved sibling terminal: the background editor
+fallback appeared and Open attached the exact target. Clipboard and unchanged
+webview evidence were reused.
+Version parsing/cache assertions use an injected deterministic probe; timeout
+and other native probes retain subprocess coverage. An earlier full run hit the
+one-second boot-identity probe deadline. The focused rerun and final full run
+passed; the timeout remains recorded rather than claimed to be eliminated.
+
+The packaged restart test now preserves exactly one attached terminal, workspace
+and Profile after CDP browser close and application restart. Selecting the revived
+session again keeps its PID and terminal count; before ownership recovery was
+added, selection replaced that process. Before the fix, this
+same journey opened a second detached session. Three focused startup and three ownership regressions passed, including a real
+process marker check and rejection of foreign markers. The later user-operated File-menu close/reopen round is recorded above;
+application quit remains distinct from window close. Earlier forced
+fixture restarts left stale shell tabs; those mixed-fixture observations are not
+used as evidence for the clean restart result.
+
+Native clipboard round trips passed for the session name, a long path with spaces
+and Unicode, and a conversation ID. Each value was copied from details and pasted
+into a real scratch editor; the original system clipboard was restored.
+Before notification permission was enabled, the helper returned exit 3. The package
+showed the editor fallback, and Open attached the exact session, verified by the
+native terminal PID matching the tmux client. A terminal-name assertion was not
+used as the identity oracle.
+
+iTerm2 3.7.0 passed isolated attach, `user.berthSession` marking, detach, reattach
+with the same pane process, and session survival after the test shell exited.
+The test window was closed and both pre-existing windows remained open.
+
+Remote-SSH 0.128.0 connected the macOS client to the isolated Ubuntu host. Native
+open, reload, repeated selection and application close/reconnect retained the
+remote pane process and restored one client. A verified background client received
+the editor notification. Profile preparation was not attempted on the server.
+The final installed candidate also passed remote reload and reuse. The temporary
+Linux VM and remote editor were removed after acceptance; the local isolated
+candidate window remains available. No daily iTerm2 window was restarted.
+
+Plain-shell launch fix (2026-11-07, base `593b1e9` plus local candidate):
+new and recovered shell sessions respawned the temporary staging command because
+no replacement command was supplied to tmux. The native symptom was an attached
+terminal with a blank screen and a Node/Electron idle process. Both paths now use
+one helper that explicitly starts the configured default shell in login mode.
+A regression executes input in both a fresh shell and one rebuilt from a snapshot,
+and checks the working directory. All 33 affected creation, recovery, transaction
+and frontend tests passed. The reported empty sessions were replaced with real
+shells and their prompts verified; the first empty-string repair exited instead
+of starting a shell, so those two sessions were recreated. No agent conversation
+was running in those staging processes. The local VSIX (SHA-256
+`63282796d41b48dd6483a78c0cd97283f68756ae45b2adabcc61bbdae89b4591`)
+was installed into the daily and isolated editor extension directories; bundled
+CLI and extension bytes match the package. Reload remains necessary for active
+windows. Notification attachment alone is not
+accepted as proof that a terminal is usable.
+
+Native iTerm2 follow-up (2026-11-07 21:42 +0800, base `593b1e9` plus local
+candidate): concurrent attach exposed a hook identity bug. Current-client formats
+could name another client; client hooks now pass `hook_client`, resolve its live
+session and tty, and revalidate under the lock. Terminal identification arrived
+about three seconds late for inactive split panes; a bounded five-second wait
+outside the lock preserves unknown values without guessing. All four native panes
+received the correct binding, and 24 affected core tests passed.
+
+Application-menu Quit and restart passed once with two windows, three tabs and
+four panes, unchanged tmux pane PIDs and one client per session. This exercised
+synthetic shell sessions, not agent conversation rebuilding.
+
+Crash recovery has a verified native-save boundary (2026-11-07 21:49 +0800,
+base `593b1e9` plus the same local candidate). Before a save, the restoration
+database still named terminated processes from the previous quit. Forced exit
+then reopened that saved layout and placed surviving clients in an orphan window;
+Berth AutoLaunch added duplicate attachments to the restored shells. Disabling
+AutoLaunch reproduced the extra native window, without duplicate attachments.
+After activating then hiding the isolated application, the database held the live
+terminal identities. Forced exit and restart then preserved the two windows,
+three tabs, four pane bindings, client ttys and original tmux pane PIDs. The
+[source save trigger](https://github.com/gnachman/iTerm2/blob/v3.7.0/sources/AppKit/iTermApplicationDelegate.m)
+is `applicationDidResignActive:`; the
+[orphan adopter](https://github.com/gnachman/iTerm2/blob/v3.7.0/sources/Tasks/iTermOrphanServerAdopter.m)
+opens surviving unclaimed processes separately. This explains the failing and
+passing conditions; it does not claim that crashes before a native save are fixed.
+No daily instance was quit. Test runtime: macOS 26.6.2, iTerm2 3.7.0, Node 26.13.0.
+
+A local core guard now accepts the startup ttys already running tmux in the same
+iTerm2 instance and returns no automatic attach command when one is a live client
+of the target session. The adapter takes one snapshot before restoring any pane;
+manual attachment remains available. Fourteen affected tests passed and the full
+local suite passed 367 cases with 11 opt-in skips. The strict-query
+refinement then passed the same 14 affected tests. Native stale-save crash retest
+remains required before this guard is accepted. The final VSIX must be rebuilt
+after that check.
+
+Remaining in this acceptance scope: system-notification activation, the editor
+Open retest, and the native stale-save crash test of the duplicate-client guard.
+The notification retest uses a fresh target with no client. Its isolated editor
+still reports focused after application switching, so that observation cannot
+serve as a background system-notification test. Machine reboot remains optional.
+Windows/WSL desktop and a new remote CI-matrix run are excluded from this round
+by maintainer decision (2026-11-07); neither is recorded as passed. Historical fallback-shell warnings
+remain in the mixed local fixture; safe handling and clean-fixture coverage remain
+to be assessed. Foreground operation is authorized. The desktop-control connector
+still fails to start after its service was restarted; the visible Computer Use
+Accessibility permission is enabled. After the user enabled notification permission,
+the helper returned exit 0 and the user saw a banner, but click activation remains
+unverified. No system permission database was reset.
+The Windows CI job checks build and activation boundaries, not a live WSL desktop;
+the new CI matrix has not yet run remotely. Remote and iTerm2 checks need the
+isolated environments specified in [manual acceptance](manual-acceptance.md).
+Do not mark this candidate release-ready until those results are recorded.
+
+## Environment setup and repair
+
+**State:** Local candidate, based on `593b1e9` plus working changes,
+2026-11-07. Environment checks run before inventory and session creation, including
+an empty installation. The editor uses its own Node runtime; standalone checks
+include PATH Node and npm. Platform, configured tmux, storage and the selected
+launcher are checked without creating a tmux server. Custom scripts remain owned
+by the terminal. Berth-owned hook runtime files are repaired automatically.
+
+System dependency installation requires an explicit command review and uses an
+existing package manager in the extension host. Completion triggers a fresh
+check; an installer exit is not treated as proof of readiness. A runtime owned
+by another installation prefix is not silently replaced.
+
+Focused evidence: nine environment tests, seven onboarding tests, two inventory
+transport/diagnostic tests, ten capability/hook-health regressions and 28 doctor
+regressions passed. Build passed. Isolated native VS Code verified healthy startup
+and task completion correlation using a harmless process, not a package install.
+Remaining acceptance: native missing-dependency review, cancellation, privileged
+installer interaction and remote-host installation. No system packages were
+installed during these checks. The local VSIX is installed for manual reload;
+this candidate has not been released.
+
 ## Editor creation entry
 
 A single Berth button precedes the native plus in terminal Editor toolbars.

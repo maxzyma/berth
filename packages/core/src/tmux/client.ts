@@ -117,13 +117,15 @@ export class Tmux {
 
   setMeta(name: string, meta: SessionMeta): void {
     const values = meta.state === undefined ? meta : { ...meta, activityTiming: meta.activityTiming ?? '', stateRevision: randomUUID() };
-    for (const [key, value] of Object.entries(values)) {
-      if (value === undefined) continue;
+    const commands = Object.entries(values).flatMap(([key, value]) => {
+      if (value === undefined) return [];
       // Argument values must survive the line-delimited tmux transport unchanged.
       const encoded = key === 'argv' && (/[\r\n\x1f]/.test(value) || value.startsWith('berth-json:'))
         ? `berth-json:${JSON.stringify(value)}` : value;
-      this.run(['set-option', '-t', `=${name}:`, `@berth_${key}`, encoded]);
-    }
+      // tmux reads an argument's final `;` as a command separator; `\;` keeps it literal.
+      return [['set-option', '-t', `=${name}:`, `@berth_${key}`, encoded.endsWith(';') ? `${encoded.slice(0, -1)}\\;` : encoded]];
+    });
+    if (commands.length) this.run(commands.flatMap((args, index) => index ? [';', ...args] : args));
   }
 
   /**
@@ -132,8 +134,7 @@ export class Tmux {
    */
   setTitle(name: string): void {
     const glyph = '#{?#{==:#{@berth_state},working},● ,}#{?#{==:#{@berth_state},waiting},◐ ,}#{?#{==:#{@berth_state},done},✓ ,}';
-    this.run(['set-option', '-t', `=${name}:`, 'set-titles', 'on'], true);
-    this.run(['set-option', '-t', `=${name}:`, 'set-titles-string', `${glyph}#S`], true);
+    this.run(['set-option', '-t', `=${name}:`, 'set-titles', 'on', ';', 'set-option', '-t', `=${name}:`, 'set-titles-string', `${glyph}#S`], true);
   }
 
   renameSession(from: string, to: string): void {

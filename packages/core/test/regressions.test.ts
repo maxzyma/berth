@@ -110,7 +110,7 @@ test('R-termtype a client reporting no terminal type does not make the attach ho
   sb.tmux('new-session', '-d', '-s', 'boot', 'sleep 3600');
   sb.cli('tmux', 'install');
   const hook = sb.tmux('show-hooks', '-g', 'client-attached');
-  assert.match(hook, /--termtype=#\{q:client_termtype\}/);
+  assert.match(hook, /--client=#\{q:hook_client\}/);
   assert.match(hook, /\|\| true/);
 });
 

@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, existsSync, readFileSync, chmodSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readdirSync, existsSync, readFileSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { create, adopt, rename, end, list } from '../src/registry/sessions.js';
@@ -141,4 +141,55 @@ esac
   assert.equal(drifted.legacy, true);
   assert.equal(drifted.wrong, false);
   assert.notEqual(first.key, probe('22222222-2222-4222-8222-222222222222', '1').key);
+});
+
+
+test('dead lock tickets are reclaimed while live and unverified owners remain protected', t => {
+  const sb = sandbox(t), dir = join(sb.root, 'lock-load'), tickets = join(dir, 'ensure-tickets');
+  mkdirSync(tickets, { recursive: true });
+  const exited = spawnSync(process.execPath, ['-e', 'process.exit(0)']);
+  assert.equal(exited.status, 0);
+  for (let i = 0; i < 500; i++) writeFileSync(join(tickets, `dead-${i}.json`),
+    JSON.stringify({ id: `dead-${i}`, pid: exited.pid, number: 1, createdAt: Date.now() }));
+  assert.equal(withLock(dir, () => 'entered'), 'entered');
+  assert.deepEqual(readdirSync(tickets), [], 'dead tickets must not be scanned on every later operation');
+  const live = join(tickets, 'live.json');
+  writeFileSync(live, JSON.stringify({ id: 'live', pid: process.pid, number: 0,
+    lifetime: processLifetime(process.pid)!.key, createdAt: Date.now() }));
+  assert.throws(() => withLock(dir, () => assert.fail('must not steal live lock'), 30), /another restore/);
+  assert.ok(existsSync(live));
+  writeFileSync(live, '{invalid');
+  assert.throws(() => withLock(dir, () => assert.fail('must not bypass unknown owner'), 30));
+  assert.ok(existsSync(live));
+});
+
+test('creation snapshot records the new session and keeps saved scrollback of the others', async (t) => {
+  const sb = sandbox(t), ctx = sb.ctx();
+  create(ctx, { agent: 'shell', cwd: sb.root, name: 'earlier' });
+  takeSnapshot(ctx);
+  sb.tmux('send-keys', '-t', '=earlier:', 'echo AFTER-SAVE', 'Enter');
+  await waitFor(() => ctx.tmux.capturePane('earlier', 50).includes('AFTER-SAVE'), 'output after the saved snapshot');
+  create(ctx, { agent: 'shell', cwd: sb.root, name: 'created' });
+  const snapshot = ctx.store.newest()!;
+  assert.deepEqual(snapshot.sessions.map((session) => session.name).sort(), ['created', 'earlier']);
+  assert.doesNotMatch(ctx.store.scrollback(snapshot.dir, 'earlier'), /AFTER-SAVE/);
+  assert.notEqual(ctx.store.optionalScrollback(snapshot.dir, 'created'), undefined);
+  takeSnapshot(ctx);
+  assert.match(ctx.store.scrollback(ctx.store.newest()!.dir, 'earlier'), /AFTER-SAVE/);
+});
+
+test('rename snapshot keeps saved scrollback under the new name', async (t) => {
+  const sb = sandbox(t), ctx = sb.ctx();
+  create(ctx, { agent: 'shell', cwd: sb.root, name: 'before' });
+  takeSnapshot(ctx);
+  sb.tmux('send-keys', '-t', '=before:', 'echo AFTER-SAVE', 'Enter');
+  await waitFor(() => ctx.tmux.capturePane('before', 50).includes('AFTER-SAVE'), 'output after the saved snapshot');
+  const saved = ctx.store.scrollback(ctx.store.newest()!.dir, 'before');
+  assert.equal(sb.cli('rename', 'before', 'after').status, 0);
+  const snapshot = ctx.store.newest()!;
+  assert.deepEqual(snapshot.sessions.map((session) => session.name), ['after']);
+  assert.equal(ctx.store.scrollback(snapshot.dir, 'after'), saved);
+  const refused = sb.cli('rename', 'after', 'bad name');
+  assert.notEqual(refused.status, 0);
+  assert.match(refused.stderr, /invalid session name/);
 });

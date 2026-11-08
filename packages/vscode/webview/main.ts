@@ -78,6 +78,12 @@ class BerthSessions extends LitElement {
       this.hover.dismiss();
     } else if (message.type === 'model') {
       const first = !this.model;
+      const rows = (tree: TreeView) => [...tree.groups.flatMap(group => group.rows), ...tree.unmanaged];
+      const previousActive = this.model && rows(this.model.tree).find(row => row.active)?.name;
+      const nextRows = rows(message.model);
+      const active = nextRows.find(row => row.active)?.name;
+      if (active && active !== previousActive) this.selectedSession = active;
+      else if (this.selectedSession && !nextRows.some(row => row.name === this.selectedSession)) this.selectedSession = undefined;
       this.model = { tree: message.model, flatten: message.flatten };
       if (first) requestAnimationFrame(() => window.scrollTo(0, vscode.getState()?.scrollTop ?? 0));
     } else {

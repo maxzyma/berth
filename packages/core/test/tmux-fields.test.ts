@@ -64,3 +64,12 @@ test('CR26 client and pane records retain an externally supplied whitespace and 
   assert.equal(connections(ctx.tmux).get(name)![0].pid, client.pid);
   assert.equal(clientsOf(ctx.tmux, name).length, 1);
 });
+
+test('batched metadata keeps separators, escapes and empty values literal', (t) => {
+  const sb = sandbox(t), ctx = sb.ctx();
+  ctx.tmux.newSession('meta', sb.root, 'sleep 3600');
+  const values = { cwd: 'ends;', note: 'mid;dle', topic: 'escaped\\;', origin: ';', state: '' };
+  ctx.tmux.setMeta('meta', values);
+  const meta = ctx.tmux.listSessions().find((session) => session.name === 'meta')!.meta;
+  assert.deepEqual({ cwd: meta.cwd, note: meta.note, topic: meta.topic, origin: meta.origin, state: meta.state ?? '' }, values);
+});

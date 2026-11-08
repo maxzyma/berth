@@ -1,12 +1,12 @@
-import { clientAttached } from '../src/present/attach.js';
+import { clientAttached, clientAttachedWhenReady } from '../src/present/attach.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { killServer, sandbox, waitFor } from './helpers.js';
 import { presentState, sequencesFor } from '../src/present/state.js';
-import { iterm2Paths } from '../src/iterm2/install.js';
+import { iterm2Paths, reattach } from '../src/iterm2/install.js';
 import { clearBell } from '../src/registry/sessions.js';
 import { shellQuote } from '../src/shell.js';
 import { Tmux } from '../src/tmux/client.js';
@@ -107,8 +107,8 @@ test('tmux install adds one managed block and snapshot hooks; uninstall removes 
   const hooks = sb.tmux('show-hooks', '-g', 'session-created');
   assert.match(hooks, /session-created\[0\] display-message mine/);
   assert.match(hooks, /session-created\[97\] run-shell -b/);
-  assert.match(sb.tmux('show-hooks', '-g', 'client-attached'), /\[97\].*attached --session/);
-  assert.match(sb.tmux('show-hooks', '-g', 'client-session-changed'), /\[97\].*attached --session/);
+  assert.match(sb.tmux('show-hooks', '-g', 'client-attached'), /\[97\].*attached --client=/);
+  assert.match(sb.tmux('show-hooks', '-g', 'client-session-changed'), /\[97\].*attached --client=/);
 
   // A rename triggers a snapshot through the installed hook.
   sb.cli('new', 'claude', '--cwd', sb.makeDir('hooked'));
@@ -209,4 +209,99 @@ test('CR79 a delayed event cannot reclaim origin after a real client switches se
   await waitFor(() => !connected(), 'client switch');
   clientAttached(ctx, { session: 'old', tty, termtype: 'iTerm2 3.7.0' });
   assert.equal(sb.tmux('display-message', '-p', '-t', '=old:', '#{@berth_origin}').trim(), 'vscode');
+});
+
+test('I2 hook client identity selects its own session instead of the current client', (t) => {
+  const sb = sandbox(t);
+  {
+    for (const name of ['one', 'two']) sb.cli('new', 'shell', '--name', name, '--cwd', sb.makeDir(name));
+    const first = join(sb.root, 'first-tty');
+    const second = join(sb.root, 'second-tty');
+    writeFileSync(first, '');
+    writeFileSync(second, '');
+    const ctx = sb.ctx();
+    let lookups = 0;
+    const tmux = new Proxy(ctx.tmux, { get(target, key) {
+      if (key === 'run') return (args: string[], allowFailure?: boolean) => {
+        if (args[0] !== 'list-clients') return target.run(args, allowFailure);
+        const output = args.includes('-t')
+          ? `${args[args.indexOf('-t') + 1] === '=one' ? first : second}~iTerm2 3.7.0\n`
+          : `client-two~two~${second}~iTerm2 3.7.0\nclient-one~one~${first}~${++lookups === 1 ? '' : 'iTerm2 3.7.0'}\n`;
+        return { ok: true, stdout: output, stderr: '' };
+      };
+      const value = Reflect.get(target, key);
+      return typeof value === 'function' ? value.bind(target) : value;
+    } });
+    clientAttachedWhenReady({ ...ctx, tmux }, 'client-one');
+    assert.ok(lookups >= 3, 'late terminal identification is rechecked under the lock');
+    assert.match(readFileSync(first, 'utf8'), /SetUserVar=berthSession=b25l/);
+    assert.equal(readFileSync(second, 'utf8'), '');
+    const before = readFileSync(first, 'utf8');
+    clientAttached({ ...ctx, tmux }, { name: 'vanished-client' });
+    assert.equal(readFileSync(first, 'utf8'), before);
+    assert.equal(readFileSync(second, 'utf8'), '');
+  }
+});
+
+
+test('I3 automatic reattachment defers only clients from the startup tty snapshot', (t) => {
+  const sb = sandbox(t);
+  assert.equal(sb.cli('new', 'shell', '--name', 'guard', '--cwd', sb.makeDir('guard')).status, 0);
+  const ctx = sb.ctx();
+  const tmux = new Proxy(ctx.tmux, { get(target, key) {
+    if (key === 'run') return (args: string[], allowFailure?: boolean) => args[0] === 'list-clients'
+      ? { ok: true, stdout: '/dev/ttys-live~iTerm2 3.7.0\n', stderr: '' } : target.run(args, allowFailure);
+    const value = Reflect.get(target, key);
+    return typeof value === 'function' ? value.bind(target) : value;
+  } });
+  const tools = { node: process.execPath, cli: '/cli', tmux: '/tmux' };
+  assert.equal(reattach({ ...ctx, tmux }, tools, 'guard', ['/dev/ttys-live']), '');
+  assert.match(reattach({ ...ctx, tmux }, tools, 'guard', ['/dev/other']), /attach-session/);
+  assert.match(reattach({ ...ctx, tmux }, tools, 'guard'), /attach-session/, 'manual attachment remains available');
+  assert.equal(sb.cli('iterm2', 'reattach', 'guard', '--existing-tty', '/dev/not-live').status, 0);
+});
+
+
+test('plain shell creation and recovery execute input instead of repeating the staging process', async (t) => {
+  const sb = sandbox(t);
+  const cwd = sb.makeDir('interactive-shell');
+  assert.equal(sb.cli('new', 'shell', '--name', 'interactive-shell', '--cwd', cwd).status, 0);
+  for (const phase of ['created', 'restored']) {
+    if (phase === 'restored') {
+      assert.equal(sb.cli('snapshot').status, 0);
+      killServer(sb);
+      const restored = sb.cli('ensure', 'interactive-shell');
+      assert.equal(restored.status, 0, restored.stderr);
+    }
+    const result = join(cwd, phase);
+    sb.tmux('send-keys', '-t', '=interactive-shell:', '-l', `printf shell-ready > ${shellQuote(result)}`);
+    sb.tmux('send-keys', '-t', '=interactive-shell:', 'Enter');
+    await waitFor(() => existsSync(result) && readFileSync(result, 'utf8') === 'shell-ready', `${phase} shell executes input`);
+    assert.equal(realpathSync(sb.tmux('display-message', '-p', '-t', '=interactive-shell:', '#{pane_current_path}').trim()), realpathSync(cwd));
+  }
+});
+
+
+test('new shell and exit remain responsive with stale tickets and snapshot hooks', async t => {
+  const sb = sandbox(t), ctx = sb.ctx();
+  sb.tmux('new-session', '-d', '-s', 'keep-server', 'sleep 3600');
+  assert.equal(sb.cli('tmux', 'install').status, 0);
+  const tickets = join(ctx.config.stateDir, 'ensure-tickets');
+  mkdirSync(tickets, { recursive: true });
+  const exited = spawnSync(process.execPath, ['-e', 'process.exit(0)']);
+  for (let i = 0; i < 500; i++) writeFileSync(join(tickets, `dead-${i}.json`),
+    JSON.stringify({ id: `dead-${i}`, pid: exited.pid, number: 1, createdAt: Date.now() }));
+  const start = performance.now();
+  assert.equal(sb.cli('new', 'shell', '--cwd', sb.root, '--name', 'responsive').status, 0);
+  const createdMs = Math.round(performance.now() - start);
+  const marker = join(sb.root, 'ready');
+  sb.tmux('send-keys', '-t', '=responsive:', `printf ready > ${shellQuote(marker)}`, 'Enter');
+  await waitFor(() => existsSync(marker), 'usable shell');
+  const exitStart = performance.now();
+  sb.tmux('send-keys', '-t', '=responsive:', 'exit', 'Enter');
+  await waitFor(() => !ctx.tmux.hasSession('responsive'), 'shell exits with hooks installed');
+  const exitedMs = Math.round(performance.now() - exitStart);
+  await waitFor(() => !ctx.store.newest()?.sessions.some(row => row.name === 'responsive'), 'closure persisted');
+  assert.ok(ctx.tmux.hasSession('keep-server'), 'unrelated session survives');
+  t.diagnostic(JSON.stringify({ createdMs, exitedMs }));
 });

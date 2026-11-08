@@ -54,7 +54,7 @@ test('CR2 last normal exit stays ended, abrupt server loss remains recoverable',
   assert.equal(ensure(ctx)[0].outcome, 'launched');
 });
 
-test('CR3 competing callers ignore a dead ticket without replacing live owners', async (t) => {
+test('CR3 competing callers reclaim dead tickets without replacing live owners', async (t) => {
   const sb = sandbox(t);
   const dir = join(sb.root, 'locks');
   const tickets = join(dir, 'ensure-tickets');
@@ -76,7 +76,7 @@ appendFileSync(root+'/completed','done\\n');unlinkSync(root+'/active');},5000);`
   })));
   assert.ok(results.every((result) => result.code === 0), JSON.stringify(results));
   assert.equal(readFileSync(join(dir, 'completed'), 'utf8').trim().split('\n').length, 24);
-  assert.deepEqual(readdirSync(tickets), ['dead.json'], 'each caller removes only its own ticket');
+  assert.deepEqual(readdirSync(tickets), [], 'dead tickets are reclaimed and live callers release their own tickets');
 });
 
 test('CR4 regular-file cwd is skipped without launching elsewhere', (t) => {

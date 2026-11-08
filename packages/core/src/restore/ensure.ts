@@ -1,7 +1,7 @@
 import { ARGUMENTS_UNAVAILABLE } from '../registry/discover.js';
 import { applyLaunchEnvironment, captureProfile, profileAtRoot, readProfile, type AgentProfile } from '../agents/profile.js';
 import { recordIdentity, nameCollision, COLLISION_HINT } from '../snapshot/identity.js';
-import { withPlaceholder } from '../registry/launch.js';
+import { startStagedPane, withPlaceholder } from '../registry/launch.js';
 import { usableDirectory } from '../registry/directory.js';
 import { wasClosed, serverOwnerAlive } from '../snapshot/lifecycle.js';
 import { existsSync, statSync } from 'node:fs';
@@ -74,7 +74,7 @@ function rebuild(ctx: Context, s: SnapshotSession): RestoreResult {
     });
     ctx.tmux.setTitle(s.name);
     if (s.agent !== 'shell') ctx.tmux.run(['set-option', '-w', '-t', `=${s.name}:`, 'remain-on-exit', 'on']);
-    ctx.tmux.run(['respawn-pane', '-k', '-t', `=${s.name}:`, ...(command ? [command] : [])]);
+    startStagedPane(ctx, s.name, command);
     return { name: s.name, outcome: s.agent === 'shell' ? 'launched' : 'resume-requested' };
   });
 

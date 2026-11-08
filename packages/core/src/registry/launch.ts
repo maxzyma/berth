@@ -25,3 +25,10 @@ export function withPlaceholder<T>(ctx: Context, name: string, cwd: string, star
     throw error;
   }
 }
+
+/** An omitted respawn repeats the staging command; an empty command exits immediately. */
+export function startStagedPane(ctx: Context, name: string, command: string | undefined): void {
+  const shell = command ? undefined : ctx.tmux.run(['show-options', '-gv', 'default-shell']).stdout.trim();
+  if (!command && !shell) throw new BerthError('tmux has no configured default shell.');
+  ctx.tmux.run(['respawn-pane', '-k', '-t', `=${name}:`, ...(command ? [command] : [shell!, '-l'])]);
+}
