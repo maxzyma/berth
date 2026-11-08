@@ -126,7 +126,7 @@ export function metaForEvent(adapter: Adapter, event: string, payload: Record<st
 /** What a hook returns to its agent, beyond the session metadata it records. */
 export interface HookReply { sessionTitle?: string }
 
-/** SessionStart applies a title only for these sources (Claude Code hooks reference). */
+/** A SessionStart title applies only for these sources (Claude Code hooks reference). */
 const TITLE_SOURCES = ['startup', 'resume', 'fork'];
 
 export function handleHook(agentId: string, event: string, stdin: string, env = process.env, reply: HookReply = {}): Record<string, string> {
@@ -239,8 +239,8 @@ export function handleHook(agentId: string, event: string, stdin: string, env = 
       });
       if (meta.state !== undefined) presentState(tmux, session, meta.state, { note: meta.note });
       // Hook naming (spec §4.2.1): a pending rename rides on the next hook that accepts a title.
-      if (live.meta.nameSync && adapter.naming?.hook === 'claude-session-title'
-        && (event === 'UserPromptSubmit' || (event === 'SessionStart' && TITLE_SOURCES.includes(String(payload.source ?? 'startup'))))) {
+      if (live.meta.nameSync && adapter.naming?.hook?.events.includes(event)
+        && (event !== 'SessionStart' || TITLE_SOURCES.includes(String(payload.source ?? 'startup')))) {
         if (payload.session_title !== session) reply.sessionTitle = session;
         tmux.setMeta(session, { nameSync: '' });
       }

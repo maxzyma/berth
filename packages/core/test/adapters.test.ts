@@ -17,7 +17,7 @@ const EXPECTED: Record<string, { launch: string[]; resume: string[] }> = {
   copilot: { launch: ['copilot'], resume: ['copilot', '--resume=ID'] },
   cursor: { launch: ['cursor-agent'], resume: ['cursor-agent', '--resume', 'ID'] },
   kimi: { launch: ['kimi'], resume: ['kimi', '--session', 'ID'] },
-  qoder: { launch: ['qodercli', '--name', 'web'], resume: ['qodercli', '--resume', 'ID'] },
+  qoder: { launch: ['qodercli', '--name', 'web'], resume: ['qodercli', '--resume', 'ID', '--name', 'web'] },
 };
 
 test('C13 every baseline agent has an adapter with a recorded source', () => {

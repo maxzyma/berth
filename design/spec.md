@@ -305,13 +305,22 @@ them with `-`. Default names generated from a folder stay within
 `[A-Za-z0-9_-]`.
 
 A rename reaches an agent's own conversation name by the paths that agent
-offers, declared per adapter; none of them touches the agent's terminal:
+offers, declared per adapter; none of them types into the agent's terminal.
+Protocol naming uses the agent's own interface at once (if the agent's service
+is not running, at its next hook event). Hook naming returns the name from the
+agent's next hook that accepts a title. Launch naming passes `{name}` at launch
+and resume. Evidence was checked on 2026-11-08 against the listed versions:
 
-| Path | How | When | Agents (verified version) |
-|---|---|---|---|
-| Protocol | The agent's own interface names the bound conversation | At once after rename; if the agent's service is not running, at its next hook event | Codex (app-server `thread/name/set` over the running daemon's control socket, 0.166) |
-| Hook | The agent's next hook that accepts a title returns the name | The next prompt, or a startup, resume or fork | Claude Code (`sessionTitle` hook output, documented; 2.1.310) |
-| Launch | A `{name}` argument at launch and resume | Each launch or recovery | Claude Code, Qoder (`--name`) |
+| Agent | Protocol | Hook | Launch | Evidence |
+|---|---|---|---|---|
+| Claude Code | — | `sessionTitle` from SessionStart (startup, resume, fork) and UserPromptSubmit | `--name` | Official hooks reference; 2.1.310 |
+| Codex | App-server `thread/name/set` over the running daemon's control socket | — | — | Generated protocol schema and isolated daemon run; 0.166 |
+| Qoder | — | `sessionTitle` from UserPromptSubmit | `--name`, also with `--resume` | Hooks docs ("a suggested session title"); 1.0.48 binary |
+| OpenCode | — | Berth's plugin applies a returned title through its SDK client (`session.update`, `body.title`) | — | Plugin and SDK types; 1.19.5 |
+| Copilot CLI | — | — | — | `--name` names only new sessions and is unverified on the recorded 1.0.105; `session.name.set` needs `--ui-server` |
+| Kimi Code | — | — | — | Only `kimi web` updates titles; a separate terminal process is not shown to follow; 0.31.1 |
+| Gemini CLI | — | — | — | No title flag, hook field or interface; rename requests unshipped; 0.66–0.67 |
+| Cursor Agent | — | — | — | No title flag, hook field or interface; `/rename` is in-session only |
 
 Naming follows only an explicit rename: binding a conversation never pushes a
 default folder-derived name over the title the agent generates. A rename stays
@@ -1541,7 +1550,7 @@ the CLI by Berth. "cmux" means cmux integrates the same interface (commit
 | GitHub Copilot CLI | `copilot` | `copilot --resume={id}` | `sessionStart` hook (`~/.copilot/hooks/berth.json`) | Docs; cmux; native fixture 1.0.105 |
 | Cursor CLI | `cursor-agent` | `cursor-agent --resume {id}` | `sessionStart` hook (`~/.cursor/hooks.json`) | Help 2025.09.12; lifecycle hooks added 2026-01-16; native version acceptance pending |
 | Kimi Code | `kimi` | `kimi --session {id}` | `SessionStart` hook (`[[hooks]]` in `~/.kimi-code/config.toml`) | Native 0.31.1: custom-agent recovery, interruption, approval/rejection and provider failure |
-| Qoder CLI | `qodercli --name {name}` | `qodercli --resume {id}` | `SessionStart` hook (`~/.qoder/settings.json`) | Help 1.0.48; docs; cmux |
+| Qoder CLI | `qodercli --name {name}` | `qodercli --resume {id} --name {name}` | `SessionStart` hook (`~/.qoder/settings.json`) | Help 1.0.48; docs; cmux |
 | `shell` | user shell | — | — | — |
 
 Every hook receives a JSON payload on stdin and the id is read from

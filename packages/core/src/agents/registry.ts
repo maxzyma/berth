@@ -60,7 +60,7 @@ export interface Adapter {
    * once; `hook` returns it from the agent's next hook that accepts a title.
    * Neither touches the agent's terminal.
    */
-  naming?: { protocol?: 'codex-app-server'; hook?: 'claude-session-title' };
+  naming?: { protocol?: 'codex-app-server'; hook?: { events: string[] } };
   source: string;
 }
 
@@ -82,7 +82,7 @@ export const ADAPTERS: Adapter[] = [
     launch: 'claude --name {name} {args}',
     resume: 'claude --resume {conversation} --name {name} {args}',
     // Hook output `sessionTitle` (SessionStart, UserPromptSubmit), documented; verified with 2.1.310.
-    naming: { hook: 'claude-session-title' },
+    naming: { hook: { events: ['SessionStart', 'UserPromptSubmit'] } },
     keep: {
       '--model': true,
       '--permission-mode': true,
@@ -154,6 +154,8 @@ export const ADAPTERS: Adapter[] = [
     binary: 'opencode',
     launch: 'opencode {args}',
     resume: 'opencode --session {conversation} {args}',
+    // Berth's plugin applies a returned title with client.session.update (SDK `body.title`); read from 1.19.5.
+    naming: { hook: { events: ['session.status'] } },
     keep: { '--model': true, '-m': true, '--agent': true },
     discard: { '--session': true, '-s': true, '--continue': false, '-c': false, '--prompt': true },
     hookTarget: 'opencode-plugin',
@@ -212,7 +214,9 @@ export const ADAPTERS: Adapter[] = [
     displayName: 'Qoder CLI',
     binary: 'qodercli',
     launch: 'qodercli --name {name} {args}',
-    resume: 'qodercli --resume {conversation} {args}',
+    resume: 'qodercli --resume {conversation} --name {name} {args}',
+    // UserPromptSubmit output `sessionTitle` (docs: "a suggested session title"); read from 1.0.48.
+    naming: { hook: { events: ['UserPromptSubmit'] } },
     keep: { '--model': true, '--yolo': false, '--permission-mode': true, '--dangerously-skip-permissions': false, '--allowed-mcp-server-names': true, '--tools': 'many', '--allowed-tools': true, '--disallowed-tools': true, '--mcp-config': true, '--strict-mcp-config': false, '--setting-sources': true },
     discard: { '--name': true, '--resume': true, '--continue': false, '--print': false, '-p': false },
     hookTarget: 'qoder-settings',

@@ -144,19 +144,28 @@ const EVENTS = new Set(${JSON.stringify(events)});
 const roots = new Set();
 const failed = new Set();
 let pending = Promise.resolve();
+let client;
 
 function send(event, id, payload = {}) {
   if (!process.env.TMUX_PANE) return Promise.resolve();
   return new Promise((resolve) => {
     try {
       const child = spawn(${JSON.stringify(node)}, [${JSON.stringify(cli)}, 'hook', 'opencode', event], {
-        stdio: ['pipe', 'ignore', 'ignore'],
+        stdio: ['pipe', 'pipe', 'ignore'],
         env: { ...process.env, BERTH_HOOK: '1', ...${JSON.stringify(electron ? { ELECTRON_RUN_AS_NODE: '1' } : {})} },
       });
       const timer = setTimeout(() => child.kill('SIGKILL'), 10_000);
+      let output = '';
+      child.stdout.on('data', (chunk) => { output += chunk; });
       const finish = () => { clearTimeout(timer); resolve(); };
       child.on('error', finish);
-      child.on('close', finish);
+      // A renamed Berth session returns its name; the bound SDK client applies it.
+      child.on('close', () => {
+        let title;
+        try { title = JSON.parse(output).hookSpecificOutput?.sessionTitle; } catch {}
+        if (typeof title !== 'string' || !title || !client?.session?.update) return finish();
+        Promise.resolve(client.session.update({ path: { id }, body: { title } })).catch(() => {}).finally(finish);
+      });
       child.stdin.on('error', () => {});
       child.stdin.end(JSON.stringify({ ...payload, session_id: id }));
     } catch {
@@ -193,13 +202,16 @@ async function forward(event) {
   return send(type, id, payload);
 }
 
-export const BerthPlugin = async () => ({
+export const BerthPlugin = async (input) => {
+  client = input?.client;
+  return {
   event: ({ event }) => {
     // Native publishers need not await plugin callbacks; keep child processes ordered.
     pending = pending.then(() => forward(event)).catch(() => {});
     return pending;
   },
-});
+  };
+};
 `;
 }
 

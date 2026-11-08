@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { setCodexThreadName } from '../src/agents/naming.js';
 import { handleHook, type HookReply } from '../src/agents/hooks.js';
 import { captureProfile } from '../src/agents/profile.js';
+import { getAdapter } from '../src/agents/registry.js';
 import { create, rename, stamp } from '../src/registry/sessions.js';
 import { sandbox, waitFor } from './helpers.js';
 
@@ -148,4 +149,21 @@ test('a Codex rename made while its service is down is delivered by the next Cod
   handleHook('codex', 'UserPromptSubmit', JSON.stringify({ session_id: 'thread-5', prompt: 'hi' }), { ...sb.env, TMUX: `${socket},1,0`, TMUX_PANE: pane });
   await waitFor(() => (ctx.tmux.listSessions()[0].meta.nameSync ?? '') === '', 'pending rename delivered');
   assert.deepEqual(daemon.requests.find((request) => request.method === 'thread/name/set')?.params, { threadId: 'thread-5', name: 'after' });
+});
+
+test('Qoder takes a pending rename only from UserPromptSubmit, and resumes under the session name', (t) => {
+  const sb = sandbox(t), ctx = sb.ctx();
+  ctx.tmux.newSession('before', sb.root, 'sleep 3600');
+  ctx.tmux.setMeta('before', { agent: 'qoder', cwd: sb.root });
+  rename(ctx, 'before', 'after');
+  const socket = sb.tmux('display-message', '-p', '-t', '=after:', '#{socket_path}').trim();
+  const pane = sb.tmux('display-message', '-p', '-t', '=after:', '#{pane_id}').trim();
+  const env = { ...sb.env, TMUX: `${socket},1,0`, TMUX_PANE: pane };
+  const start: HookReply = {};
+  handleHook('qoder', 'SessionStart', JSON.stringify({ session_id: 'q-1', source: 'startup' }), env, start);
+  assert.deepEqual(start, {}, 'Qoder applies titles from UserPromptSubmit only');
+  const prompt: HookReply = {};
+  handleHook('qoder', 'UserPromptSubmit', JSON.stringify({ session_id: 'q-1', prompt: 'hi' }), env, prompt);
+  assert.deepEqual(prompt, { sessionTitle: 'after' });
+  assert.match(getAdapter('qoder')!.resume!, /--name \{name\}/);
 });

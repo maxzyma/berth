@@ -55,3 +55,20 @@ const plugin=await BerthPlugin();await plugin.event({event:${JSON.stringify(iden
   });
   assert.equal(run.status, 0, run.stderr);
 });
+
+test('OpenCode applies a title returned by its hook through the bound SDK client, and nothing else', (t) => {
+  const sb = sandbox(t), cli = join(sb.root, 'reply.cjs'), plugin = join(sb.root, 'plugin.mjs');
+  // Only the busy status replies with a title, as Berth does for a pending rename.
+  writeFileSync(cli, `if(process.argv[4]==='session.status')process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:'session.status',sessionTitle:'任务乙'}}));`);
+  writeFileSync(plugin, opencodePlugin(process.execPath, cli, events));
+  const driver = `const {BerthPlugin}=await import(${JSON.stringify(pathToFileURL(plugin).href)});
+const calls=[];const client={session:{update:async(request)=>{calls.push(request);return {};}}};
+const plugin=await BerthPlugin({client});
+for(const event of ${JSON.stringify([identity('root'), status('busy'), event('session.idle')])})await plugin.event({event});
+process.stdout.write(JSON.stringify(calls));`;
+  const run = spawnSync(process.execPath, ['--input-type=module', '-e', driver], {
+    env: { ...sb.env, TMUX_PANE: '%fixture' }, encoding: 'utf8', timeout: 15_000,
+  });
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(JSON.parse(run.stdout), [{ path: { id: 'root' }, body: { title: '任务乙' } }]);
+});
