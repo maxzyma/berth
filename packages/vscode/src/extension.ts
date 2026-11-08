@@ -548,7 +548,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   command('berth.detach', guarded((name) => controller.detach(name)));
   command('berth.rename', guarded(async (name) => {
     const to = await vscode.window.showInputBox({ prompt: `Rename ${name}`, value: name, validateInput: sessionNameProblem });
-    if (to && to !== name) await controller.rename(name, to);
+    if (!to || to === name) return;
+    await controller.rename(name, to);
+    // Command naming (spec §4.2.1): typed into the agent only after the user confirms.
+    const row = controller.row(to);
+    const adapter = row?.live ? ADAPTERS.find(a => a.id === row.agent) : undefined;
+    if (row && adapter?.naming?.command) {
+      const line = adapter.naming.command.replaceAll('{name}', to);
+      const send = await vscode.window.showInformationMessage(
+        `${adapter.displayName} in ${to} still uses its old conversation name until it resumes. Type "${line}" into its input now? Text already typed there would be combined with it.`,
+        'Type Command');
+      if (send) controller.sendAgentLine(to, adapter.id, line);
+    }
   }));
   command('berth.recoveryFolder', guarded(async (name, arg) => {
     const chosen = await vscode.window.showOpenDialog({ title: `Choose recovery folder for ${name}`, canSelectFolders: true, canSelectFiles: false, canSelectMany: false, openLabel: 'Use Folder' });

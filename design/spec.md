@@ -302,7 +302,28 @@ name the user chooses (rename, `--name`) may use any characters, including CJK
 and spaces, except what tmux refuses (`:` and `.`), control characters and
 surrounding spaces; rename explains these while typing, and `--name` replaces
 them with `-`. Default names generated from a folder stay within
-`[A-Za-z0-9_-]`. A launcher may choose it; detecting an agent never renames the session or imposes
+`[A-Za-z0-9_-]`.
+
+The session name reaches an agent's own conversation name by the paths that
+agent offers, declared per adapter:
+
+| Path | How | When | Agents (verified version) |
+|---|---|---|---|
+| Protocol | The agent's own interface names the bound conversation without its terminal | Automatically after rename | Codex (app-server `thread/name/set` over the running daemon's control socket, 0.166) |
+| Command | An in-session command typed into the agent's pane | Only after rename, when the user confirms a prompt; refused while the agent is working or waiting | Claude Code (`/rename`, 2.1.310) |
+| Launch | A `{name}` argument at launch and resume | Each launch or recovery | Claude Code, Qoder (`--name`) |
+
+Naming follows only an explicit rename: binding a conversation never pushes a
+default folder-derived name over the title the agent generates. Protocol naming
+connects only to an agent service that is already running and never starts one; failure leaves the rename successful and silent. The control
+socket and its WebSocket transport are not a documented Codex interface, so the
+verified version is recorded with the adapter. Command naming goes to the pane
+of the single verified producer, not the active pane; its prompt says that text
+already typed into the agent would be combined with the command, because Berth
+cannot see the agent's input. Agents with no path keep their own conversation
+names, shown beside the session name.
+
+A launcher may choose the session name; detecting an agent never renames the session or imposes
 a launcher. Agent conversation titles are separate display metadata, read only
 from the exact bound conversation ID. Titles must not replace IDs for restore,
 and a prompt excerpt must not be presented as an explicit conversation name.

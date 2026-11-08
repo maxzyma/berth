@@ -53,6 +53,13 @@ export interface Adapter {
   waitingWhen?: (payload: Record<string, unknown>, event: string) => boolean;
   /** A registered activity event can instead report an interrupted turn. */
   idleWhen?: (event: string, payload: Record<string, unknown>) => boolean;
+  /**
+   * How a session name reaches the agent's conversation name (spec §4.2.1),
+   * beyond launch naming, which a `{name}` placeholder in launch/resume gives:
+   * `protocol` names it through the agent's own interface without its terminal;
+   * `command` is an in-session command typed only after the user confirms.
+   */
+  naming?: { protocol?: 'codex-app-server'; command?: string };
   source: string;
 }
 
@@ -73,6 +80,8 @@ export const ADAPTERS: Adapter[] = [
     binary: 'claude',
     launch: 'claude --name {name} {args}',
     resume: 'claude --resume {conversation} --name {name} {args}',
+    // `/rename [name]`, verified in Claude Code 2.1.310.
+    naming: { command: '/rename {name}' },
     keep: {
       '--model': true,
       '--permission-mode': true,
@@ -101,6 +110,8 @@ export const ADAPTERS: Adapter[] = [
     binary: 'codex',
     launch: 'codex {args}',
     resume: 'codex resume {conversation} {args}',
+    // App-server `thread/name/set`, verified with Codex 0.166.
+    naming: { protocol: 'codex-app-server' },
     keep: {
       '--model': true,
       '-m': true,

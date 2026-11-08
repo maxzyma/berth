@@ -5,7 +5,7 @@ export { Tmux, type LiveSession, type SessionMeta } from './tmux/client.js';
 export { ADAPTERS, getAdapter, type Adapter } from './agents/registry.js';
 export { keptArgs, launchCommand, resumeCommand } from './agents/commands.js';
 export { installHooks, uninstallHooks, handleHook, metaForEvent, hookStatus, hookHint, hookSetupGuidance, hookInstallNotice, type HookStatus } from './agents/hooks.js';
-export { inventory, list, create, adopt, rename, end, forget, stamp, bellRang, clearBell, sessionNameIssue, suggestSessionName, BELL_NOTE, type SessionRow } from './registry/sessions.js';
+export { inventory, list, create, adopt, rename, end, forget, stamp, bellRang, clearBell, sendAgentLine, sessionNameIssue, suggestSessionName, BELL_NOTE, type SessionRow } from './registry/sessions.js';
 export { doctor, type Finding } from './registry/doctor.js';
 export { SnapshotStore, type Snapshot, type SnapshotSession } from './snapshot/store.js';
 export { takeSnapshot, adoptDiscovered } from './snapshot/take.js';
@@ -30,3 +30,4 @@ export { writeConfigFile } from './config/write.js';
 
 export { checkEnvironment, executionHostSupported, type EnvironmentReport, type DependencyCheck, type EnvironmentOptions } from './registry/environment.js';
 export { dependencyInstall, type DependencyInstall } from './registry/dependency-install.js';
+export { nameConversation, setCodexThreadName } from './agents/naming.js';
