@@ -1,6 +1,6 @@
 {
   "name": "@berthdev/berth",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Discover terminal coding agents in tmux and restore verified conversations after restarts.",
   "type": "module",
   "main": "dist/src/index.js",

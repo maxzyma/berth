@@ -3,7 +3,7 @@
   "displayName": "Berth",
   "description": "Manage terminal coding agent sessions in VS Code, track attention, and restore verified conversations with tmux.",
   "icon": "media/icon.png",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "publisher": "berthdev",
   "license": "MIT",
   "type": "module",

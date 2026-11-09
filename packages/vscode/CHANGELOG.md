@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.7
+
+### Fewer, clearer menu entries
+
+- A session's context menu has one *Open* entry. *Show Session* and *Open in This Window* did the same thing; key bindings to either command keep working.
+- A stopped session shows *Choose Recovery Folder*, *Choose Recovery Profile* or *Review Recovery Options* only when it needs that repair: its folder is gone, its profile is unknown, or its saved options need review. *Check Recovery Readiness* still lists every blocker.
+- *Inspect Earlier Layout Backup* appears in the command palette only if you used the earlier in-place layout.
+- *Refresh* stays in the sessions view's menu and leaves the command palette; the view already updates on its own.
+
 ## 0.4.6
 
 ### Setup
