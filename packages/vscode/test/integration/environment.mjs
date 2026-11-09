@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 /** test-electron merges with process.env: explicit undefined removes inherited keys. */
@@ -14,7 +15,8 @@ export function integrationEnvironment(root, inherited = process.env) {
   };
   for (const path of Object.values(paths)) mkdirSync(path, { recursive: true });
   return { ...cleared, ...retained, ...paths, SHELL: '/bin/sh',
-    BERTH_TMUX_SOCKET: `berth-test-vscode-${process.pid}`, TMUX_TMPDIR: root,
+    // A short directory: macOS limits a tmux socket path to 104 bytes.
+    BERTH_TMUX_SOCKET: `berth-test-vscode-${process.pid}`, TMUX_TMPDIR: mkdtempSync(join(tmpdir(), 'bt-')),
     BERTH_CONFIG: join(paths.XDG_CONFIG_HOME, 'berth', 'config.toml'),
     BERTH_STATE_DIR: join(paths.XDG_STATE_HOME, 'berth'),
   };

@@ -195,6 +195,6 @@ restarting daily windows; it does not replace I5.
 
 | Case | Date | Environment | Result | Notes |
 |---|---|---|---|---|
-| V8 | | | | |
-| V9 | | | | |
-| I5 | | | | |
+| V8 | 2026-11-09 | Maintainer's macOS setup, candidate `e3b1386` | Pass | Reported by the maintainer; environment details not recorded |
+| V9 | 2026-11-09 | Maintainer's macOS setup, candidate `e3b1386` | Pass | Reported by the maintainer |
+| I5 | 2026-11-09 | Maintainer's macOS setup, candidate `e3b1386` | Pass | Reported by the maintainer |

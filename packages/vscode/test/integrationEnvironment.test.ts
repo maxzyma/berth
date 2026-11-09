@@ -23,6 +23,9 @@ test('CR47 test-electron environment merging cannot restore parent routing or cr
   const config = loadConfig(actual);
   assert.match(config.tmuxSocket ?? '', /^berth-test-vscode-/);
   assert.equal(config.tmuxSocketPath, undefined);
+  t.after(() => rmSync(actual.TMUX_TMPDIR, { recursive: true, force: true }));
+  const socketPath = join(actual.TMUX_TMPDIR, `tmux-${process.getuid?.() ?? 0}`, config.tmuxSocket ?? '');
+  assert.ok(Buffer.byteLength(socketPath) < 104, `tmux socket path fits the macOS limit: ${socketPath}`);
   assert.ok(config.stateDir.startsWith(root));
   for (const agent of ['claude', 'codex', 'qoder', 'copilot', 'kimi', 'opencode']) assert.ok(profileRoot(agent, captureProfile(agent, actual)).startsWith(root), agent);
 });
