@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { adopt, create, forget } from '../src/registry/sessions.js';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { adopt, adoptLaunched, create, forget } from '../src/registry/sessions.js';
 import { takeSnapshot } from '../src/snapshot/take.js';
 import { withLock } from '../src/restore/lock.js';
 import { sandbox, killServer } from './helpers.js';
@@ -159,3 +161,29 @@ for (const action of ['snapshot', 'folder', 'profile', 'options'] as const) {
     assert.equal(after.sessions[0].conversation, 'exact');
   });
 }
+
+test('a launched session settles on the agent stamped while Berth waited for the state lock', async (t) => {
+  const sb = sandbox(t), ctx = sb.ctx();
+  const startedAt = Date.now();
+  ctx.tmux.newSession('launched', sb.root, 'sleep 3600');
+  // Another process holds the state lock and stamps the agent before releasing it.
+  const module = new URL('../src/restore/lock.js', import.meta.url).href;
+  const holder = spawn(process.execPath, ['--input-type=module', '-e', `
+    import { withAsyncLock } from ${JSON.stringify(module)};
+    import { spawnSync } from 'node:child_process';
+    await withAsyncLock(process.argv[1], async () => {
+      process.stdout.write('owned');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const stamped = spawnSync('tmux', ['-L', process.argv[2], 'set-option', '-t', '=launched:', '@berth_agent', 'codex']);
+      if (stamped.status !== 0) process.exit(3);
+    });
+  `, ctx.config.stateDir, sb.socket], { env: sb.env, stdio: ['ignore', 'pipe', 'inherit'] });
+  const exited = once(holder, 'exit');
+  t.after(async () => { if (holder.exitCode === null) holder.kill('SIGKILL'); await exited; });
+  const ready = await Promise.race([once(holder.stdout, 'data').then(([data]) => String(data)), exited.then(() => 'holder exited')]);
+  assert.equal(ready, 'owned');
+  assert.equal(adoptLaunched(ctx, 'launched', { agent: 'claude', startedAt, origin: 'vscode' }), 'settled');
+  const meta = ctx.tmux.listSessions().find((session) => session.name === 'launched')?.meta;
+  assert.equal(meta?.agent, 'codex', 'the stamped agent is kept, not replaced by the chosen one');
+  assert.equal(meta?.origin, 'vscode');
+});

@@ -222,13 +222,18 @@ export function adoptLaunched(ctx: Context, session: string, launch: { agent?: s
   // Session times have one-second resolution; allow for rounding and clock skew.
   const created = Number(ctx.tmux.run(['display-message', '-p', '-t', `=${session}:`, '#{session_created}'], true).stdout.trim()) * 1000;
   if (!created || created < launch.startedAt - 2000) return 'predates-launch';
-  const live = ctx.tmux.listSessions().find((s) => s.name === session);
-  if (!live) return 'missing';
+  // Reading the pane's process stays outside the lock; the metadata decision does not,
+  // so an agent stamped meanwhile is kept rather than replaced.
   const agent = launch.agent || detectAgent(ctx, session)?.agent;
-  if (!live.meta.agent && agent) adopt(ctx, session, agent, launch.origin);
-  else if (live.meta.agent) stamp(ctx, session, { origin: launch.origin });
-  ctx.tmux.setTitle(session);
-  return 'settled';
+  const settled = withLock(ctx.config.stateDir, (): LaunchSettlement => {
+    const live = ctx.tmux.listSessions().find((s) => s.name === session);
+    if (!live) return 'missing';
+    if (!live.meta.agent && agent) adoptLocked(ctx, session, agent, launch.origin);
+    else if (live.meta.agent) stampLocked(ctx, session, { origin: launch.origin });
+    return 'settled';
+  });
+  if (settled === 'settled') ctx.tmux.setTitle(session);
+  return settled;
 }
 
 function adoptLocked(ctx: Context, name: string, agent: string, origin?: string): void {

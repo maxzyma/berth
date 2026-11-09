@@ -266,6 +266,13 @@ both viewports. Candidate: `berth-vscode-0.4.5-refactor.vsix`, SHA-256
 `f2599bc6be750e8e6d6052124960e25fa06085fae540815fd70e7fae924e2833`, installed
 locally; the daily editor needs reload. No formal release.
 
+Launch settlement under the state lock, same day: custom-launcher settlement
+read session metadata before taking the state lock, so an agent a launcher or
+hook stamped while Berth waited was replaced by the agent the user chose, and
+the binding reset. The read, decision and write now share one lock; reading the
+pane's process stays outside it. A two-process test fails on the previous code
+and passes now; unit suite 402 passed, 11 skipped, 0 failed.
+
 ## Automatic Berth layout preparation
 
 **State:** Local candidate. On macOS VS Code 1.143.1, the isolated native
