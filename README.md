@@ -178,7 +178,7 @@ glyph meanings and theme checks.
 [Product review](design/product-review.md) covers the project purpose, complete
 session journey, architecture and remaining host acceptance limits.
 [Principle review](design/principle-review.md) checks commands, settings and menus
-against the product principles and lists the surfaces to trim.
+against the product principles and records what was trimmed.
 [Iterations](design/iterations.md) turns the review into scoped work and acceptance conditions.
 [Code review](design/code-review.md) records correctness defects, reproductions and repair gates.
 

@@ -200,6 +200,13 @@ export function shortPath(cwd: string, workspaceFolders: readonly string[], home
 
 const HOOKS_MISSING = "This agent's Berth hooks are not installed. State updates and future conversation binding may be unavailable. Right-click → Install Agent Hooks.";
 
+/** Context-menu tokens for the repair actions a stopped session needs now (spec §6). */
+function recoveryBlockers(row: SessionRow): string {
+  if (row.live) return '';
+  const agent = row.agent !== 'shell';
+  return `${row.cwdMissing ? ' cwd-missing' : ''}${agent && !row.profile ? ' profile-unknown' : ''}${agent && row.recoveryOptionsRequired ? ' options-required' : ''}`;
+}
+
 export function rowView(row: SessionRow, input: ViewInput): RowView {
   const conn = connection(row, input.here, input.terminalPids, input.terminalPidsReady);
   const clients = row.live ? row.connections ?? [] : [];
@@ -297,7 +304,7 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
     details: summary,
     location: compactLocation,
     hover,
-    contextValue: `session managed${row.agent !== 'shell' ? ' agent-session' : ''} ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing || row.hooks === 'unknown' ? ' hooks-missing' : ''}${unread ? ' unread' : ''}${row.recovery === 'failed' || row.recovery === 'unconfirmed' ? ' recovery-retry' : ''}`,
+    contextValue: `session managed${row.agent !== 'shell' ? ' agent-session' : ''} ${row.live ? 'live' : 'stopped'} ${conn}${hooksMissing || row.hooks === 'unknown' ? ' hooks-missing' : ''}${unread ? ' unread' : ''}${row.recovery === 'failed' || row.recovery === 'unconfirmed' ? ' recovery-retry' : ''}${recoveryBlockers(row)}`,
     icon,
     badge: BADGE[icon] ?? (unread ? '•' : ''),
     attention: icon === 'waiting' ? 'waiting' : unread && icon !== 'working' ? 'unread' : '',

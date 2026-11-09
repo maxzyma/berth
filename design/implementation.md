@@ -254,7 +254,8 @@ An array; one object per tmux session:
   "attachedClients": 1, "live": true }
 ```
 
-`live: false` rows come from the newest snapshot (stopped sessions). Unmanaged
+`live: false` rows come from the newest snapshot (stopped sessions). A stopped
+row whose folder no longer exists carries `cwdMissing: true`. Unmanaged
 rows carry `managed: false` and empty Berth fields.
 
 Connection rows add optional `connections` entries (`pid`, `terminal`, `application`,

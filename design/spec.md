@@ -940,7 +940,7 @@ panes remain untouched and receive a deferred-reattachment message in the script
   and reissues the same bound ID under the restore lock. Preflight failure
   preserves the inspectable pane. Requested or confirmed attempts reject a
   concurrent retry; stopped records follow normal ensure rules.
-- A stopped record offers Choose Recovery Folder. Selecting an existing folder
+- A stopped record whose folder is missing offers Choose Recovery Folder. Selecting an existing folder
   updates only that record's cwd; its agent and exact conversation ID remain.
   Cancellation changes nothing. The host can then request recovery through the
   normal guarded open action. A running session cannot be relocated this way.
@@ -997,7 +997,8 @@ Berth runs with no config file.
   the current or original Profile. Keep `berth.applyLayout` and
   `berth.revertLayout` command IDs for existing shortcuts.
   Legacy layout journals are read-only evidence. Do not auto-restore or delete
-  them, and do not make their inspection a mandatory onboarding step. Switching
+  them, and do not make their inspection a mandatory onboarding step. Inspect
+  Earlier Layout Backup appears only when such a journal exists. Switching
   profiles does not undo changes made by the retired in-place Apply operation.
   On first activation in a trusted local window, offer Use Berth Layout and
   Keep Current Layout without requiring the sessions view to be opened.
@@ -1227,7 +1228,8 @@ name/title/task text is suppressed. Cards use at most
   product identity and lifecycle/recovery state. Selection uses the same guarded
   open action; cancellation leaves selection and terminals unchanged. Removed
   selections report a refresh instruction. The sidebar title exposes New Session, New Session in Folder and Search.
-  Refresh, next-attention and setup remain in the overflow menu.
+  Refresh, next-attention and setup remain in the overflow menu; Refresh is not
+  listed in the command palette.
   Inventory loading must leave the editor responsive and the picker cancellable;
   finding a session does not wait for git branch decoration.
 - **Go to the next session needing you.** A command and key (⌘⌥U on macOS,
@@ -1354,7 +1356,8 @@ name/title/task text is suppressed. Cards use at most
   starts their own launcher by hand in a plain session); like the launcher it
   can differ per workspace.
 - **Actions.** New session, show, open to the side, detach, rename, kill
-  (with confirmation), adopt. Opening commits unread, bell and origin changes
+  (with confirmation), adopt. Show appears once in the context menu, as *Open*;
+  the `berth.openHere` command stays registered for existing key bindings. Opening commits unread, bell and origin changes
   only after the host acknowledges attachment to the requested tmux session.
   The main and side entry points use the same rule. A failed open preserves
   these fields and reports an actionable error; creating a terminal is not
@@ -1489,6 +1492,10 @@ session has a thin accent marker, at most one per window; an active non-terminal
 editor clears that marker. No marker is inferred merely from window membership.
 Running-session details omit internal recovery diagnostics and check buttons.
 The session context menu offers Check Recovery Readiness for deliberate diagnosis.
+Choose Recovery Folder, Choose Recovery Profile and Review Recovery Options
+appear on a stopped session only while their condition holds: its folder is
+missing, its profile is unknown, or its saved options need review. The core
+reports a missing folder on the stopped row, so hosts do not inspect paths.
 Stopped-session details may explain recovery blockers. It samples current binding, hooks, profile,
 launch options and setup findings, then explains concrete gaps and offers the
 applicable existing repair action. Checking never clears an unresolved binding or

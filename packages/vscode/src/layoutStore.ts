@@ -35,4 +35,13 @@ export class LayoutStore {
     }
   }
 
+  /** Whether there is anything from the retired workflow to inspect; a damaged journal counts. */
+  hasEvidence(): boolean {
+    try {
+      const state = this.read();
+      return Object.keys(state.backup).length > 0 || Object.keys(state.applied).length > 0 || state.version !== undefined;
+    } catch {
+      return true;
+    }
+  }
 }

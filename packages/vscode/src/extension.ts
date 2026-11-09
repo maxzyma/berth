@@ -468,6 +468,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const runLayout = createLayoutQueue();
   command('berth.applyLayout', () => runLayout(() => usePreparedLayout(context)));
   command('berth.revertLayout', () => vscode.commands.executeCommand('workbench.profiles.actions.switchProfile'));
+  void vscode.commands.executeCommand('setContext', 'berth.legacyLayout', layoutStore.hasEvidence());
   command('berth.inspectLegacyLayout', async () => {
     // Preserve recovery evidence. Earlier journals cannot identify profile targets safely.
     const state = layoutStore.read();

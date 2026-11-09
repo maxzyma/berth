@@ -85,7 +85,7 @@
       },
       {
         "command": "berth.focus",
-        "title": "Show Session",
+        "title": "Open",
         "category": "Berth"
       },
       {
@@ -255,6 +255,14 @@
           "when": "false"
         },
         {
+          "command": "berth.refresh",
+          "when": "false"
+        },
+        {
+          "command": "berth.inspectLegacyLayout",
+          "when": "berth.legacyLayout"
+        },
+        {
           "command": "berth.openHere",
           "when": "false"
         },
@@ -326,11 +334,6 @@
           "group": "1@1"
         },
         {
-          "command": "berth.openHere",
-          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /^session/",
-          "group": "1@2"
-        },
-        {
           "command": "berth.markRead",
           "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /unread/",
           "group": "1@1"
@@ -382,17 +385,17 @@
         },
         {
           "command": "berth.recoveryFolder",
-          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /stopped/",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /cwd-missing/",
           "group": "2@4"
         },
         {
           "command": "berth.recoveryProfile",
-          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /stopped/ && berthItem =~ /agent-session/",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /profile-unknown/",
           "group": "2@5"
         },
         {
           "command": "berth.recoveryOptions",
-          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /stopped/ && berthItem =~ /agent-session/",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /options-required/",
           "group": "2@6"
         },
         {

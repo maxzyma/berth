@@ -51,6 +51,8 @@ export interface SessionRow extends RecoveryStatus {
   hookSetup?: string;
   profile?: AgentProfile;
   recoveryOptionsRequired?: boolean;
+  /** A stopped session whose folder no longer exists (spec §6). */
+  cwdMissing?: boolean;
 }
 
 export const ORIGINS = ['vscode', 'iterm2', 'none'] as const;
@@ -92,7 +94,7 @@ export function list(ctx: Context): SessionRow[] {
   const liveNames = new Set(live.map((s) => s.name));
   for (const s of saved) {
     if (liveNames.has(s.name) || wasClosed(ctx, s)) continue;
-    rows.push({ ...s, recoveryOptionsRequired: recoveryOptionsRequired(s.agent, s.argv, s.argvVerified), conversationTitle: title(s.agent, s.cwd, s.conversation, readProfile(s.agent, s.profile)), managed: true, state: '', note: '', topic: '', attachedClients: 0, live: false, hooks: hooks(s.agent, readProfile(s.agent, s.profile)) });
+    rows.push({ ...s, ...(usableDirectory(s.cwd) ? {} : { cwdMissing: true }), recoveryOptionsRequired: recoveryOptionsRequired(s.agent, s.argv, s.argvVerified), conversationTitle: title(s.agent, s.cwd, s.conversation, readProfile(s.agent, s.profile)), managed: true, state: '', note: '', topic: '', attachedClients: 0, live: false, hooks: hooks(s.agent, readProfile(s.agent, s.profile)) });
   }
   return rows.map((row) => row.hooks === 'installed' ? { ...row, hookSetup: hookSetupGuidance(row.agent) } : row);
 }

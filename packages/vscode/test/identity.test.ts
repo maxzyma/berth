@@ -89,3 +89,12 @@ test('Visible terminal preview is a live-only fallback with explicit hover prove
   assert.equal(rowView({ ...previewRow, conversationTitle: 'Verified title' }, input).subtitle, 'Verified title');
   assert.equal(rowView({ ...previewRow, live: false }, input).subtitle, '');
 });
+
+test('a stopped session offers only the recovery repairs its blockers need', () => {
+  const stopped = { ...row, live: false, profile: { environment: { HOME: '/home/test' } } };
+  const tokens = (value: SessionRow) => rowView(value, input).contextValue.split(' ').filter(token => ['cwd-missing', 'profile-unknown', 'options-required'].includes(token));
+  assert.deepEqual(tokens(stopped), [], 'nothing to repair');
+  assert.deepEqual(tokens({ ...stopped, cwdMissing: true, profile: undefined, recoveryOptionsRequired: true }), ['cwd-missing', 'profile-unknown', 'options-required']);
+  assert.deepEqual(tokens({ ...stopped, agent: 'shell', profile: undefined, recoveryOptionsRequired: true }), [], 'a shell has no agent profile or options');
+  assert.deepEqual(tokens({ ...stopped, live: true, cwdMissing: true, profile: undefined }), [], 'a running session is not repaired from here');
+});

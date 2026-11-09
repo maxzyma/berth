@@ -3,7 +3,7 @@
 This review checks Berth's current features and interaction surfaces against the
 [product principles](spec.md#22-product-principles): build on what already works,
 and stay minimal and sufficient. It lists where Berth already follows them and
-which surfaces to trim. The specification owns behaviour; a recommended change
+which surfaces were trimmed. The specification owns behaviour; a recommended change
 takes effect only after the spec is revised.
 
 ## Scope and baseline
@@ -37,14 +37,16 @@ VS Code's own Profile import now meets that requirement.
 
 ## Findings
 
-| Priority | Surface | Finding | Recommendation |
+Changes below take effect in the release after 0.4.6.
+
+| Priority | Surface | Finding | Outcome |
 |---|---|---|---|
-| High | Session context menu | *Show Session* and *Open in This Window* run the same action (`controller.show`) and both appear on every session; this has been so since 0.4.3. | Keep one entry, *Open*, and keep the other command ID for existing key bindings. |
-| Medium | Context menu of a stopped agent session | At least eight entries, of which four or five concern recovery. *Choose Recovery Folder*, *Choose Recovery Profile* and *Review Recovery Options* appear on every stopped session, although *Check Recovery Readiness* already offers each one when its blocker exists. | Show each repair action only while its blocker holds; leave *Check Recovery Readiness* and *Retry Recovery* as the entry points. |
-| Medium | Command palette | *Inspect Earlier Layout Backup* serves only users of the retired in-place layout, yet appears for everyone. | Show it only when a legacy layout journal exists. |
-| Low | View title | Two creation icons sit side by side, *New Session* and *New Session in Folder*, the second differing only in always asking for a folder. | Keep *New Session* as the icon and move the folder variant into its overflow or a split button. |
-| Low | Command palette | *Refresh* is listed although the view updates on terminal events and every 2 seconds, and a failed refresh shows its own Retry. | Keep *Refresh* in the view's overflow menu only. |
-| Low | Settings | `berth.layout.managedProfile` is internal state shown in the Settings UI. It is a setting because the prepared Profile must confirm Berth's settings loaded, and only settings are both per-Profile and readable across the switch. | Keep the mechanism; note in its description that Berth manages it. Revisit if VS Code offers per-Profile extension state readable before activation. |
+| High | Session context menu | *Show Session* and *Open in This Window* ran the same action (`controller.show`) and both appeared on every session, since 0.4.3. | One entry, *Open*. `berth.openHere` stays registered for existing key bindings. |
+| Medium | Context menu of a stopped agent session | At least eight entries, of which four or five concerned recovery. *Choose Recovery Folder*, *Choose Recovery Profile* and *Review Recovery Options* appeared on every stopped session, although *Check Recovery Readiness* already offers each one when its blocker exists. | Each repair action appears only while its blocker holds. The core reports a missing folder on the stopped row (`cwdMissing`), so the menu does not inspect paths. |
+| Medium | Command palette | *Inspect Earlier Layout Backup* serves only users of the retired in-place layout, yet appeared for everyone. | Listed only when a legacy journal or legacy state exists; a damaged journal counts. |
+| Low | Command palette | *Refresh* was listed although the view updates on terminal events and every 2 seconds, and a failed refresh shows its own Retry. | Kept in the view's overflow menu only. |
+| Low | View title | *New Session* and *New Session in Folder* sit side by side. | Kept. One starts in the inferred folder, the other always asks; both are frequent, and moving one into the overflow adds a click. |
+| Low | Settings | `berth.layout.managedProfile` is internal state shown in the Settings UI. It is a setting because the prepared Profile must confirm Berth's settings loaded, and only settings are both per-Profile and readable across the switch. | Kept; its description already says Berth manages it. Revisit if VS Code offers per-Profile extension state readable before activation. |
 
 Kept after review: `berth.hover.delay` exists because VS Code does not let an
 extension change `workbench.hover.delay` for its own views (spec §6); `berth.tmuxSocket`

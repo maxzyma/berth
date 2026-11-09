@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sandbox, waitFor, killServer } from './helpers.js';
+import { list } from '../src/registry/sessions.js';
 
 test('Known inventory removes exited sessions but preserves detached sessions and crash recovery', async t => {
   const sb = sandbox(t);
@@ -20,4 +21,17 @@ test('Known inventory removes exited sessions but preserves detached sessions an
   assert.ok(read().some(row => row.name === 'survivor' && row.live), 'unattached live session stays listed');
   killServer(sb);
   assert.ok(read().some(row => row.name === 'survivor' && !row.live), 'server crash keeps recovery row');
+});
+
+test('a stopped row reports a missing folder; a usable one reports nothing', t => {
+  const sb = sandbox(t);
+  const ctx = sb.ctx();
+  const present = sb.makeDir('present');
+  ctx.store.write([
+    { name: 'kept', agent: 'shell', cwd: present, argv: '', conversation: '', origin: 'none' },
+    { name: 'moved', agent: 'shell', cwd: `${sb.root}/gone`, argv: '', conversation: '', origin: 'none' },
+  ], {});
+  const rows = new Map(list(ctx).map((row) => [row.name, row]));
+  assert.equal(rows.get('moved')?.cwdMissing, true);
+  assert.equal(rows.get('kept')?.cwdMissing, undefined);
 });

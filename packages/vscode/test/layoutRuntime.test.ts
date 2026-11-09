@@ -23,6 +23,18 @@ test('Legacy inspection preserves the journal and does not migrate memento state
   assert.equal(readFileSync(file, 'utf8'), '{broken');
 });
 
+test('Earlier layout evidence exists only when a journal or legacy state holds something', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'berth-test-layout-evidence-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const file = join(root, 'layout.json');
+  assert.equal(new LayoutStore(file).hasEvidence(), false, 'no journal and no legacy state');
+  assert.equal(new LayoutStore(file, () => ({ schema: 1, backup: {}, applied: {}, version: 3 })).hasEvidence(), true);
+  writeFileSync(file, JSON.stringify({ schema: 1, backup: { 'workbench.sideBar.location': 'left' }, applied: {} }));
+  assert.equal(new LayoutStore(file).hasEvidence(), true);
+  writeFileSync(file, '{broken');
+  assert.equal(new LayoutStore(file).hasEvidence(), true, 'a damaged journal is still evidence to inspect');
+});
+
 test('queued profile creation waits for prior requests and continues after an earlier failure', async () => {
   const enqueue = createLayoutQueue(), order: string[] = [];
   let release!: () => void;
