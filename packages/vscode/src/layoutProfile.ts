@@ -1,4 +1,4 @@
-import { layoutChanges } from './model.js';
+import { layoutChanges } from './layoutSettings.js';
 
 /** A portable preset contains no settings, credentials or paths from the source profile. */
 export function layoutProfileTemplate(hideTerminalTabs: boolean, version: string): string {

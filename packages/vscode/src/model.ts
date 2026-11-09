@@ -2,8 +2,8 @@
 import { basename } from 'node:path';
 import { getAdapter, profileRoot, sessionNameIssue, shellQuote, suggestSessionName, type SessionRow } from '@berthdev/berth';
 import { activityTimeLines } from './activityTime.js';
-import { terminalPersistenceSettings } from './terminalPersistence.js';
 import { WORKING_ICON } from './view/iconSemantics.js';
+import { applyGroupOrder } from './groupOrder.js';
 
 export type Connection = 'attached-here' | 'attached-unknown' | 'attached-elsewhere' | 'detached' | 'stopped';
 
@@ -357,42 +357,6 @@ export function transitions(previous: SessionRow[], next: SessionRow[]): Transit
     .map((r) => ({ name: r.name, state: r.state as 'waiting' | 'done', note: r.note }));
 }
 
-export interface SettingChange {
-  key: string;
-  value: unknown;
-}
-
-/**
- * Settings the layout preset writes (spec §6). `${progress}` is added to the
- * tab description so agent state shows on native tabs.
- */
-function asObject(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-}
-
-export function layoutChanges(current: (key: string) => unknown, hideTerminalTabs: boolean): SettingChange[] {
-  const description = String(current('terminal.integrated.tabs.description') ?? '${task}${separator}${local}${separator}${cwdFolder}');
-  const title = String(current('terminal.integrated.tabs.title') ?? '${process}');
-  const changes: SettingChange[] = [
-    // Session terminals open as editors in the first group, which locks so files open beside it.
-    { key: 'workbench.editor.autoLockGroups', value: { ...(asObject(current('workbench.editor.autoLockGroups'))), terminalEditor: true } },
-    { key: 'workbench.sideBar.location', value: 'right' },
-    { key: 'workbench.secondarySideBar.defaultVisibility', value: 'visible' },
-    ...terminalPersistenceSettings,
-    {
-      // Tabs show the title tmux sends: the session name with its state.
-      key: 'terminal.integrated.tabs.title',
-      value: title.includes('${sequence}') ? title : '${sequence}',
-    },
-    {
-      key: 'terminal.integrated.tabs.description',
-      value: description.includes('${progress}') ? description : `\${progress}\${separator}${description}`,
-    },
-  ];
-  if (hideTerminalTabs) changes.push({ key: 'terminal.integrated.tabs.enabled', value: false });
-  return changes;
-}
-
 /**
  * The folder the explorer should follow for a session: its cwd, when that is
  * inside one of the workspace folders. Outside them the explorer cannot show
@@ -471,7 +435,6 @@ export function relativeToWorkspace(cwd: string, workspaceFolders: string[]): st
   return '';
 }
 
-
 /** Native quick-pick data; names remain exact identity keys even with duplicate titles. */
 export function sessionChoices(rows: readonly SessionRow[]): { label: string; description: string; detail: string; session: string }[] {
   return [...rows].sort((a, b) => compareSessionNames(a.name, b.name)).map((row) => ({
@@ -489,47 +452,3 @@ export function sessionNameProblem(value: string): string | undefined {
   return `${issue} For example: ${suggestSessionName(value)}`;
 }
 
-/**
- * Placed groups follow the saved order; a group never placed keeps its default
- * position after the group that precedes it by default (spec §6).
- */
-export function applyGroupOrder<T extends { cwd: string }>(defaults: readonly T[], saved: readonly string[]): T[] {
-  const byCwd = new Map(defaults.map((group) => [group.cwd, group]));
-  return mergeOrder([...byCwd.keys()], saved).map((cwd) => byCwd.get(cwd)!);
-}
-
-/** The saved order after moving `cwd` before or after `target` in the shown order. */
-export function moveGroup(shown: readonly string[], saved: readonly string[], cwd: string, target: string, after: boolean): string[] {
-  if (cwd === target || !shown.includes(cwd) || !shown.includes(target)) return [...saved];
-  const rest = shown.filter((path) => path !== cwd);
-  const at = rest.indexOf(target) + (after ? 1 : 0);
-  return remember([...rest.slice(0, at), cwd, ...rest.slice(at)], saved);
-}
-
-/** The saved order after moving `cwd` one place up or down in the shown order. */
-export function shiftGroup(shown: readonly string[], saved: readonly string[], cwd: string, delta: -1 | 1): string[] {
-  const index = shown.indexOf(cwd);
-  const target = shown[index + delta];
-  return index < 0 || target === undefined ? [...saved] : moveGroup(shown, saved, cwd, target, delta > 0);
-}
-
-/** `items` in their default order, with every item also in `order` placed as it is there. */
-function mergeOrder(items: readonly string[], order: readonly string[]): string[] {
-  const present = new Set(items);
-  const placed = [...new Set(order.filter((item) => present.has(item)))];
-  const isPlaced = new Set(placed);
-  // Unplaced items follow the placed item that precedes them by default.
-  const runs = new Map<string | undefined, string[]>();
-  let anchor: string | undefined;
-  for (const item of items) {
-    if (isPlaced.has(item)) anchor = item;
-    else if (runs.has(anchor)) runs.get(anchor)!.push(item);
-    else runs.set(anchor, [item]);
-  }
-  return [...(runs.get(undefined) ?? []), ...placed.flatMap((item) => [item, ...(runs.get(item) ?? [])])];
-}
-
-/** A new shown order, keeping saved groups that are absent where they were. */
-function remember(shown: readonly string[], saved: readonly string[]): string[] {
-  return mergeOrder([...new Set([...saved, ...shown])], shown);
-}

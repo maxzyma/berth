@@ -9,7 +9,9 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
-import { sessionChoices, buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, layoutChanges, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, sessionNameProblem, applyGroupOrder, moveGroup, shiftGroup, type Transition } from '../src/model.js';
+import { sessionChoices, buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, sessionNameProblem, type Transition } from '../src/model.js';
+import { layoutChanges } from '../src/layoutSettings.js';
+import { applyGroupOrder, moveGroup, shiftGroup } from '../src/groupOrder.js';
 
 interface Sandbox {
   socket: string;

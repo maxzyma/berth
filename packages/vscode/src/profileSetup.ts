@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { withAsyncLock } from '@berthdev/berth';
-import { layoutChanges } from './model.js';
+import { layoutChanges } from './layoutSettings.js';
 import { missingTerminalPersistence } from './terminalPersistence.js';
 import { installedVsix, localProfileStorage, nativeProfiles, nativeUserRoot, profileDirectory, readProfileSettings } from './profileFiles.js';
 import { cliEnvironment, savePreparation, type Preparation } from './profileBootstrap.js';

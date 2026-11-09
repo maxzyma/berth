@@ -81,11 +81,13 @@ export class Controller {
     this.mainAction = result.catch(() => undefined);
     return result;
   }
-  /** Agent chosen for a custom launcher whose session is not known yet, and when it started. */
-  /** `agent` is '' when the launcher picks the agent itself. */
+  /**
+   * Agent chosen for a custom launcher whose session is not known yet, and when
+   * it started; `agent` is '' when the launcher picks the agent itself.
+   */
   private pendingLaunch?: { agent: string; startedAt: number; terminalPid: number };
   readonly unread = new Set<string>();
-  /** Agents already offered hooks in this window. */
+  /** Current git branch per folder, for group headers. */
   private branches = new Map<string, string>();
 
   constructor(
