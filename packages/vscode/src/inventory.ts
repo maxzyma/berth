@@ -87,7 +87,11 @@ export async function sampleEnvironment(cli: string, env: NodeJS.ProcessEnv,
       .flatMap(([key, value]) => value ? [`--${key}`, value] : [])];
   const result = await run(runtime, args, { env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
     encoding: 'utf8', timeout: 15000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024 });
-  const data = JSON.parse(result.stdout);
+  return environmentReport(result.stdout);
+}
+
+function environmentReport(stdout: string): EnvironmentReport {
+  const data = JSON.parse(stdout);
   if (!data || typeof data.ready !== 'boolean' || !Array.isArray(data.checks)
     || !data.checks.every((c: Record<string, unknown>) => c && typeof c.id === 'string'
       && typeof c.label === 'string' && typeof c.detail === 'string' && typeof c.ok === 'boolean'
@@ -96,6 +100,17 @@ export async function sampleEnvironment(cli: string, env: NodeJS.ProcessEnv,
   }
   return data as EnvironmentReport;
 }
+
+/** The core inspected the selected launcher before creating and found setup incomplete; nothing was created. */
+export class EnvironmentNotReady extends Error {
+  constructor(readonly report: EnvironmentReport) {
+    super('Berth setup is incomplete for this session.');
+    this.name = 'EnvironmentNotReady';
+  }
+}
+
+/** Exit code of `new --require-ready` when nothing was created (implementation §2.3). */
+const NOT_READY = 5;
 
 /** Run the same core creation transaction without blocking the editor event loop. */
 /** Rename through the core, off the editor event loop; the core rolls tmux back if its snapshot fails. */
@@ -110,11 +125,15 @@ export async function renameSession(cli: string, env: NodeJS.ProcessEnv, from: s
 
 export async function createSession(cli: string, env: NodeJS.ProcessEnv,
   options: { agent: string; cwd: string; origin?: string; ownerWorkspace?: string }, runtime = process.execPath): Promise<string> {
+  // The core inspects the launcher first, so a separate environment check is not needed.
   const result = await run(runtime, [cli, 'new', options.agent, '--cwd', options.cwd,
-    '--origin', options.origin ?? 'vscode',
+    '--origin', options.origin ?? 'vscode', '--require-ready', '--editor',
     ...(options.ownerWorkspace ? ['--owner-workspace', options.ownerWorkspace] : [])], {
     env: { ...env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8',
     maxBuffer: 1024 * 1024,
+  }).catch((error: { code?: unknown; stdout?: string }) => {
+    if (error.code === NOT_READY) throw new EnvironmentNotReady(environmentReport(error.stdout ?? ''));
+    throw error;
   });
   // Do not timeout/retry a mutation: it could already have created a session.
   const name = result.stdout.trim();

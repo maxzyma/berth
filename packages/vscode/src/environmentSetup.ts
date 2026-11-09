@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import * as vscode from 'vscode';
 import { dependencyInstall, type EnvironmentOptions, type EnvironmentReport, type DependencyCheck } from '@berthdev/berth';
-import { sampleEnvironment } from './inventory.js';
+import { EnvironmentNotReady, sampleEnvironment } from './inventory.js';
 import { prepareHookRuntime } from './hookRuntime.js';
 import type { TmuxHooks } from './tmuxHooks.js';
 
@@ -34,6 +34,34 @@ export class EnvironmentSetup {
     } catch (error) {
       this.changed(false);
       void vscode.window.showErrorMessage(`Berth could not check its environment: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Create a session whose launcher the core inspects in the same process.
+   * Only when that inspection fails does setup review run, then creation retries once.
+   */
+  async createWhenReady(options: EnvironmentOptions, create: () => Promise<unknown>): Promise<boolean> {
+    if (!this.runtimeReady()) {
+      if (!await this.ensure(options)) return false;
+    }
+    try {
+      await create();
+    } catch (error) {
+      if (!(error instanceof EnvironmentNotReady)) throw error;
+      if (!await this.ensure(options)) return false;
+      await create();
+    }
+    this.changed(true);
+    return true;
+  }
+
+  private runtimeReady(): boolean {
+    try {
+      prepareHookRuntime(this.context.asAbsolutePath('dist/cli.mjs'), this.context.globalStorageUri.fsPath);
+      return true;
+    } catch {
+      return false;
     }
   }
 

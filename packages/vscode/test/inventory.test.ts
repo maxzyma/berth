@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createSession, renameSession, resolveTerminalPids, sampleEnvironment, sampleDoctor, sampleInventory, sampleSessions } from '../src/inventory.js';
+import { createSession, EnvironmentNotReady, renameSession, resolveTerminalPids, sampleEnvironment, sampleDoctor, sampleInventory, sampleSessions } from '../src/inventory.js';
 
 test('Slow core inspection leaves the host event loop available', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'berth-inventory-'));
@@ -99,7 +99,7 @@ test('creation worker keeps editor events available and preserves argument bound
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const cli = join(dir, 'fixture.cjs');
   const cwd = join(dir, 'folder with spaces');
-  const expected = ['new', 'shell', '--cwd', cwd, '--origin', 'vscode', '--owner-workspace', 'workspace identity'];
+  const expected = ['new', 'shell', '--cwd', cwd, '--origin', 'vscode', '--require-ready', '--editor', '--owner-workspace', 'workspace identity'];
   writeFileSync(cli, `if(JSON.stringify(process.argv.slice(2))!==${JSON.stringify(JSON.stringify(expected))})process.exit(9);setTimeout(()=>process.stdout.write('created-session\\n'),150);`);
   const pending = createSession(cli, process.env, { agent: 'shell', cwd, ownerWorkspace: 'workspace identity' });
   assert.equal(await Promise.race([pending.then(() => 'created'), new Promise(resolve => setImmediate(() => resolve('event')))]), 'event');
@@ -126,4 +126,15 @@ test('Known-session transport skips discovery without changing normal inventory'
   const cli = join(dir, 'fixture.cjs');
   writeFileSync(cli, "if(process.argv.slice(2).join(' ')!=='ls --json --known-only')process.exit(7);process.stdout.write('[]');");
   assert.deepEqual(await sampleSessions(cli, process.env, process.execPath, true), []);
+});
+
+test('creation asks the core to inspect the launcher first and reports an incomplete setup', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'berth-test-create-ready-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const cli = join(dir, 'fixture.cjs');
+  writeFileSync(cli, "const a=process.argv.slice(2);if(!a.includes('--require-ready')||!a.includes('--editor'))process.exit(9);process.stdout.write('made');\n");
+  assert.equal(await createSession(cli, process.env, { agent: 'shell', cwd: dir }), 'made');
+  writeFileSync(cli, "process.stdout.write(JSON.stringify({ready:false,checks:[{id:'launcher',label:'Selected launcher',detail:'missing',ok:false,required:true}]}));process.exit(5);\n");
+  await assert.rejects(createSession(cli, process.env, { agent: 'claude', cwd: dir }),
+    (error: unknown) => error instanceof EnvironmentNotReady && error.report.checks[0].id === 'launcher');
 });

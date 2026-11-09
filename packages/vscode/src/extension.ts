@@ -434,8 +434,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const chosen = await chooseSession(cwd);
     if (!chosen) return;
     try {
-      if (!await setup.ensure({ agent: chosen.agent, cwd: chosen.cwd, launcher: chosen.custom })) return;
-      await controller.newSession(chosen.agent, chosen.cwd, chosen.custom, chosen.workspaceFolders);
+      const options = { agent: chosen.agent, cwd: chosen.cwd, launcher: chosen.custom };
+      const create = () => controller.newSession(chosen.agent, chosen.cwd, chosen.custom, chosen.workspaceFolders);
+      // A custom launcher runs in the terminal, so it is inspected first; Berth's own
+      // creation has the core inspect the launcher in the same process.
+      if (chosen.custom && chosen.agent !== 'shell') {
+        if (!await setup.ensure(options)) return;
+        await create();
+      } else if (!await setup.createWhenReady(options, create)) return;
       if (chosen.agent && chosen.agent !== 'shell') remind([chosen.agent]);
       terminalRevision++;
       renderLocal();

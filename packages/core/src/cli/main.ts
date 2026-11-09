@@ -23,7 +23,7 @@ import { toolsFor } from '../tools.js';
 const USAGE = `usage: berth <command> [options]
 
   ls [--json] [--known-only]                    all sessions; optionally skip discovery
-  new <agent> [--name N] [--cwd D] [--origin O] [-- agent args]
+  new <agent> [--name N] [--cwd D] [--origin O] [--require-ready [--editor]] [-- agent args]
   adopt <session> --agent <id> [--origin O]
   attach <session> [--origin O]
   rename <session> <new name>                  rename a live session and its recovery record
@@ -109,10 +109,21 @@ function run(ctx: Context, command: string, rest: string[], out: Out): number {
       const dash = rest.indexOf('--');
       const own = dash >= 0 ? rest.slice(0, dash) : rest;
       const extraArgs = dash >= 0 ? rest.slice(dash + 1) : [];
-      const { values, positionals } = parse(own, { name: { type: 'string' }, cwd: { type: 'string' }, origin: { type: 'string' }, 'owner-workspace': { type: 'string' } });
+      const { values, positionals } = parse(own, { name: { type: 'string' }, cwd: { type: 'string' }, origin: { type: 'string' }, 'owner-workspace': { type: 'string' },
+        'require-ready': { type: 'boolean' }, editor: { type: 'boolean' } });
+      const agent = need(positionals[0], 'agent');
+      const cwd = resolve(values.cwd ?? process.cwd());
+      // An editor inspects the launcher and creates in one process (implementation §2.3).
+      if (values['require-ready']) {
+        const report = checkEnvironment(ctx, { editor: values.editor, agent, cwd });
+        if (!report.ready) {
+          out(JSON.stringify(report));
+          return ExitCode.notReady;
+        }
+      }
       const name = create(ctx, {
-        agent: need(positionals[0], 'agent'),
-        cwd: resolve(values.cwd ?? process.cwd()),
+        agent,
+        cwd,
         name: values.name,
         origin: values.origin,
         ownerWorkspace: values['owner-workspace'],

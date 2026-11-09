@@ -118,3 +118,21 @@ test('dependency version probes terminate executables that ignore SIGTERM', t =>
   assert.equal(environmentProbe(box.env).version(script, ['--version']), undefined);
   assert.ok(Date.now() - started < 6000, 'the dependency probe must not hang');
 });
+
+test('new --require-ready inspects the launcher first and creates nothing when it is not ready', t => {
+  const box = sandbox(t);
+  const cli = fileURLToPath(new URL('../src/cli/main.js', import.meta.url));
+  const created = (name: string) => spawnSync('tmux', ['-L', box.socket, 'has-session', '-t', `=${name}`], { env: box.env }).status === 0;
+  const blocked = spawnSync(process.execPath, [cli, 'new', 'claude', '--require-ready', '--editor', '--cwd', box.root, '--name', 'blocked'],
+    { env: { ...box.env, SHELL: `${box.root}/missing-sh` }, encoding: 'utf8', timeout: 10000 });
+  assert.equal(blocked.status, 5, blocked.stderr);
+  const report = JSON.parse(blocked.stdout);
+  assert.equal(report.ready, false);
+  assert.ok(report.checks.some((check: { id: string; ok: boolean }) => check.id === 'launcher' && !check.ok));
+  assert.equal(created('blocked'), false, 'nothing is created');
+  const ready = spawnSync(process.execPath, [cli, 'new', 'claude', '--require-ready', '--editor', '--cwd', box.root, '--name', 'ready'],
+    { env: box.env, encoding: 'utf8', timeout: 10000 });
+  assert.equal(ready.status, 0, ready.stderr);
+  assert.equal(ready.stdout.trim(), 'ready');
+  assert.equal(created('ready'), true);
+});

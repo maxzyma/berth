@@ -273,6 +273,20 @@ the binding reset. The read, decision and write now share one lock; reading the
 pane's process stays outside it. A two-process test fails on the previous code
 and passes now; unit suite 402 passed, 11 skipped, 0 failed.
 
+Creation latency, `6d3fbd8` plus candidate worktree, 2026-11-09: phase timing
+in the isolated editor with 15 sessions (four runs, picker wait excluded) put
+Berth's part at about 820–880 ms: environment check 80–160, creation 215–430,
+terminal process 40–230, attachment 70–130, completion 135–305. Built-in
+creation now has the core inspect the launcher in the same process
+(`new --require-ready`); only an incomplete setup opens the review and retries.
+The terminal attached at a median of about 750 ms after the command (300 ms of
+it the scripted picker wait), against about 920 ms before. A single-row read
+for completion measured 65 ms against 62 ms for the full known list on the
+daily state and was not kept; completion's lock wait behind the background
+snapshot remains. Unit suite 404 passed, 11 skipped, 0 failed; integration 5
+passed, 1 pending. The not-ready review path is covered at the CLI and transport
+level, not in the native editor.
+
 ## Automatic Berth layout preparation
 
 **State:** Local candidate. On macOS VS Code 1.143.1, the isolated native

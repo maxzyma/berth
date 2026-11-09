@@ -289,7 +289,12 @@ renamed titles, missing stores and two conversations in the same directory.
 | 2 | usage error |
 | 3 | tmux unavailable or server not running where one is required |
 | 4 | named session not found |
+| 5 | environment not ready; nothing was created |
 
+- `new --require-ready [--editor]` runs the same checks as `environment --agent
+  <agent> --cwd <cwd> [--editor]` before creating. When they are not ready it
+  creates nothing, prints that report as JSON on stdout and exits 5. An editor
+  uses this to inspect the launcher and create in one process.
 - Errors go to stderr as one line prefixed `berth: `. Machine output only on
   stdout, and only with `--json`.
 - Precedence: flags > environment > config file > defaults. Environment:

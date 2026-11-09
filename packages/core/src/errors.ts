@@ -5,6 +5,7 @@ export const ExitCode = {
   usage: 2,
   tmuxUnavailable: 3,
   notFound: 4,
+  notReady: 5,
 } as const;
 
 export type ExitCodeValue = (typeof ExitCode)[keyof typeof ExitCode];
