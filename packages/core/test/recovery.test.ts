@@ -118,7 +118,7 @@ test('CR55 relative resume scripts run in each saved directory and retain the ex
       origin: 'none', profile: captureProfile('codex', ctx.env) };
   });
   ctx.store.write(records, {});
-  assert.deepEqual(doctor(ctx).filter((f) => f.problem.startsWith('executable unavailable:')).map((f) => f.session), ['missing']);
+  assert.deepEqual(doctor(ctx).filter((f) => f.code === 'executable-missing').map((f) => f.session), ['missing']);
   assert.deepEqual(ensure(ctx).map((r) => r.outcome), ['resume-requested', 'resume-requested', 'skipped-missing-binary']);
   for (const record of records.slice(0, 2)) {
     const file = join(record.cwd, 'received-id');

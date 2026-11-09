@@ -5,8 +5,8 @@ export { Tmux, type LiveSession, type SessionMeta } from './tmux/client.js';
 export { ADAPTERS, getAdapter, type Adapter } from './agents/registry.js';
 export { keptArgs, launchCommand, resumeCommand } from './agents/commands.js';
 export { installHooks, uninstallHooks, handleHook, metaForEvent, hookStatus, hookHint, hookSetupGuidance, hookInstallNotice, type HookStatus } from './agents/hooks.js';
-export { inventory, list, create, adopt, rename, end, forget, stamp, bellRang, clearBell, sendAgentLine, sessionNameIssue, suggestSessionName, BELL_NOTE, type SessionRow } from './registry/sessions.js';
-export { doctor, type Finding } from './registry/doctor.js';
+export { inventory, list, create, adopt, adoptLaunched, rename, end, forget, stamp, bellRang, clearBell, sendAgentLine, sessionNameIssue, suggestSessionName, BELL_NOTE, type LaunchSettlement, type SessionRow } from './registry/sessions.js';
+export { doctor, type Finding, type FindingCode } from './registry/doctor.js';
 export { SnapshotStore, type Snapshot, type SnapshotSession } from './snapshot/store.js';
 export { takeSnapshot, adoptDiscovered } from './snapshot/take.js';
 export { detectAgent, discover } from './registry/discover.js';
@@ -17,7 +17,7 @@ export { installIterm2, uninstallIterm2, reattach, attachCommand, autoLaunchScri
 export { clientAttached, PANE_VARIABLE } from './present/attach.js';
 export { toolsFor, resolveBinary } from './tools.js';
 
-export { connections, detachTerminalClients, handoffTerminalClients, waitForAttachment, processAncestry, type ConnectionInfo } from './tmux/connections.js';
+export { connections, detachTerminalClients, handoffTerminalClients, waitForAttachment, processAncestry, sessionForTerminal, type ConnectionInfo } from './tmux/connections.js';
 
 export { HostRegistration, workspaceIdentity, registeredHosts, type WorkspaceIdentity } from './registry/hosts.js';
 

@@ -53,6 +53,14 @@ export function connections(tmux: Tmux, hosts: readonly HostRecord[] = [], stric
     [session, entries.filter((entry) => entry.session === session).map((entry) => entry.client)]));
 }
 
+/** The session a terminal shows: one whose client is that terminal process or runs under it (a launcher may not exec tmux). */
+export function sessionForTerminal(tmux: Tmux, terminalPid: number): string | undefined {
+  for (const [session, clients] of connections(tmux)) {
+    if (clients.some((client) => client.ancestors.includes(terminalPid))) return session;
+  }
+  return undefined;
+}
+
 /** Wait for this terminal process to attach to this exact session, not any client. */
 export async function waitForAttachment(
   tmux: Tmux, session: string, terminalPid: number,

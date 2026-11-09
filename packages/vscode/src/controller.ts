@@ -2,8 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   adopt,
-  adoptDiscovered,
-  detectAgent,
+  adoptLaunched,
   forget,
   clearBell,
   create,
@@ -16,6 +15,7 @@ import {
   sendAgentLine,
   end,
   detachTerminalClients,
+  sessionForTerminal,
   inventory,
   retryRecovery,
   relocateRecovery,
@@ -38,7 +38,6 @@ export interface SessionLaunch {
   startedAt: number;
   custom: boolean;
 }
-
 
 export interface Host {
   /** Folder groups in the order the user placed them in this workspace. */
@@ -66,7 +65,6 @@ export interface Host {
   workspaceFolders?(): string[];
   ownerWorkspace?(): string | undefined;
   claimStartup?(): boolean;
-  /** An agent in use has no Berth hooks: offer to install them (spec §6). */
 }
 
 /** How long after starting a custom launcher its session is expected. */
@@ -74,21 +72,6 @@ const LAUNCH_WINDOW_MS = 120_000;
 const LOCK_WAIT_MS = 3_000;
 /** Startup restore retries a busy state for about half a minute before reporting it. */
 const STARTUP_ATTEMPTS = 5;
-
-/** Parent pid of `pid`, or undefined at the top. */
-function parentOf(pid: number): number | undefined {
-  const r = spawnSync('ps', ['-o', 'ppid=', '-p', String(pid)], { encoding: 'utf8', timeout: 1000, killSignal: 'SIGKILL', maxBuffer: 16384 });
-  const parent = Number(r.stdout.trim());
-  return r.status === 0 && parent > 1 ? parent : undefined;
-}
-
-/** Whether `pid` is `ancestor` or runs under it (a launcher may not exec tmux). */
-function descendsFrom(pid: number, ancestor: number): boolean {
-  for (let p: number | undefined = pid, depth = 0; p && depth < 12; p = parentOf(p), depth++) {
-    if (p === ancestor) return true;
-  }
-  return false;
-}
 
 export class Controller {
   private rows: SessionRow[] = [];
@@ -204,12 +187,8 @@ export class Controller {
   async mainAttachment(): Promise<{ session: string; terminalPid: number } | undefined> {
     const pid = await this.host.mainTerminalPid();
     if (!pid) return undefined;
-    const result = this.ctx.tmux.run(['list-clients', '-F', '#{client_pid}\t#{session_name}'], true);
-    for (const line of result.ok ? result.stdout.split('\n') : []) {
-      const [clientPid, session] = line.split('\t');
-      if (session && descendsFrom(Number(clientPid), pid)) return { session, terminalPid: pid };
-    }
-    return undefined;
+    const session = sessionForTerminal(this.ctx.tmux, pid);
+    return session ? { session, terminalPid: pid } : undefined;
   }
 
   /**
@@ -223,23 +202,16 @@ export class Controller {
     if (!intent || observedTerminalPid !== intent.terminalPid) return false;
     const terminalPid = await this.host.mainTerminalPid();
     if (this.pendingLaunch !== intent || terminalPid !== intent.terminalPid) return false;
-    const { agent, startedAt } = intent;
     // A launcher that failed leaves nothing to settle; don't adopt later picks.
-    if (Date.now() - startedAt > LAUNCH_WINDOW_MS) {
+    if (Date.now() - intent.startedAt > LAUNCH_WINDOW_MS) {
       this.pendingLaunch = undefined;
       return false;
     }
     // Only a session created by this launch is adopted, never one shown later.
-    const created = Number(this.ctx.tmux.run(['display-message', '-p', '-t', `=${session}:`, '#{session_created}'], true).stdout.trim()) * 1000;
-    if (!created || created < startedAt - 2000) return false;
+    const settlement = adoptLaunched(this.ctx, session, { agent: intent.agent, startedAt: intent.startedAt, origin: 'vscode' });
+    if (settlement === 'predates-launch') return false;
     this.pendingLaunch = undefined;
-    const live = this.ctx.tmux.listSessions().find((s) => s.name === session);
-    if (!live) return false;
-    const chosen = agent || this.agentRunningIn(session);
-    if (!live.meta.agent && chosen) adopt(this.ctx, session, chosen, 'vscode');
-    else if (live.meta.agent) stamp(this.ctx, session, { origin: 'vscode' });
-    this.ctx.tmux.setTitle(session);
-    return true;
+    return settlement === 'settled';
   }
 
   /** Selection preserves every other session's terminal attachment. */
@@ -320,16 +292,6 @@ export class Controller {
   }
 
   /**
-   * New session in `cwd`. With a custom launcher (spec §5.2) the launcher runs
-   * in the session terminal and creates, stamps and attaches the session
-   * itself; Berth learns which session it is from the terminal's tmux client.
-   */
-  /** The agent running in the session's active pane, if any (core discovery). */
-  private agentRunningIn(session: string): string | undefined {
-    return detectAgent(this.ctx, session)?.agent;
-  }
-
-  /**
    * Start a session. A custom launcher starts agents (spec §6); a plain shell
    * is always Berth's own. `agent` is undefined when the launcher picks it.
    */
@@ -364,6 +326,11 @@ export class Controller {
     }
   }
 
+  /**
+   * New session in `cwd`. With a custom launcher (spec §5.2) the launcher runs
+   * in the session terminal and creates, stamps and attaches the session
+   * itself; Berth learns which session it is from the terminal's tmux client.
+   */
   async newSession(agent: string | undefined, cwd: string, customLauncher = '', workspaceFolders: string[] = []): Promise<string | undefined> {
     return this.orderMain(async () => {
       const plan = await this.prepareNewSession(agent, cwd, customLauncher, workspaceFolders);

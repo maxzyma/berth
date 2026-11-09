@@ -59,7 +59,7 @@ test('CR30 broken waiting hooks cannot suppress the bell fallback', (t) => {
   const full = JSON.parse(readFileSync(file, 'utf8'));
   writeFileSync(file, JSON.stringify({ hooks: { SessionStart: full.hooks.SessionStart } }));
   assert.equal(list(ctx)[0].hooks, 'broken');
-  assert.ok(doctor(ctx, sb.env).some((finding) => finding.installHooksFor === 'claude' && /incomplete/.test(finding.problem)));
+  assert.ok(doctor(ctx, sb.env).some((finding) => finding.code === 'hooks' && finding.installHooksFor === 'claude' && /incomplete/.test(finding.problem)));
   assert.equal(bellRang(ctx, 'bell-health', sb.env), true);
   assert.equal(list(ctx)[0].state, 'waiting');
 });

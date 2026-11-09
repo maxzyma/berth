@@ -1,10 +1,13 @@
-import type { Finding, SessionRow } from '@berthdev/berth';
+import type { Finding, FindingCode, SessionRow } from '@berthdev/berth';
 
 export interface RecoveryCheckItem {
   label: string;
   detail: string;
   action?: 'inspect' | 'hooks' | 'profile' | 'options' | 'folder';
 }
+
+/** Findings the row's own fields already explain above. */
+const SHOWN_FROM_ROW: ReadonlySet<FindingCode> = new Set(['binding', 'hooks', 'profile-unknown', 'conversation-unbound', 'recovery']);
 
 /** Explain readiness without changing binding or attempting recovery. */
 export function recoveryCheckItems(row: SessionRow, findings: Finding[]): RecoveryCheckItem[] {
@@ -18,11 +21,10 @@ export function recoveryCheckItems(row: SessionRow, findings: Finding[]): Recove
   else if (row.hooks === 'unknown') items.push({ label: 'Hook status unknown', detail: 'Hook delivery has not been verified for this profile. Inspect the agent hook configuration.' });
   if (row.recoveryOptionsRequired) items.push({ label: 'Review recovery options', detail: row.live ? 'Saved launch options need verification. Review Recovery Options is available after this session stops; leave the running agent intact.' : 'Review the saved launch options before resuming.', ...(!row.live ? { action: 'options' as const } : {}) });
   if (row.recovery && row.recovery !== 'confirmed') items.push({ label: `Recovery ${row.recovery}`, detail: row.recoveryDetail || 'Inspect the previous recovery attempt.', ...(row.live ? { action: 'inspect' as const } : {}) });
-  const relevant = findings.filter(finding => !finding.session || finding.session === row.name);
+  const relevant = findings.filter(finding => (!finding.session || finding.session === row.name) && !SHOWN_FROM_ROW.has(finding.code));
   for (const finding of relevant) {
-    if (finding.problem === row.bindingIssue || finding.installHooksFor || finding.problem.startsWith('agent profile unknown') || finding.problem.startsWith('conversation not bound') || finding.problem.startsWith('recovery ')) continue;
     items.push({ label: finding.severity === 'info' ? 'Compatibility information' : 'Setup requires attention', detail: finding.problem,
-      ...(finding.problem.startsWith('working directory missing:') && !row.live ? { action: 'folder' as const } : {}) });
+      ...(finding.code === 'cwd-missing' && !row.live ? { action: 'folder' as const } : {}) });
   }
   if (!items.length) items.push({ label: 'No known recovery blockers', detail: 'The conversation and profile are recorded. Actual recovery is confirmed only when the agent resumes that exact conversation.' });
   return items;

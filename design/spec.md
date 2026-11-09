@@ -578,9 +578,10 @@ A **custom launcher** (any user script) may replace `berth new` entirely. Its
 contract is only: create the tmux session, run the agent in it, and attach
 the terminal it was started in. Berth needs nothing else from it: the
 frontend that ran it learns the session from that terminal's tmux client and
-adopts it with the agent the user chose and the directory detected from the
-session's active pane (a launcher may resolve a project name and change into
-it); sessions it starts elsewhere are discovered (§4.3). A launcher may also
+asks the core to adopt it with the agent the user chose and the directory
+detected from the session's active pane (a launcher may resolve a project name
+and change into it). The core adopts only a session created after the launch
+started; sessions it starts elsewhere are discovered (§4.3). A launcher may also
 stamp metadata itself (`berth stamp`, or the `@berth_*` options); what it
 stamps is kept. Activity updates use `berth stamp` so the state revision and
 shared lock protect them from older observations.

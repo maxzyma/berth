@@ -29,11 +29,11 @@ test('CR51 setup diagnosis runs outside the host event loop and validates its re
   const dir = mkdtempSync(join(tmpdir(), 'berth-test-doctor-worker-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const cli = join(dir, 'fixture.cjs');
-  writeFileSync(cli, "if(process.argv.slice(2).join(' ')!=='doctor --json')process.exit(7);setTimeout(()=>process.stdout.write('[{\"problem\":\"fixture\",\"severity\":\"info\"}]'),300);\n");
+  writeFileSync(cli, "if(process.argv.slice(2).join(' ')!=='doctor --json')process.exit(7);setTimeout(()=>process.stdout.write('[{\"code\":\"environment\",\"problem\":\"fixture\",\"severity\":\"info\"}]'),300);\n");
   const pending = sampleDoctor(cli, process.env);
   const first = await Promise.race([pending.then(() => 'diagnosis'), new Promise<string>((resolve) => setTimeout(() => resolve('host-event'), 10))]);
   assert.equal(first, 'host-event');
-  assert.deepEqual(await pending, [{ problem: 'fixture', severity: 'info' }]);
+  assert.deepEqual(await pending, [{ code: 'environment', problem: 'fixture', severity: 'info' }]);
   writeFileSync(cli, "process.stdout.write('[{\"problem\":42}]');\n");
   await assert.rejects(sampleDoctor(cli, process.env), /Invalid setup diagnosis/);
 });

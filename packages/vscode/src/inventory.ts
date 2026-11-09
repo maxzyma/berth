@@ -52,7 +52,7 @@ export async function sampleDoctor(cli: string, env: NodeJS.ProcessEnv, runtime 
     killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
   });
   const data: unknown = JSON.parse(result.stdout);
-  if (!Array.isArray(data) || !data.every((row) => row && typeof row.problem === 'string'
+  if (!Array.isArray(data) || !data.every((row) => row && typeof row.problem === 'string' && typeof row.code === 'string'
     && (row.session === undefined || typeof row.session === 'string')
     && (row.installHooksFor === undefined || typeof row.installHooksFor === 'string'))) {
     throw new Error('Invalid setup diagnosis from Berth core. Check the installed package.');

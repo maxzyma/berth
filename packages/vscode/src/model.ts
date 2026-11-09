@@ -1,10 +1,9 @@
+/** Pure view logic for Berth for VS Code (spec §6); no `vscode` import, so it is unit-testable. */
+import { basename } from 'node:path';
+import { getAdapter, profileRoot, sessionNameIssue, shellQuote, suggestSessionName, type SessionRow } from '@berthdev/berth';
 import { activityTimeLines } from './activityTime.js';
 import { terminalPersistenceSettings } from './terminalPersistence.js';
 import { WORKING_ICON } from './view/iconSemantics.js';
-import { profileRoot } from '@berthdev/berth';
-/** Pure view logic for Berth for VS Code (spec §6); no `vscode` import, so it is unit-testable. */
-import { basename } from 'node:path';
-import { getAdapter, sessionNameIssue, suggestSessionName, type SessionRow } from '@berthdev/berth';
 
 export type Connection = 'attached-here' | 'attached-unknown' | 'attached-elsewhere' | 'detached' | 'stopped';
 
@@ -435,14 +434,13 @@ export interface LauncherValues {
  * that is only an empty placeholder is dropped.
  */
 export function renderLauncher(template: string, values: LauncherValues): string {
-  const quote = (v: string) => (/^[A-Za-z0-9_@%+:,./-]+$/.test(v) ? v : `'${v.replace(/'/g, `'\\''`)}'`);
   return template
     .trim()
     .split(/\s+/)
     .map((word) => {
       const only = /^\{(agent|cwd|relative|name)\}$/.exec(word);
-      if (only) return values[only[1] as keyof LauncherValues] === '' ? '' : quote(values[only[1] as keyof LauncherValues]);
-      return word.replace(/\{(agent|cwd|relative|name)\}/g, (_, key: keyof LauncherValues) => quote(values[key]));
+      if (only) return values[only[1] as keyof LauncherValues] === '' ? '' : shellQuote(values[only[1] as keyof LauncherValues]);
+      return word.replace(/\{(agent|cwd|relative|name)\}/g, (_, key: keyof LauncherValues) => shellQuote(values[key]));
     })
     .filter((word) => word !== '')
     .join(' ');

@@ -27,7 +27,17 @@ test('check retains setup failures and does not claim a successful resume', () =
   const clear = recoveryCheckItems(base, []);
   assert.equal(clear[0].label, 'No known recovery blockers');
   assert.match(clear[0].detail, /only when the agent resumes/);
-  const failed = recoveryCheckItems(base, [{ session: 'job', problem: 'executable unavailable: agent' }, { session: 'other', problem: 'foreign' }]);
+  const failed = recoveryCheckItems(base, [{ session: 'job', code: 'executable-missing', problem: 'executable unavailable: agent' }, { session: 'other', code: 'executable-missing', problem: 'foreign' }]);
   assert.equal(failed.length, 1);
   assert.match(failed[0].detail, /executable unavailable/);
+});
+
+test('findings are matched by code, not by their wording', () => {
+  const stopped = { ...base, live: false };
+  const items = recoveryCheckItems(stopped, [
+    { session: 'job', code: 'cwd-missing', problem: 'The folder is gone.' },
+    { session: 'job', code: 'recovery', problem: 'Any wording at all.' },
+    { session: 'job', code: 'conversation-unbound', problem: 'Reworded.' },
+  ]);
+  assert.deepEqual(items.map(item => [item.detail, item.action]), [['The folder is gone.', 'folder']]);
 });

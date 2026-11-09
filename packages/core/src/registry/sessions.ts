@@ -19,7 +19,7 @@ import { launchCommand, recoveryOptionsRequired, requireAdapter } from '../agent
 import type { SessionMeta } from '../tmux/client.js';
 import { hooksInstalled, hookStatus, hookSetupGuidance, type HookStatus } from '../agents/hooks.js';
 import { registeredHosts } from './hosts.js';
-import { discover, sessionProducers } from './discover.js';
+import { detectAgent, discover, sessionProducers } from './discover.js';
 import { getAdapter } from '../agents/registry.js';
 import { snapshotCreated, snapshotQuietly, takeSnapshot } from '../snapshot/take.js';
 import { nameConversation, namesConversations } from '../agents/naming.js';
@@ -208,6 +208,27 @@ export function requireLive(ctx: Context, name: string): void {
  */
 export function adopt(ctx: Context, name: string, agent: string, origin?: string): void {
   return withLock(ctx.config.stateDir, () => adoptLocked(ctx, name, agent, origin));
+}
+
+/** How a custom launcher's session was settled (spec §5.2). */
+export type LaunchSettlement = 'predates-launch' | 'missing' | 'settled';
+
+/**
+ * Settle a session a custom launcher attached. Only a session created by this
+ * launch counts. Without Berth metadata it is adopted with `agent`, else the
+ * agent running in it; metadata the launcher stamped is kept.
+ */
+export function adoptLaunched(ctx: Context, session: string, launch: { agent?: string; startedAt: number; origin: string }): LaunchSettlement {
+  // Session times have one-second resolution; allow for rounding and clock skew.
+  const created = Number(ctx.tmux.run(['display-message', '-p', '-t', `=${session}:`, '#{session_created}'], true).stdout.trim()) * 1000;
+  if (!created || created < launch.startedAt - 2000) return 'predates-launch';
+  const live = ctx.tmux.listSessions().find((s) => s.name === session);
+  if (!live) return 'missing';
+  const agent = launch.agent || detectAgent(ctx, session)?.agent;
+  if (!live.meta.agent && agent) adopt(ctx, session, agent, launch.origin);
+  else if (live.meta.agent) stamp(ctx, session, { origin: launch.origin });
+  ctx.tmux.setTitle(session);
+  return 'settled';
 }
 
 function adoptLocked(ctx: Context, name: string, agent: string, origin?: string): void {
