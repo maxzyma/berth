@@ -18,6 +18,13 @@ running, and people run many at once across projects. Three things break:
 3. **Losing the place.** Sessions are spread over terminals (VS Code, iTerm2).
    After a restart each should come back where it was opened, and only there.
 
+Running more than one agent is ordinary even for people with a primary agent app.
+They switch when a subscription or token quota runs out or several subscriptions
+are paid for, when another agent fits the task better, and when a large display
+makes split terminal panes the better workspace. Switching is cheap only when
+project instructions are shared across agents (for example `AGENTS.md`), so
+the remaining cost is finding and returning to each agent's sessions.
+
 Berth targets people who already work across editor terminals and iTerm2 and
 want those hosts to remain their session entry points. Persistence alone is
 not a unique reason to choose it: tmux provides live process persistence, and
@@ -92,7 +99,36 @@ and a revision of this section before implementation. A feature proposal or an
 implementation shortcut cannot implicitly override it. Launch behavior (§5.2),
 frontend creation and extension proposals must be reviewed against this section.
 
-### 2.2 Voluntary support
+### 2.2 Product principles
+
+**Build on what already works.** Berth adds the session layer: one inventory,
+verified identity and lifecycle. Everything else comes from what the user
+already runs. tmux keeps processes alive, lets several terminals attach to one
+session, and carries session metadata, hooks and titles. Each agent CLI owns
+its conversations, resume and hook events. The editor and its extensions show
+files, diffs, terminals, browsers, search pickers, notifications and Profiles.
+iTerm2 restores its windows and panes. An agent workspace needs a session list
+and a panel that can show any kind of content next to it; a mature editor
+already provides that panel, so a standalone app would spend its effort
+rebuilding it. Before building a surface, name the host or tool feature it
+would duplicate; prefer the native API or an existing extension. Build it only
+when the host cannot meet a specific task, and record why (as for the sessions
+webview, §6).
+
+**Minimal and sufficient.** Judge Berth by how well the few things it does
+work, not by how many it offers: the right destination, little waiting and a
+clear next step when something fails.
+
+- One path per task: do not keep two commands for the same action.
+- Defaults that work without configuration. Add a setting only where users
+  differ and no default fits. Keep internal state out of settings unless the
+  host offers no other store for it, and then say so in its description.
+- Add a capability only for an observed task, and remove migration or legacy
+  surfaces once they no longer serve one.
+- Keep rarely used or failure-only actions out of the way until their condition
+  holds, rather than in every menu.
+
+### 2.3 Voluntary support
 
 Maintainer sponsorship uses one shared destination: [Ko-fi](https://ko-fi.com/maxzyma).
 Expose it through GitHub's Sponsor button and a short section at the end of the
