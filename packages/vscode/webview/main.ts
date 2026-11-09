@@ -55,7 +55,6 @@ class BerthSessions extends LitElement {
   /** The folder group being dragged, and where it would land (spec §6). */
   private dragging?: string;
   declare drop: { cwd: string; after: boolean } | undefined;
-  private line?: { id: string; mark: string };
   private readonly clipboard = new ClipboardBridge((message) => vscode.postMessage(message));
   private readonly hover = new HoverCard(
     (visible) => vscode.postMessage({ type: 'detailsVisibility', visible }),
@@ -95,7 +94,8 @@ class BerthSessions extends LitElement {
       const hadFocus = this.contains(document.activeElement);
       this.model = { tree: message.model, flatten: message.flatten };
       if (hadFocus) void this.updateComplete.then(() => {
-        if (!this.contains(document.activeElement) && this.focusId) document.getElementById(this.focusId)?.focus();
+        // The row render made focusable: the same one if it remains, else the first.
+        if (!this.contains(document.activeElement)) this.querySelector<HTMLElement>('.list [tabindex="0"]')?.focus();
       });
       if (first) requestAnimationFrame(() => window.scrollTo(0, vscode.getState()?.scrollTop ?? 0));
     } else {
@@ -154,14 +154,11 @@ class BerthSessions extends LitElement {
     return { id: items[end].id, mark: 'drop-after' };
   }
 
-  private dropMark(id: string): string {
-    return this.line?.id === id ? this.line.mark : '';
-  }
-
   render(): TemplateResult {
     const items = this.items();
     const focus = this.focusId && items.some((i) => i.id === this.focusId) ? this.focusId : items[0]?.id;
-    this.line = this.dropLine(items);
+    const line = this.dropLine(items);
+    const mark = (id: string) => (line?.id === id ? line.mark : '');
     return html`
       ${this.error ? html`
         <div class="view-error" role="alert">
@@ -173,8 +170,8 @@ class BerthSessions extends LitElement {
         @dragover=${(e: DragEvent) => this.dragOver(e, items)} @drop=${(e: DragEvent) => this.dropGroup(e)}
         @dragleave=${(e: DragEvent) => { if (!(e.relatedTarget instanceof Node && (e.currentTarget as Node).contains(e.relatedTarget))) this.drop = undefined; }}>
         ${repeat(items, (item) => item.id, (item) => (item.kind === 'group'
-          ? this.groupRow(item.group, item.id === focus)
-          : this.card(item.row, item.level, item.id === focus)))}
+          ? this.groupRow(item.group, item.id === focus, mark(item.id))
+          : this.card(item.row, item.level, item.id === focus, mark(item.id))))}
       </div>
       ${items.length === 0 && this.model ? html`
         <div class="empty">
@@ -183,14 +180,14 @@ class BerthSessions extends LitElement {
         </div>` : nothing}`;
   }
 
-  private groupRow(group: GroupView | Other, focused: boolean): TemplateResult {
+  private groupRow(group: GroupView | Other, focused: boolean, dropMark: string): TemplateResult {
     const open = !this.collapsed.has(group.cwd);
     const other = 'other' in group;
     const attention = !open && !other ? group.attention : '';
     const context: MenuContext = other ? {} : { webviewSection: 'group', groupCwd: group.cwd };
     const icon = other ? 'terminal' : PLACE_ICON[group.place];
     return html`<div
-      class="row group ${other ? '' : group.place} ${attention ? `attention-${attention}` : ''} ${this.dropMark(`g:${group.cwd}`)}"
+      class="row group ${other ? '' : group.place} ${attention ? `attention-${attention}` : ''} ${dropMark}"
       id=${`g:${group.cwd}`}
       draggable=${other ? 'false' : 'true'}
       @dragstart=${(e: DragEvent) => {
@@ -238,12 +235,12 @@ class BerthSessions extends LitElement {
     </div>`;
   }
 
-  private card(row: RowView, level: number, focused: boolean): TemplateResult {
+  private card(row: RowView, level: number, focused: boolean, dropMark: string): TemplateResult {
     const context: MenuContext = { webviewSection: 'session', session: row.name, berthItem: row.contextValue };
     const selected = this.selectedSession === row.name;
     const words = [row.name, row.hover.find(line => line.kind === 'title')?.sub, row.agent ? `${STATE_WORDS[row.icon]}` : STATE_WORDS.unmanaged, row.subtitle, row.details, row.active ? 'Active terminal' : ''].filter(Boolean).join(', ');
     return html`<div
-      class="row card ${this.dropMark(`s:${row.name}`)} level-${level} state-${row.icon} ${row.attention ? `attention-${row.attention}` : ''} ${selected ? 'selected' : ''} ${row.active ? 'terminal-active' : ''}"
+      class="row card ${dropMark} level-${level} state-${row.icon} ${row.attention ? `attention-${row.attention}` : ''} ${selected ? 'selected' : ''} ${row.active ? 'terminal-active' : ''}"
       id=${`s:${row.name}`}
       role="treeitem"
       aria-level=${level}

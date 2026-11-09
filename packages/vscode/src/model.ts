@@ -88,6 +88,11 @@ export function placeOf(cwd: string, workspaceFolders: readonly string[]): Place
 
 const PLACE_RANK: Record<Place, number> = { workspace: 0, inside: 1, outside: 2 };
 
+/** A folder group's name: the folder's own name, or the whole path for `/`. */
+export function folderLabel(cwd: string): string {
+  return basename(cwd) || cwd;
+}
+
 /** Default folder order: workspace folder, inside it, outside it, then by path (spec §6). */
 export function compareFolders(a: { cwd: string; place: Place }, b: { cwd: string; place: Place }): number {
   return PLACE_RANK[a.place] - PLACE_RANK[b.place] || a.cwd.localeCompare(b.cwd);
@@ -323,11 +328,11 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
   const ordered = [...groups.entries()]
     .map(([cwd, list]) => ({
       cwd,
-      label: basename(cwd) || cwd,
+      label: folderLabel(cwd),
       place: placeOf(cwd, folders),
       branch: input.branch(cwd),
       hover: [
-        { icon: '', text: basename(cwd) || cwd, copyValue: basename(cwd) || cwd, copyLabel: 'folder name', kind: 'title' as const },
+        { icon: '', text: folderLabel(cwd), copyValue: folderLabel(cwd), copyLabel: 'folder name', kind: 'title' as const },
         { icon: 'folder', text: shortPath(cwd, folders, input.home), full: cwd, copyValue: cwd, copyLabel: 'folder path', kind: 'path' as const },
         ...(input.branch(cwd) ? [{ icon: 'git-branch', text: `Current worktree branch: ${input.branch(cwd)}`, copyValue: input.branch(cwd), copyLabel: 'branch' }] : []),
         { icon: PLACE_CODICON[placeOf(cwd, folders)], text: PLACE_TEXT[placeOf(cwd, folders)] },

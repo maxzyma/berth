@@ -1,6 +1,6 @@
 /** The VS Code side of session terminals: opening, tracking and notifying (spec §6). */
 import * as vscode from 'vscode';
-import { connections, handoffTerminalClients, HostRegistration, workspaceIdentity, waitForAttachment, type Context, type SessionRow } from '@berthdev/berth';
+import { connections, handoffTerminalClients, sessionForTerminal, HostRegistration, workspaceIdentity, waitForAttachment, type Context, type SessionRow } from '@berthdev/berth';
 import { handoffSources, persistentTerminalOptions, restoredTerminalSession, terminalProcessOwned, TERMINAL_OWNER_ENV } from './terminalOwnership.js';
 import { deliverNotification, notificationChannel, notifySystem } from './notifications.js';
 import { renameSession, resolveTerminalPids } from './inventory.js';
@@ -55,8 +55,8 @@ export class TerminalHost implements Host {
     this.pidsReady = ready && terminals.length === vscode.window.terminals.length && terminals.every(terminal => vscode.window.terminals.includes(terminal));
     this.pids = new Set(pids.filter((pid, i): pid is number => pid !== undefined && !terminals[i].exitStatus && vscode.window.terminals.includes(terminals[i])));
     this.terminalIds = new Map(terminals.flatMap((terminal, i) => this.pids.has(pids[i]!) ? [[terminal, pids[i]!] as const] : []));
-    const clients = [...connections(this.ctx.tmux).entries()];
-    const shownBy = (pid: number | undefined) => pid ? clients.find(([, values]) => values.some((client) => client.ancestors.includes(pid)))?.[0] : undefined;
+    const clients = connections(this.ctx.tmux);
+    const shownBy = (pid: number | undefined) => pid ? sessionForTerminal(this.ctx.tmux, pid, clients) : undefined;
     this.sessionsByPid = new Map([...this.pids].flatMap(pid => { const name = shownBy(pid); return name ? [[pid, name] as const] : []; }));
     const revivedOwners = new Map<vscode.Terminal, { pid: number; owned: boolean; checked: number }>();
     for (const terminal of terminals) {

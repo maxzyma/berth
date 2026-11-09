@@ -12,7 +12,7 @@ import { shellQuote, shellSplit } from '../shell.js';
 import type { SnapshotSession, StoredSnapshot } from '../snapshot/store.js';
 import { recoveryStatus } from './status.js';
 import { BerthError } from '../errors.js';
-import { snapshotQuietly, takeSnapshot } from '../snapshot/take.js';
+import { takeSnapshot } from '../snapshot/take.js';
 import { withLock } from './lock.js';
 
 export type RestoreOutcome = 'resume-requested' | 'launched' | 'skipped-live' | 'skipped-missing-cwd' | 'skipped-binding-conflict' | 'skipped-unbound' | 'skipped-missing-binary' | 'skipped-unsupported-resume' | 'failed' | 'skipped-name-conflict' | 'skipped-unknown-profile' | 'skipped-unverified-arguments';

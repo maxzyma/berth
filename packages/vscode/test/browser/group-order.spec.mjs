@@ -102,3 +102,16 @@ test('Alt+Arrow on a session card still moves focus; dragging a header carries n
   expect(types).not.toContain('text/plain');
   expect(types).toEqual(['application/x-berth-group']);
 });
+
+test('the drop line and the active-terminal edge show together on one row', async ({ page }, testInfo) => {
+  await page.goto(`${server.url}/frame?theme=dark&width=300`);
+  const frame = page.frameLocator('iframe');
+  await expect(frame.getByRole('tree')).toBeVisible();
+  const row = frame.locator('.row.card').first();
+  const shadow = await row.evaluate((el) => {
+    el.classList.add('terminal-active', 'drop-after');
+    return getComputedStyle(el).boxShadow;
+  });
+  expect(shadow.match(/inset/g)).toHaveLength(2);
+  await row.screenshot({ path: testInfo.outputPath('active-and-drop.png') });
+});

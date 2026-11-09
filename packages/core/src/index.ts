@@ -6,7 +6,7 @@ export { ADAPTERS, getAdapter, type Adapter } from './agents/registry.js';
 export { keptArgs, launchCommand, resumeCommand } from './agents/commands.js';
 export { installHooks, uninstallHooks, handleHook, metaForEvent, hookStatus, hookHint, hookSetupGuidance, hookInstallNotice, type HookStatus } from './agents/hooks.js';
 export { inventory, list, create, adopt, adoptLaunched, rename, end, forget, stamp, bellRang, clearBell, sendAgentLine, sessionNameIssue, suggestSessionName, BELL_NOTE, type LaunchSettlement, type SessionRow } from './registry/sessions.js';
-export { doctor, type Finding, type FindingCode } from './registry/doctor.js';
+export { doctor, ROW_FINDING_CODES, type Finding, type FindingCode } from './registry/doctor.js';
 export { SnapshotStore, type Snapshot, type SnapshotSession } from './snapshot/store.js';
 export { takeSnapshot, adoptDiscovered } from './snapshot/take.js';
 export { detectAgent, discover } from './registry/discover.js';

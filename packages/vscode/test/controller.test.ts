@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
 import { sessionChoices, buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, sessionNameProblem, type Transition } from '../src/model.js';
 import { layoutChanges } from '../src/layoutSettings.js';
-import { applyGroupOrder, moveGroup, shiftGroup } from '../src/groupOrder.js';
+import { applyGroupOrder, moveGroup, savedGroupOrder, shiftGroup } from '../src/groupOrder.js';
 
 interface Sandbox {
   socket: string;
@@ -933,6 +933,12 @@ test('folder groups follow the saved order; unplaced groups keep their default n
   assert.deepEqual(applyGroupOrder(groups, ['/gone', '/out/a']).map((g) => g.cwd), ['/ws', '/ws/sub', '/out/a', '/out/b']);
   assert.deepEqual(applyGroupOrder(groups, ['/out/b', '/out/a', '/out/b']).map((g) => g.cwd), ['/ws', '/ws/sub', '/out/b', '/out/a'],
     'groups before every placed group stay first; a repeated saved entry counts once');
+});
+
+test('a stored folder order that is not a list of paths reads as no order', () => {
+  assert.deepEqual(savedGroupOrder(undefined), []);
+  assert.deepEqual(savedGroupOrder({ '/a': 1 }), []);
+  assert.deepEqual(savedGroupOrder(['/a', 2, null, '/b']), ['/a', '/b']);
 });
 
 test('moving a folder group saves the new order and keeps absent groups where they were', () => {

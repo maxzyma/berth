@@ -13,6 +13,9 @@ import { list } from './sessions.js';
 export type FindingCode = 'environment' | 'legacy-snapshots' | 'unknown-agent' | 'agent-version' | 'cwd-missing'
   | 'binding' | 'recovery' | 'executable-missing' | 'profile-unknown' | 'hooks' | 'conversation-unbound';
 
+/** Findings that restate a `SessionRow` field, so a host showing the row need not repeat them. */
+export const ROW_FINDING_CODES: ReadonlySet<FindingCode> = new Set(['binding', 'hooks', 'profile-unknown', 'conversation-unbound', 'recovery']);
+
 export interface Finding {
   session?: string;
   code: FindingCode;

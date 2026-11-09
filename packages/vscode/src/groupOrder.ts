@@ -1,5 +1,10 @@
 /** Folder group order the user saved per workspace (spec §6). Pure, so it is unit-testable. */
 
+/** A stored order as folder paths; anything else stored reads as no order. */
+export function savedGroupOrder(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((cwd): cwd is string => typeof cwd === 'string') : [];
+}
+
 /**
  * Groups in the saved order follow it; any other group keeps its default
  * position after the group that precedes it by default (spec §6).

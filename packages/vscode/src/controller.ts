@@ -21,7 +21,6 @@ import {
   relocateRecovery,
   setRecoveryProfile,
   setRecoveryOptions,
-  type AgentProfile,
   type Context,
   type SessionRow,
 } from '@berthdev/berth';
@@ -209,7 +208,6 @@ export class Controller {
       this.pendingLaunch = undefined;
       return false;
     }
-    // Only a session created by this launch is adopted, never one shown later.
     const settlement = adoptLaunched(this.ctx, session, { agent: intent.agent, startedAt: intent.startedAt, origin: 'vscode' });
     if (settlement === 'predates-launch') return false;
     this.pendingLaunch = undefined;
