@@ -251,6 +251,21 @@ passed (399 passed, 11 skipped, 0 failed) and the webview suite passed (122).
 Candidate: `berth-vscode-0.4.5-grouporder.vsix`, SHA-256 `7b98548244b49b5df45b4ee6b36a21c401c8d9dccdf8964a26d67ef66ea4aea7`,
 installed locally; the daily editor needs reload. No formal release.
 
+Pre-release structure review, `c453577`..`1bd97f8`, 2026-11-09: folder
+reordering kept keyboard focus only when no row moved, swallowed Alt+Arrow on
+session cards, carried the folder name as plain text into editors on a stray
+drop and hid the active-terminal edge under the drop line; all four are fixed.
+Each move saves the whole shown order (spec §6). Three session decisions left
+the VS Code frontend for core: findings carry a code instead of being matched
+by wording, the terminal's session comes from core's process ancestry instead
+of a second `ps` walk, and custom-launcher settlement is core's
+`adoptLaunched` (spec §5.2). `extension.ts` lost its terminal host
+(747 to 507 lines) and `model.ts` its layout settings and group order, as pure
+moves. Unit suite 401 passed, 11 skipped, 0 failed; webview suite 128 passed at
+both viewports. Candidate: `berth-vscode-0.4.5-refactor.vsix`, SHA-256
+`f2599bc6be750e8e6d6052124960e25fa06085fae540815fd70e7fae924e2833`, installed
+locally; the daily editor needs reload. No formal release.
+
 ## Automatic Berth layout preparation
 
 **State:** Local candidate. On macOS VS Code 1.143.1, the isolated native
