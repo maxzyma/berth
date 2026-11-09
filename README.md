@@ -183,7 +183,7 @@ session journey, architecture and remaining host acceptance limits.
 ## Releasing
 
 See the [release notes](packages/vscode/CHANGELOG.md) and
-[current release record](design/release-0.4.5.md) for scope and outstanding gates.
+[current release record](design/release-0.4.6.md) for scope and outstanding gates.
 
 Use local candidate packages during review; publish a version after its scoped
 checks and release notes are complete. Retain normal published versions for

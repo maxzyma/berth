@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.6
+
+### Setup
+
+- Check host dependencies before creating a session, with guided repair through existing package managers. Diagnose Problems shows every check.
+- Offer agent and tmux hooks when they start to matter: after startup for agents running in sessions, and after creating an agent session. One notification; your answer is remembered.
+- tmux hooks installed from VS Code run the extension's own Berth, so extension updates reach them. Berth repairs hooks that point to a removed installation.
+- The standalone CLI is optional for VS Code users.
+
+### Sessions
+
+- Create sessions faster: the core creates in about 200 ms with a dozen sessions, and inspects the selected launcher in the same step.
+- Session names accept CJK and other characters tmux keeps. Rename explains a refused name while you type and suggests a fixed one.
+- Renaming a session renames the agent's conversation where the agent allows it: Codex through its app server; Claude Code, Qoder and OpenCode through their hooks; launch and resume through `--name`. Berth offers Copilot and Kimi Code their own rename command and types it only after you confirm. Gemini and Cursor keep their own titles.
+- Reorder folder groups by dragging a header, with Alt+Up/Down, or with Move Folder Up/Down. Berth saves the order per workspace; Reset Folder Order restores the default. The New Session folder picker follows the same order.
+- Exited sessions leave the list sooner, and the selection follows the active terminal.
+
+### Fixes
+
+- A window reload no longer reports that another restore is running. The editor waits at most 5 seconds for the state lock and names the process holding it.
+- Berth keeps the agent metadata a custom launcher stamps, even when it arrives while Berth waits for the state lock.
+- Keyboard focus stays on a folder header while you reorder it, and dropping a header outside the list inserts nothing.
+
 ## 0.4.5
 
 ### Activity and session details
