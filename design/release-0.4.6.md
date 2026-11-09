@@ -28,7 +28,17 @@ Source `3aa1cba`, 2026-11-09, macOS:
   [0.4.5 audit](release-0.4.5.md#public-repository-audit); the private-identifier
   check of the working tree found no matches.
 
-Publication is pending. The locally installed candidate is not the formal release.
+The [release workflow](https://github.com/maxzyma/berth/actions/runs/42626301861)
+passed: on macOS 15 and macOS 15 Intel, 404 tests passed, 11 opt-in tests skipped,
+zero failures; the Linux and Windows jobs also passed. npm `latest`,
+[GitHub Releases](https://github.com/maxzyma/berth/releases/tag/v0.4.6) and the
+VS Code Marketplace publish 0.4.6. The npm archive from the official registry
+matches the GitHub archive byte for byte and its integrity; the Marketplace and
+GitHub VSIX archives match byte for byte. Private-identifier and credential scans
+of the 209 published files found nothing. The official VSIX is installed locally,
+with all 33 extension payload files verified against the archive (ignoring VS
+Code's installation metadata). Reload Window activates it. See the
+[publication receipt](assets/code-review/release-0.4.6.json).
 
 ## Accepted limits
 
