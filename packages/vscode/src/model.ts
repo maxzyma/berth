@@ -89,6 +89,11 @@ export function placeOf(cwd: string, workspaceFolders: readonly string[]): Place
 
 const PLACE_RANK: Record<Place, number> = { workspace: 0, inside: 1, outside: 2 };
 
+/** Default folder order: workspace folder, inside it, outside it, then by path (spec §6). */
+export function compareFolders(a: { cwd: string; place: Place }, b: { cwd: string; place: Place }): number {
+  return PLACE_RANK[a.place] - PLACE_RANK[b.place] || a.cwd.localeCompare(b.cwd);
+}
+
 /**
  * Agents for a new session: those named in `order` first, in that order,
  * then the rest in their usual order. Unknown ids are ignored.
@@ -331,7 +336,7 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
       attention: (list.some((r) => r.attention === 'waiting') ? 'waiting' : list.some((r) => r.attention === 'unread') ? 'unread' : '') as Attention,
       rows: [...list].sort((x, y) => compareSessionNames(x.name, y.name)),
     }))
-    .sort((a, b) => PLACE_RANK[a.place] - PLACE_RANK[b.place] || a.cwd.localeCompare(b.cwd));
+    .sort(compareFolders);
   return {
     groups: applyGroupOrder(ordered, input.groupOrder ?? []),
     unmanaged: [...unmanaged].sort((x, y) => compareSessionNames(x.name, y.name)),
@@ -491,7 +496,8 @@ export function sessionNameProblem(value: string): string | undefined {
  * position after the group that precedes it by default (spec §6).
  */
 export function applyGroupOrder<T extends { cwd: string }>(defaults: readonly T[], saved: readonly string[]): T[] {
-  return mergeOrder(defaults.map((group) => group.cwd), saved).map((cwd) => defaults.find((group) => group.cwd === cwd)!);
+  const byCwd = new Map(defaults.map((group) => [group.cwd, group]));
+  return mergeOrder([...byCwd.keys()], saved).map((cwd) => byCwd.get(cwd)!);
 }
 
 /** The saved order after moving `cwd` before or after `target` in the shown order. */
@@ -511,14 +517,18 @@ export function shiftGroup(shown: readonly string[], saved: readonly string[], c
 
 /** `items` in their default order, with every item also in `order` placed as it is there. */
 function mergeOrder(items: readonly string[], order: readonly string[]): string[] {
-  const placed = order.filter((item) => items.includes(item));
-  const result = [...placed];
-  let anchor = -1;
+  const present = new Set(items);
+  const placed = [...new Set(order.filter((item) => present.has(item)))];
+  const isPlaced = new Set(placed);
+  // Unplaced items follow the placed item that precedes them by default.
+  const runs = new Map<string | undefined, string[]>();
+  let anchor: string | undefined;
   for (const item of items) {
-    if (placed.includes(item)) { anchor = result.indexOf(item); continue; }
-    result.splice(++anchor, 0, item);
+    if (isPlaced.has(item)) anchor = item;
+    else if (runs.has(anchor)) runs.get(anchor)!.push(item);
+    else runs.set(anchor, [item]);
   }
-  return result;
+  return [...(runs.get(undefined) ?? []), ...placed.flatMap((item) => [item, ...(runs.get(item) ?? [])])];
 }
 
 /** A new shown order, keeping saved groups that are absent where they were. */

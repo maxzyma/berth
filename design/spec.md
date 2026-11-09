@@ -1083,8 +1083,9 @@ name/title/task text is suppressed. Cards use at most
     after by pointer position, on a group's sessions after that group; a line
     marks the place) or with Alt+Up/Down and Move Folder
     Up/Down on a focused header; the order is saved per workspace and takes
-    precedence over places. A group the user has not placed keeps its default
-    position after the group that precedes it by default. A group whose
+    precedence over places. Each move saves the whole order shown at that
+    moment. A group missing from the saved order, such as a new folder, keeps its
+    default position after the group that precedes it by default. A group whose
     sessions are gone keeps its saved position for when it returns. Reset
     Folder Order returns to the default. When the only group is
     the workspace folder its cards sit at the top level and the view's title
@@ -1276,7 +1277,7 @@ name/title/task text is suppressed. Cards use at most
   shows the folder: a side bar is narrow, and every tree level costs
   indentation the extension cannot reduce (it follows `workbench.tree.indent`,
   and leaf rows keep the twistie column). The folder picker marks folders the
-  same way. *New Session* uses the folder of the session shown in the session
+  same way and lists them in the view's group order. *New Session* uses the folder of the session shown in the session
   terminal, else the only workspace folder, and asks only when neither
   exists; *New Agent Session in Folder…* always asks (workspace folders,
   existing groups, or any folder); a group's *New Session Here* uses that

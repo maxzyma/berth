@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { recoveryCheckItems } from './recoveryCheck.js';
 import { LayoutStore } from './layoutStore.js';
 import { Controller, type Host, type TerminalRole } from './controller.js';
-import { sessionChoices, defaultFolder, explorerTarget, launcherPicksAgent, moveGroup, orderAgents, placeOf, sessionNameProblem, shiftGroup, type Place, type Transition } from './model.js';
+import { applyGroupOrder, compareFolders, sessionChoices, defaultFolder, explorerTarget, launcherPicksAgent, moveGroup, orderAgents, placeOf, sessionNameProblem, shiftGroup, type Place, type Transition } from './model.js';
 import type { MenuContext } from './view/protocol.js';
 import { SessionsView, VIEW_ID } from './view/sessionsView.js';
 import { installBundledHooks, prepareHookRuntime } from './hookRuntime.js';
@@ -377,7 +377,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   let terminalRevision = 0;
   const renderLocal = () => view.update(controller.tree());
   // Folder group order is saved per workspace (spec §6).
-  host.groupOrder = () => context.workspaceState.get<string[]>(GROUP_ORDER, []);
+  host.groupOrder = () => {
+    const saved: unknown = context.workspaceState.get(GROUP_ORDER, []);
+    return Array.isArray(saved) ? saved.filter((cwd): cwd is string => typeof cwd === 'string') : [];
+  };
   const reorderGroups = (next: (shown: readonly string[], saved: readonly string[]) => string[]) => {
     const shown = controller.tree().groups.map((group) => group.cwd);
     void context.workspaceState.update(GROUP_ORDER, next(shown, host.groupOrder!())).then(renderLocal);
@@ -652,11 +655,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // A project in the sessions view is a folder with sessions; a new session in a folder starts one.
   const pickFolder = async (): Promise<string | undefined> => {
     const known = [...new Set([...folders(), ...controller.tree().groups.map((g) => g.cwd)])];
-    const rank: Record<Place, number> = { workspace: 0, inside: 1, outside: 2 };
-    const items: (vscode.QuickPickItem & { path?: string })[] = known
-      .map((p) => ({ p, place: placeOf(p, folders()) }))
-      .sort((a, b) => rank[a.place] - rank[b.place] || a.p.localeCompare(b.p))
-      .map(({ p, place }) => ({ label: p.split('/').pop() || p, description: p, path: p, iconPath: PLACE_ICONS[place] }));
+    // Same order as the sessions view, including folders the user reordered.
+    const defaults = known.map((cwd) => ({ cwd, place: placeOf(cwd, folders()) })).sort(compareFolders);
+    const items: (vscode.QuickPickItem & { path?: string })[] = applyGroupOrder(defaults, host.groupOrder!())
+      .map(({ cwd, place }) => ({ label: cwd.split('/').pop() || cwd, description: cwd, path: cwd, iconPath: PLACE_ICONS[place] }));
     items.push({ label: '$(folder-opened) Choose Folder…' });
     const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Folder for the new session' });
     if (!pick) return undefined;

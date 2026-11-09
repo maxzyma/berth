@@ -929,6 +929,8 @@ test('folder groups follow the saved order; unplaced groups keep their default n
   assert.deepEqual(applyGroupOrder(groups, ['/out/b', '/ws']).map((g) => g.cwd), ['/out/b', '/ws', '/ws/sub', '/out/a'],
     'a saved order overrides places; unplaced groups follow their default predecessor');
   assert.deepEqual(applyGroupOrder(groups, ['/gone', '/out/a']).map((g) => g.cwd), ['/ws', '/ws/sub', '/out/a', '/out/b']);
+  assert.deepEqual(applyGroupOrder(groups, ['/out/b', '/out/a', '/out/b']).map((g) => g.cwd), ['/ws', '/ws/sub', '/out/b', '/out/a'],
+    'groups before every placed group stay first; a repeated saved entry counts once');
 });
 
 test('moving a folder group saves the new order and keeps absent groups where they were', () => {

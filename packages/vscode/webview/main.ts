@@ -41,6 +41,9 @@ const STATE_WORDS: Record<RowView['icon'], string> = {
 type Item = { id: string; kind: 'group'; group: GroupView | Other } | { id: string; kind: 'card'; row: RowView; level: number; group?: string };
 type Other = { cwd: string; label: string; rows: RowView[]; other: true };
 
+/** Drag data private to this view, so dropping a header in an editor or terminal inserts nothing. */
+const GROUP_MIME = 'application/x-berth-group';
+
 class BerthSessions extends LitElement {
   static properties = { error: { state: true }, model: { state: true }, settings: { state: true }, focusId: { state: true }, selectedSession: { state: true }, drop: { state: true } };
   declare model: { tree: TreeView; flatten: boolean } | undefined;
@@ -52,6 +55,7 @@ class BerthSessions extends LitElement {
   /** The folder group being dragged, and where it would land (spec §6). */
   private dragging?: string;
   declare drop: { cwd: string; after: boolean } | undefined;
+  private line?: { id: string; mark: string };
   private readonly clipboard = new ClipboardBridge((message) => vscode.postMessage(message));
   private readonly hover = new HoverCard(
     (visible) => vscode.postMessage({ type: 'detailsVisibility', visible }),
@@ -87,7 +91,12 @@ class BerthSessions extends LitElement {
       const active = nextRows.find(row => row.active)?.name;
       if (active && active !== previousActive) this.selectedSession = active;
       else if (this.selectedSession && !nextRows.some(row => row.name === this.selectedSession)) this.selectedSession = undefined;
+      // Reordering moves row nodes, which blurs the focused one; keep keyboard focus in the list.
+      const hadFocus = this.contains(document.activeElement);
       this.model = { tree: message.model, flatten: message.flatten };
+      if (hadFocus) void this.updateComplete.then(() => {
+        if (!this.contains(document.activeElement) && this.focusId) document.getElementById(this.focusId)?.focus();
+      });
       if (first) requestAnimationFrame(() => window.scrollTo(0, vscode.getState()?.scrollTop ?? 0));
     } else {
       this.settings = message.settings;
@@ -135,20 +144,24 @@ class BerthSessions extends LitElement {
   }
 
   /** The drop line: above a group's header, or below its last visible row. */
-  private dropMark(id: string): string {
-    if (!this.drop) return '';
-    const items = this.items();
+  private dropLine(items: Item[]): { id: string; mark: string } | undefined {
+    if (!this.drop) return undefined;
     const start = items.findIndex((item) => item.id === `g:${this.drop!.cwd}`);
-    if (start < 0) return '';
-    if (!this.drop.after) return id === items[start].id ? 'drop-before' : '';
+    if (start < 0) return undefined;
+    if (!this.drop.after) return { id: items[start].id, mark: 'drop-before' };
     let end = start;
     while (items[end + 1]?.kind === 'card' && (items[end + 1] as { group?: string }).group === this.drop.cwd) end++;
-    return id === items[end].id ? 'drop-after' : '';
+    return { id: items[end].id, mark: 'drop-after' };
+  }
+
+  private dropMark(id: string): string {
+    return this.line?.id === id ? this.line.mark : '';
   }
 
   render(): TemplateResult {
     const items = this.items();
     const focus = this.focusId && items.some((i) => i.id === this.focusId) ? this.focusId : items[0]?.id;
+    this.line = this.dropLine(items);
     return html`
       ${this.error ? html`
         <div class="view-error" role="alert">
@@ -185,7 +198,7 @@ class BerthSessions extends LitElement {
         this.dragging = group.cwd;
         this.hover.hide();
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', group.label);
+        e.dataTransfer.setData(GROUP_MIME, group.cwd);
       }}
       @dragend=${() => { this.dragging = undefined; this.drop = undefined; }}
       role="treeitem"
@@ -315,12 +328,10 @@ class BerthSessions extends LitElement {
       this.focusId = target.id;
       void this.updateComplete.then(() => document.getElementById(target.id)?.focus());
     };
-    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && item?.kind === 'group' && !('other' in item.group)) {
       // Alt+Up/Down moves a focused folder group, as VS Code moves lines.
-      if (item?.kind === 'group' && !('other' in item.group)) {
-        vscode.postMessage({ type: 'shiftGroup', cwd: item.group.cwd, delta: e.key === 'ArrowUp' ? -1 : 1 });
-        e.preventDefault();
-      }
+      vscode.postMessage({ type: 'shiftGroup', cwd: item.group.cwd, delta: e.key === 'ArrowUp' ? -1 : 1 });
+      e.preventDefault();
       return;
     }
     switch (e.key) {

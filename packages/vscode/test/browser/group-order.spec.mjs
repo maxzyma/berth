@@ -61,3 +61,44 @@ test('the drop line sits above a header or below the last row of the target grou
   expect(marks.after).toEqual([]);
 });
 
+
+test('keyboard focus stays on a folder header when the new order moves it past an open group', async ({ page }) => {
+  await page.goto(`${server.url}/frame?theme=dark&width=300`);
+  const frame = page.frameLocator('iframe');
+  await expect(frame.getByRole('tree')).toBeVisible();
+  const send = (order) => frame.locator('body').evaluate((_, cwds) => {
+    const group = window.fixture.groups[0];
+    const groups = cwds.map((cwd) => ({
+      ...group, cwd, label: cwd.slice(1), rows: group.rows.slice(0, 2).map((row) => ({ ...row, name: `${cwd.slice(1)}-${row.name}` })),
+    }));
+    window.sendModel({ ...window.fixture, groups, unmanaged: [] }, false);
+  }, order);
+  const header = (cwd) => frame.locator(`[id="g:${cwd}"]`);
+  await send(['/a', '/b']);
+  await header('/b').focus();
+  await send(['/b', '/a']);
+  await expect(header('/b')).toBeFocused();
+});
+
+test('Alt+Arrow on a session card still moves focus; dragging a header carries no plain text', async ({ page }) => {
+  await page.goto(`${server.url}/frame?theme=dark&width=300`);
+  const frame = page.frameLocator('iframe');
+  await expect(frame.getByRole('tree')).toBeVisible();
+  const cards = frame.locator('.row.card');
+  await cards.first().focus();
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect(cards.nth(1)).toBeFocused();
+  await frame.locator('body').evaluate(() => {
+    const group = window.fixture.groups[0];
+    const groups = ['/a', '/b'].map((cwd, index) => ({ ...group, cwd, label: cwd.slice(1), rows: [{ ...group.rows[index], name: `job-${cwd.slice(1)}` }] }));
+    window.sendModel({ ...window.fixture, groups, unmanaged: [] }, false);
+  });
+  const types = await frame.locator('[id="g:/a"]').evaluate((el) => {
+    const data = new DataTransfer();
+    el.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: data }));
+    el.dispatchEvent(new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer: data }));
+    return [...data.types];
+  });
+  expect(types).not.toContain('text/plain');
+  expect(types).toEqual(['application/x-berth-group']);
+});
