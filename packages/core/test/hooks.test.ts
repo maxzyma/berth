@@ -184,3 +184,46 @@ test('CR60 Gemini model hooks only end an existing permission wait', (t) => {
   assert.equal(ctx.tmux.listSessions()[0].meta.state, 'working');
   assert.equal(ctx.tmux.listSessions()[0].meta.note, undefined);
 });
+
+test('a nested agent run inside the producer cannot rebind it; the producer\'s own native child can', async (t) => {
+  const sb = sandbox(t);
+  const cwd = sb.makeDir('nested');
+  const ack = join(sb.root, 'nested-ack');
+  const env = { HOME: sb.env.HOME, XDG_CONFIG_HOME: sb.env.XDG_CONFIG_HOME, XDG_STATE_HOME: sb.env.XDG_STATE_HOME, BERTH_TMUX_SOCKET: sb.socket };
+  // An agent process (named like the agent) that reports one SessionStart and exits.
+  const emitter = (dir: string) => {
+    mkdirSync(join(sb.root, dir), { recursive: true });
+    const file = join(sb.root, dir, 'claude');
+    writeFileSync(file, `const {spawnSync}=require('node:child_process');
+const r=spawnSync(process.execPath,[${JSON.stringify(CLI)},'hook','claude','SessionStart'],{env:{...process.env,...${JSON.stringify(env)}},input:JSON.stringify({session_id:process.argv[2]}),encoding:'utf8'});
+process.exit(r.status ?? 1);
+`);
+    return file;
+  };
+  const direct = emitter('direct'), viaShell = emitter('nested-run');
+  const main = join(sb.root, 'claude');
+  writeFileSync(main, `const {spawnSync}=require('node:child_process');
+const {writeFileSync}=require('node:fs');
+const node=${JSON.stringify(process.execPath)};
+require('node:readline').createInterface({input:process.stdin}).on('line', line=>{
+const [how,id]=line.split(' ');
+const r = how==='shell'
+  // A compound command, as agents' shell tools run it, so the shell stays between them.
+  ? spawnSync('/bin/sh',['-c','true && '+node+' '+${JSON.stringify(viaShell)}+' '+id+'; exit $?'],{stdio:'ignore'})
+  : spawnSync(node,[${JSON.stringify(direct)},id],{stdio:'ignore'});
+writeFileSync(${JSON.stringify(ack)},line+':'+r.status);
+});
+`);
+  sb.cli('new', 'claude', '--cwd', cwd);
+  sb.tmux('respawn-pane', '-k', '-t', '=nested:', `${shellQuote(process.execPath)} ${shellQuote(main)}`);
+  const send = async (line: string) => {
+    sb.tmux('send-keys', '-t', '=nested:', '-l', line);
+    sb.tmux('send-keys', '-t', '=nested:', 'Enter');
+    await waitFor(() => existsSync(ack) && readFileSync(ack, 'utf8') === `${line}:0`, `ack ${line}`);
+  };
+  const conversation = () => sb.ctx().tmux.listSessions()[0].meta.conversation;
+  await send('direct main-id');
+  assert.equal(conversation(), 'main-id', 'the producer\'s own child process binds');
+  await send('shell nested-id');
+  assert.equal(conversation(), 'main-id', 'a nested run behind a shell does not rebind the producer');
+});

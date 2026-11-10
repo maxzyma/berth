@@ -10,7 +10,7 @@ import { shellQuote } from '../shell.js';
 import { Tmux } from '../tmux/client.js';
 import { presentState } from '../present/state.js';
 import { createContext } from '../context.js';
-import { discover, processes, sessionProducers, PRODUCER_CHANGED, BINDING_UNVERIFIED } from '../registry/discover.js';
+import { discover, hookOwner, processes, sessionProducers, PRODUCER_CHANGED, BINDING_UNVERIFIED } from '../registry/discover.js';
 import { snapshotQuietly } from '../snapshot/take.js';
 import { nameConversation } from './naming.js';
 import { requireAdapter } from './commands.js';
@@ -160,7 +160,7 @@ export function handleHook(agentId: string, event: string, stdin: string, env = 
       if (!live?.meta.agent || live.meta.agent === 'shell') {
         const producer = producers[0];
         if (!ctx.config.autoAdopt || (!adapter.events.start.includes(event) && !lateId) || producers.length !== 1
-          || producer.agent !== agentId || producer.pane !== pane || !ancestors.includes(producer.pid)) return {};
+          || producer.agent !== agentId || producer.pane !== pane || hookOwner(ancestors, table) !== producer.pid) return {};
         discover(ctx);
         live = tmux.listSessions().find((s) => s.name === session);
       }
@@ -179,7 +179,7 @@ export function handleHook(agentId: string, event: string, stdin: string, env = 
       }
       const producer = producers[0];
       if (producer) {
-        if (producer.agent !== agentId || producer.pane !== pane || !ancestors.includes(producer.pid)) return {};
+        if (producer.agent !== agentId || producer.pane !== pane || hookOwner(ancestors, table) !== producer.pid) return {};
       }
       if (!producer && (!live.meta.recovery || live.meta.recovery === 'confirmed') && meta.conversation && live.meta.conversation && meta.conversation !== live.meta.conversation) {
         tmux.setMeta(session, { bindingIssue: 'Cannot verify the producer of a different conversation. Inspect the agent and re-adopt before restoring.' });

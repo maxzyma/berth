@@ -215,8 +215,13 @@ it is never reused after a server restart.
 
 A lifecycle payload carrying a different conversation ID cannot update the
 current conversation's state. Only a start event can replace the ID. When a
-producer process is detectable, the hook must descend from that process;
-a delayed hook from a different process is ignored. Unknown process formats
+producer process is detectable, the hook must come from that process itself:
+walking up from the hook, the first agent process and any agent processes
+directly above it (an agent's own launcher) must end at the producer. An agent
+started inside the producer, such as a nested non-interactive run, is
+separated from it by a non-agent process; its hooks are ignored, so it cannot
+replace the conversation, topic or state. A delayed hook from a different
+process is ignored. Unknown process formats
 retain the pane-level guard and cannot replace a different existing ID: the
 row reports a binding conflict instead. They are not process-verified. Verified
 start events may update the ID after a native fork or clear operation.

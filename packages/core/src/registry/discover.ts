@@ -53,17 +53,37 @@ const INTERPRETERS = new Set(['node', 'nodejs', 'bun', 'deno', 'sh', 'bash', 'zs
  * Names are what matter: some agents run as a binary named after its version,
  * so tmux's pane_current_command does not tell.
  */
+/** The agent a single process runs, if it is one. */
+function agentProcess(process: Proc): Detected | undefined {
+  if (process.native && !argumentCache.has(process)) argumentCache.set(process, processArguments(process.pid));
+  const exact = process.native ? argumentCache.get(process) : shellSplit(process.args);
+  const words = exact ?? process.args.split(/\s+/);
+  const index = BINARIES.has(program(words[0])) ? 0 : INTERPRETERS.has(program(words[0])) && BINARIES.has(program(words[1])) ? 1 : -1;
+  if (index < 0) return undefined;
+  return { agent: BINARIES.get(program(words[index]))!, argv: exact ? [program(words[index]), ...words.slice(index + 1)].map(shellQuote).join(' ') : '', pid: process.pid, ...(!exact ? { argvIssue: ARGUMENTS_UNAVAILABLE } : {}) };
+}
+
 export function agentsAmong(rootPid: number, procs: Proc[], depth = 0): Detected[] {
   if (depth >= MAX_DEPTH) return [];
   const process = procs.find((p) => p.pid === rootPid);
-  if (process) {
-    if (process.native && !argumentCache.has(process)) argumentCache.set(process, processArguments(process.pid));
-    const exact = process.native ? argumentCache.get(process) : shellSplit(process.args);
-    const words = exact ?? process.args.split(/\s+/);
-    const index = BINARIES.has(program(words[0])) ? 0 : INTERPRETERS.has(program(words[0])) && BINARIES.has(program(words[1])) ? 1 : -1;
-    if (index >= 0) return [{ agent: BINARIES.get(program(words[index]))!, argv: exact ? [program(words[index]), ...words.slice(index + 1)].map(shellQuote).join(' ') : '', pid: process.pid, ...(!exact ? { argvIssue: ARGUMENTS_UNAVAILABLE } : {}) }];
-  }
+  const found = process && agentProcess(process);
+  if (found) return [found];
   return procs.filter((p) => p.ppid === rootPid).flatMap((p) => agentsAmong(p.pid, procs, depth + 1));
+}
+
+/**
+ * The agent process that ran a hook, given the hook's ancestry (nearest first):
+ * the first agent process and any agent processes directly above it, such as
+ * the agent's own launcher, end at the returned pid. A non-agent process between
+ * two agents (a shell running a nested agent) ends the run (spec §4.2).
+ */
+export function hookOwner(ancestors: readonly number[], procs: Proc[]): number | undefined {
+  const isAgent = (pid: number) => { const process = procs.find((p) => p.pid === pid); return !!process && !!agentProcess(process); };
+  const first = ancestors.findIndex(isAgent);
+  if (first < 0) return undefined;
+  let owner = first;
+  while (owner + 1 < ancestors.length && isAgent(ancestors[owner + 1])) owner++;
+  return ancestors[owner];
 }
 
 export function agentAmong(rootPid: number, procs: Proc[]): Detected | undefined {
