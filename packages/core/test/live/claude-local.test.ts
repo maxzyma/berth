@@ -78,6 +78,14 @@ test('CR44 native Claude recovery, failures, approvals, cancellation and denial'
   const context = sb.ctx();
   create(context, { agent: 'claude', name: 'native-claude', cwd: sb.root });
   const pane = () => sb.tmux('capture-pane', '-p', '-t', '=native-claude:');
+  // A choice can render before it accepts input; repeat Enter until it takes effect.
+  const confirm = async (done: () => boolean) => {
+    for (let attempt = 0; !done() && attempt < 10; attempt++) {
+      sb.tmux('send-keys', '-t', '=native-claude:', 'Enter');
+      await waitFor(done, 'choice confirmed', 2_000).catch(() => undefined);
+    }
+    if (!done()) throw new Error('the choice was not confirmed');
+  };
   const row = () => list(context).find((session) => session.name === 'native-claude');
   const submit = async (prompt: string) => {
     const before = requests;
@@ -108,7 +116,7 @@ test('CR44 native Claude recovery, failures, approvals, cancellation and denial'
   mode = 'tool';
   await submit('fixture prompt 3');
   await waitFor(() => row()?.state === 'waiting' && pane().includes('Do you want to proceed?'), 'native approval', 10_000);
-  sb.tmux('send-keys', '-t', '=native-claude:', 'Enter');
+  await confirm(() => !!afterTool);
   await waitFor(() => !!afterTool && row()?.state === 'working', 'completed batch resumes model', 15_000);
   assert.equal(readFileSync(join(sb.root, 'permission-proof'), 'utf8'), 'fixture');
   reply(afterTool!.response, afterTool!.model);
@@ -132,7 +140,7 @@ test('CR44 native Claude recovery, failures, approvals, cancellation and denial'
   await waitFor(() => row()?.state === 'waiting' && pane().includes('Do you want to proceed?'), 'approval to deny', 10_000);
   sb.tmux('send-keys', '-t', '=native-claude:', 'Down', 'Down', 'Down');
   await waitFor(() => pane().includes('❯ 4. No'), 'deny selected', 5_000);
-  sb.tmux('send-keys', '-t', '=native-claude:', 'Enter');
+  await confirm(() => !pane().includes('Do you want to proceed?'));
   await waitFor(() => inventory(context).find((s) => s.name === 'native-claude')?.state === '', 'native denial reconciliation', 15_000);
   assert.equal(existsSync(join(sb.root, 'permission-proof')), false);
   mode = 'success';
