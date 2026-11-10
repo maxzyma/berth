@@ -262,3 +262,19 @@ for (const close of ['Escape', 'Close details']) {
     await expect(f.getByRole('dialog')).toBeVisible();
   });
 }
+
+test('below the title row, Copy actions use the close button column instead of text width', async ({ page }, info) => {
+  const frame = await load(page, 'theme=dark&width=300');
+  await open(page, frame);
+  const layout = await frame.getByRole('dialog').evaluate((card) => {
+    const box = card.getBoundingClientRect();
+    const close = card.querySelector('.hover-close').getBoundingClientRect();
+    const headCopy = card.querySelector('.hover-head > .hover-copy')?.getBoundingClientRect();
+    const bodyGaps = [...card.querySelectorAll('.hover-summary .hover-copy, .hover-body .hover-copy, .hover-meta .hover-copy')].map((button) => box.right - button.getBoundingClientRect().right);
+    return { bodyGaps, headClear: headCopy ? headCopy.right <= close.left : true };
+  });
+  expect(layout.bodyGaps.length).toBeGreaterThan(0);
+  for (const gap of layout.bodyGaps) expect(gap).toBeLessThanOrEqual(12);
+  expect(layout.headClear).toBe(true);
+  await frame.getByRole('dialog').screenshot({ path: info.outputPath('hover-width.png') });
+});

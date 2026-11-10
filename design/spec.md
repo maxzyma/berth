@@ -1162,7 +1162,9 @@ name/title/task text is suppressed. Cards use at most
     returns to the row, and Escape closes it without reopening until the
     trigger is left and entered again. A host Escape binding dismisses details
     even when keyboard focus remains in the terminal. A close button provides
-    pointer access. Closing from inside details must allow the first deliberate
+    pointer access. Text keeps clear of the close button's column, even while
+    the card scrolls; below the title row, Copy actions sit in that column
+    rather than taking width from the text. Closing from inside details must allow the first deliberate
     pointer re-entry onto its row, even when closing returned keyboard focus there.
     A stationary pointer exposed by the disappearing card must not reopen it.
     Focus stays on the row until the user enters details; focus is not trapped.

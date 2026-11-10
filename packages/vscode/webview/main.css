@@ -354,6 +354,13 @@ body[data-guides='onHover'] .list:hover .card.level-2::before {
   min-width: 0;
 }
 
+/* The right column stays clear of text so scrolled lines never pass under the close
+   button; below the title row, Copy actions sit in that column instead of beside the text. */
+.hover-summary > .hover-copy,
+.hover-line > .hover-copy { margin-right: -24px; }
+/* The details rule spans that column too. */
+.hover-meta { margin-right: -24px; padding-right: 24px; }
+
 .hover-head .title {
   flex: 1;
   min-width: 0;
