@@ -278,3 +278,14 @@ test('below the title row, Copy actions use the close button column instead of t
   expect(layout.headClear).toBe(true);
   await frame.getByRole('dialog').screenshot({ path: info.outputPath('hover-width.png') });
 });
+
+test('a row focused by a mouse click neither opens nor keeps its details', async ({ page }) => {
+  const f = await load(page, 'theme=dark&width=300');
+  const row = f.locator('[id="s:03-session"]');
+  await row.click();
+  expect(await row.evaluate((el) => document.activeElement === el)).toBe(true);
+  const frame = await page.locator('iframe').boundingBox(), box = await row.boundingBox();
+  await page.mouse.move(frame.x + frame.width + 80, box.y + 5, { steps: 4 });
+  await page.clock.runFor(1000);
+  await expect(f.getByRole('dialog')).toBeHidden();
+});

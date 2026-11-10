@@ -41,6 +41,9 @@ const STATE_WORDS: Record<RowView['icon'], string> = {
 type Item = { id: string; kind: 'group'; group: GroupView | Other } | { id: string; kind: 'card'; row: RowView; level: number; group?: string };
 type Other = { cwd: string; label: string; rows: RowView[]; other: true };
 
+/** Details follow keyboard focus only; focus left by a mouse click opens nothing (spec §6). */
+const keyboardFocus = (e: FocusEvent) => (e.currentTarget as HTMLElement).matches(':focus-visible');
+
 /** Drag data private to this view, so dropping a header in an editor or terminal inserts nothing. */
 const GROUP_MIME = 'application/x-berth-group';
 
@@ -207,7 +210,7 @@ class BerthSessions extends LitElement {
       @click=${() => this.toggle(group.cwd)}
       @focus=${(e: FocusEvent) => {
         this.focusId = `g:${group.cwd}`;
-        if (!other) this.hover.schedule(e.currentTarget as HTMLElement, group.hover, this.settings);
+        if (!other && keyboardFocus(e)) this.hover.schedule(e.currentTarget as HTMLElement, group.hover, this.settings);
       }}
       @mousemove=${(e: MouseEvent) => !other && this.hover.schedule(e.currentTarget as HTMLElement, group.hover, this.settings, '', e)}
       @mouseenter=${(e: MouseEvent) => !other && this.hover.schedule(e.currentTarget as HTMLElement, group.hover, this.settings, '', e)}
@@ -251,7 +254,7 @@ class BerthSessions extends LitElement {
       @click=${() => this.show(row.name)}
       @focus=${(e: FocusEvent) => {
         this.focusId = `s:${row.name}`;
-        this.hover.schedule(e.currentTarget as HTMLElement, row.hover, this.settings, row.agent);
+        if (keyboardFocus(e)) this.hover.schedule(e.currentTarget as HTMLElement, row.hover, this.settings, row.agent);
       }}
       @mousemove=${(e: MouseEvent) => this.hover.schedule(e.currentTarget as HTMLElement, row.hover, this.settings, row.agent, e)}
       @mouseenter=${(e: MouseEvent) => this.hover.schedule(e.currentTarget as HTMLElement, row.hover, this.settings, row.agent, e)}

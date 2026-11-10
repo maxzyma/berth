@@ -33,7 +33,10 @@ test('whole journey: list, empty entry, recovery and stopped session', async ({ 
   });
   await expect(frame.getByRole('alert')).toHaveCount(0);
   const row = frame.locator('[id="s:03-session"]');
+  // A keyboard user reaches the row: details follow keyboard focus, not focus a click leaves.
   await row.focus();
+  await page.keyboard.press('ArrowRight'); // No effect on a session row; marks keyboard use.
+  await row.evaluate((el) => { el.blur(); el.focus(); });
   await page.clock.runFor(100);
   await expect(frame.getByRole('dialog')).toContainText('Stopped');
   await page.locator('iframe').screenshot({ path: info.outputPath('04-stopped.png') });

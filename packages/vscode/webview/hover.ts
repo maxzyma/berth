@@ -6,6 +6,8 @@ import { horizontalPosition, verticalPosition, inBridge, inside, type Point } fr
 
 type Request = { anchor: HTMLElement; lines: HoverLine[]; settings?: ViewSettings; agent: string };
 const CLOSE_DELAY = 180;
+/** Keyboard focus keeps details open; focus left by a mouse click does not. */
+const keyboardFocused = (el: Element) => document.activeElement === el && el.matches(':focus-visible');
 
 export class HoverCard {
   delay = 500;
@@ -87,7 +89,7 @@ export class HoverCard {
 
   leave(anchor: HTMLElement): void {
     if (this.dismissed === anchor) this.dismissed = undefined;
-    if (this.pending?.anchor === anchor && document.activeElement !== anchor) this.cancelOpen();
+    if (this.pending?.anchor === anchor && !keyboardFocused(anchor)) this.cancelOpen();
     this.scheduleClose();
   }
 
@@ -187,7 +189,7 @@ export class HoverCard {
   private retained(): boolean {
     if (!this.active) return false;
     const focus = document.activeElement;
-    if (this.el.contains(focus) || focus === this.active.anchor) return true;
+    if (this.el.contains(focus) || keyboardFocused(this.active.anchor)) return true;
     return !!this.pointer && (inside(this.pointer, this.el.getBoundingClientRect())
       || inside(this.pointer, this.active.anchor.getBoundingClientRect()) || this.bridge(this.pointer));
   }

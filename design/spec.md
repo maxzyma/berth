@@ -1158,7 +1158,8 @@ name/title/task text is suppressed. Cards use at most
     The details form a non-modal dialog: entering it never selects or opens
     the session. The pointer can cross the gap, read, scroll and select text
     without a deadline. Full paths wrap in the card. Keyboard focus on a row
-    opens its details after the same delay; Tab enters the dialog, Shift+Tab
+    opens its details after the same delay; focus a mouse click leaves on a row
+    neither opens details nor keeps them open after the pointer leaves; Tab enters the dialog, Shift+Tab
     returns to the row, and Escape closes it without reopening until the
     trigger is left and entered again. A host Escape binding dismisses details
     even when keyboard focus remains in the terminal. A close button provides
