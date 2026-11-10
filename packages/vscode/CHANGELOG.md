@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.8
+
+### Conversation identity
+
+- An agent that a session's agent starts inside itself, such as a non-interactive `claude -p` run, no longer takes over the session. Before, its hooks could replace the session's conversation, so recovery after a reboot would have resumed that short run instead of your conversation, and its prompt and missing completion left a stale topic and a working state.
+
+### Session details
+
+- The hover card opens after VS Code's own hover delay (`workbench.hover.delay`, 1.5 s on macOS by default) unless you set `berth.hover.delay`.
+- Clicking a session row no longer opens its hover card once the pointer leaves, or keeps it open; keyboard focus still opens details.
+- Text in the hover card uses the width that its Copy buttons used to leave empty; the buttons sit in a column under the close button.
+
 ## 0.4.7
 
 ### Fewer, clearer menu entries

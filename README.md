@@ -185,7 +185,7 @@ against the product principles and records what was trimmed.
 ## Releasing
 
 See the [release notes](packages/vscode/CHANGELOG.md) and
-[current release record](design/release-0.4.7.md) for scope and outstanding gates.
+[current release record](design/release-0.4.8.md) for scope and outstanding gates.
 
 Use local candidate packages during review; publish a version after its scoped
 checks and release notes are complete. Retain normal published versions for
