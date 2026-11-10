@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
 import { sessionChoices, buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, sessionNameProblem, type Transition } from '../src/model.js';
 import { layoutChanges } from '../src/layoutSettings.js';
+import { hoverDelay } from '../src/model.js';
 import { applyGroupOrder, moveGroup, savedGroupOrder, shiftGroup } from '../src/groupOrder.js';
 
 interface Sandbox {
@@ -949,4 +950,13 @@ test('moving a folder group saves the new order and keeps absent groups where th
   assert.deepEqual(moveGroup(shown, ['/x'], '/a', '/a', true), ['/x'], 'dropping on itself changes nothing');
   assert.deepEqual(shiftGroup(shown, [], '/b', -1), ['/b', '/a', '/c']);
   assert.deepEqual(shiftGroup(shown, [], '/c', 1), [], 'the last group cannot move down');
+});
+
+test('the hover delay follows VS Code until Berth has its own value', () => {
+  assert.equal(hoverDelay(undefined, 1500), 1500, 'unset follows workbench.hover.delay');
+  assert.equal(hoverDelay(null, 500), 500);
+  assert.equal(hoverDelay(800, 1500), 800, 'an explicit Berth value wins');
+  assert.equal(hoverDelay(0, 1500), 0);
+  assert.equal(hoverDelay(-5, 1500), 1500, 'an invalid value falls back to VS Code');
+  assert.equal(hoverDelay(undefined, 'x'), 500, 'an unreadable VS Code value falls back to its non-macOS default');
 });

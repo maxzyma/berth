@@ -49,7 +49,8 @@ Changes below take effect in the release after 0.4.6.
 | Low | Settings | `berth.layout.managedProfile` is internal state shown in the Settings UI. It is a setting because the prepared Profile must confirm Berth's settings loaded, and only settings are both per-Profile and readable across the switch. | Kept; its description already says Berth manages it. Revisit if VS Code offers per-Profile extension state readable before activation. |
 
 Kept after review: `berth.hover.delay` exists because VS Code does not let an
-extension change `workbench.hover.delay` for its own views (spec §6); `berth.tmuxSocket`
+extension change `workbench.hover.delay` for its own views (spec §6); unset, it
+follows that setting; `berth.tmuxSocket`
 serves users with a non-default tmux server; the other settings cover choices
 that differ between users.
 

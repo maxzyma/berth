@@ -7,7 +7,7 @@ export interface ViewSettings {
   indent: number;
   /** `workbench.tree.renderIndentGuides`. */
   indentGuides: 'none' | 'onHover' | 'always';
-  /** `berth.hover.delay`, ms. */
+  /** `berth.hover.delay`, else `workbench.hover.delay`, ms. */
   hoverDelay: number;
   /** `berth.view.details`: compact connection markers. */
   details: boolean;

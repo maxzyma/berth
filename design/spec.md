@@ -1141,9 +1141,10 @@ name/title/task text is suppressed. Cards use at most
     unknown state writes, screen-only overrides and restores cannot inherit timings.
     Future or malformed dates are omitted. Time labels refresh with normal inventory
     updates; no per-row timer or new background polling is introduced.
-  - **Hover card.** After `berth.hover.delay` (default 500 ms, independent of
-    `workbench.hover.delay`, which VS Code does not let an extension change
-    for its own views), a card in VS Code's hover style: the session name
+  - **Hover card.** After `berth.hover.delay`, or VS Code's
+    `workbench.hover.delay` while that is unset (VS Code's default is 1500 ms
+    on macOS and 500 ms elsewhere; it does not let an extension change that
+    setting for its own views, so Berth reads it), a card in VS Code's hover style: the session name
     with the agent's icon, the notification as a quote, then state,
     connection, branch, folder and any warning, each line led by its icon.
     Every data value in details has a small, labelled Copy action: session and

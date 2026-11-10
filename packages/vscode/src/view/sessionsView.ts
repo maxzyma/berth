@@ -5,13 +5,13 @@
  */
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
-import type { TreeView } from '../model.js';
+import { hoverDelay, type TreeView } from '../model.js';
 import type { FromView, ToView, ViewSettings } from './protocol.js';
 
 export const VIEW_ID = 'berth.sessions';
 
 /** Settings that change what the view draws (spec §6, *Looking native*). */
-const WATCHED = ['workbench.tree.indent', 'workbench.tree.renderIndentGuides', 'berth.hover.delay', 'berth.view.details'];
+const WATCHED = ['workbench.tree.indent', 'workbench.tree.renderIndentGuides', 'workbench.hover.delay', 'berth.hover.delay', 'berth.view.details'];
 
 export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposable {
   private view?: vscode.WebviewView;
@@ -117,7 +117,7 @@ export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposab
     return {
       indent: config.get<number>('workbench.tree.indent', 8),
       indentGuides: guides === 'none' || guides === 'always' ? guides : 'onHover',
-      hoverDelay: config.get<number>('berth.hover.delay', 500),
+      hoverDelay: hoverDelay(config.get('berth.hover.delay'), config.get('workbench.hover.delay')),
       details: config.get<boolean>('berth.view.details', true),
       hostIcons: {
         ...(this.view && this.hostIconRoot ? Object.fromEntries(Object.entries(this.hostIcons).map(([name, file]) => [name, this.view!.webview.asWebviewUri(vscode.Uri.joinPath(this.hostIconRoot!, file)).toString()])) : {}),

@@ -88,6 +88,15 @@ export function placeOf(cwd: string, workspaceFolders: readonly string[]): Place
 
 const PLACE_RANK: Record<Place, number> = { workspace: 0, inside: 1, outside: 2 };
 
+/**
+ * Milliseconds before a hover card opens: Berth's own setting when it holds a
+ * valid value, else VS Code's `workbench.hover.delay` (spec §6).
+ */
+export function hoverDelay(own: unknown, workbench: unknown): number {
+  const valid = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  return valid(own) ? own : valid(workbench) ? workbench : 500;
+}
+
 /** A folder group's name: the folder's own name, or the whole path for `/`. */
 export function folderLabel(cwd: string): string {
   return basename(cwd) || cwd;

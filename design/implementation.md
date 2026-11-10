@@ -778,7 +778,7 @@ manual cases are recorded as checked, and the de-identification check passes.
   Check both review viewports and focused selection: the fixed activity and host
   slots must not move. Visual changes must preserve the unread lifecycle.
 - **V15** (manual, in VS Code) The view follows `workbench.tree.indent`,
-  `workbench.tree.renderIndentGuides`, `berth.hover.delay`,
+  `workbench.tree.renderIndentGuides`, `workbench.hover.delay`, `berth.hover.delay`,
   `berth.view.details` and theme changes without reloading; right-click shows
   VS Code's menu with the card's actions; up/down, Home/End, Enter,
   left/right and Shift+F10 work; a screen reader reads each card's state.

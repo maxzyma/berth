@@ -489,10 +489,13 @@
           "description": "When a session is shown, reveal its folder in the explorer (only for folders inside the workspace)."
         },
         "berth.hover.delay": {
-          "type": "number",
-          "default": 500,
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
           "minimum": 0,
-          "markdownDescription": "Milliseconds before a session card shows its hover card. Independent of `#workbench.hover.delay#`, which VS Code does not let an extension change for its own views."
+          "markdownDescription": "Milliseconds before a session card shows its hover card. Leave empty to follow `#workbench.hover.delay#` (VS Code's default is 1500 ms on macOS and 500 ms elsewhere)."
         },
         "berth.view.details": {
           "type": "boolean",
