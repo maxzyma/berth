@@ -302,6 +302,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (!ready || alreadyReady) return;
     if (!startupCompleted) {
       startupCompleted = true;
+      // Known sessions first, so a reload never shows an empty list while restore and discovery run.
+      void refreshKnown();
       const started = host.updateTerminalPids().then(() => controller.startup()).then(() => refresh()).catch((error: Error) => {
         view.message = `Berth: ${error.message}`;
       });

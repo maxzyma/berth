@@ -419,6 +419,9 @@ Window membership is a separate check. Until terminal PIDs or process ancestry
 are available, a connected session's window may be unknown; it is never detached
 for that reason. Terminal PID collection is bounded so one unresolved terminal
 cannot block the inventory refresh. Terminal lifecycle changes request refresh.
+On activation the view shows the known sessions as soon as the environment check
+passes, before startup restoration and the first discovery finish; those update
+it in place. A reload never leaves the list empty while discovery runs.
 Local terminal and editor-group events update the active marker from known
 terminal identities without waiting for agent discovery. This applies equally to
 managed agent sessions, managed shells and unmanaged tmux sessions. Closing a view removes
