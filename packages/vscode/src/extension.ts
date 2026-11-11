@@ -20,6 +20,7 @@ import type { MenuContext } from './view/protocol.js';
 import { SessionsView, VIEW_ID } from './view/sessionsView.js';
 import { hookRuntimePath, installBundledHooks, prepareHookRuntime } from './hookRuntime.js';
 import { TmuxHooks } from './tmuxHooks.js';
+import { Iterm2Integration } from './iterm2Integration.js';
 import { SETUP_DECLINED, SetupReminder } from './setupReminder.js';
 import { TerminalHost, currentWorkspaceIdentity } from './terminalHost.js';
 
@@ -268,6 +269,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   };
   const tmuxHooks = new TmuxHooks(context, ctx.env);
+  const iterm2 = new Iterm2Integration(context, ctx.env);
   const reminder = new SetupReminder({
     declined: () => context.globalState.get<string[]>(SETUP_DECLINED, []),
     decline: keys => context.globalState.update(SETUP_DECLINED, [...new Set([...context.globalState.get<string[]>(SETUP_DECLINED, []), ...keys])]),
@@ -285,6 +287,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     installTmuxHooks: async () => {
       await tmuxHooks.install();
       void vscode.window.showInformationMessage('Berth tmux hooks now run this extension\'s Berth.');
+    },
+    iterm2: () => { const found = iterm2.inspect(); return { ...found, key: Iterm2Integration.key(found) }; },
+    installIterm2: async () => {
+      await iterm2.install();
+      void vscode.window.showInformationMessage('Berth for iTerm2 now runs this extension\'s Berth. Restart iTerm2 to load it.');
     },
   });
   const remind = (agents: string[]) => void reminder.offer(agents).catch((error: Error) => console.error('Berth setup reminder failed', error));

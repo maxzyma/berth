@@ -8,6 +8,7 @@ const NEVER = "Don't Ask Again";
 
 export interface SetupItem { key: string; label: string; detail: string; install: () => Promise<void> }
 type TmuxState = { state: 'current' | 'missing' | 'broken' | 'other'; target?: string; key: string };
+type Iterm2State = TmuxState;
 
 /** Editor surfaces and installers, injected so the policy is unit-testable. */
 export interface SetupReminderHost {
@@ -22,6 +23,9 @@ export interface SetupReminderHost {
   installAgentHooks(agent: string): Promise<void>;
   tmuxHooks(): TmuxState;
   installTmuxHooks(): Promise<void>;
+  /** The iTerm2 AutoLaunch script; `missing` when the optional integration is not installed. */
+  iterm2(): Iterm2State;
+  installIterm2(): Promise<void>;
 }
 
 /**
@@ -40,7 +44,7 @@ export class SetupReminder {
   async offer(agents: readonly string[]): Promise<void> {
     if (this.open) return;
     const declined = new Set(this.host.declined());
-    const missing = [...this.agentItems(agents), ...this.tmuxItems()].filter(item => !declined.has(item.key) && !this.offered.has(item.key));
+    const missing = [...this.agentItems(agents), ...this.tmuxItems(), ...this.iterm2Items()].filter(item => !declined.has(item.key) && !this.offered.has(item.key));
     if (!missing.length) return;
     missing.forEach(item => this.offered.add(item.key));
     this.open = true;
@@ -79,6 +83,17 @@ export class SetupReminder {
         install: () => this.host.installAgentHooks(agent),
       }];
     });
+  }
+
+  private iterm2Items(): SetupItem[] {
+    const found = this.host.iterm2();
+    if (found.state !== 'other' && found.state !== 'broken') return [];
+    return [{
+      key: `iterm2:${found.key}`, label: 'iTerm2 integration',
+      detail: found.state === 'other' ? `Run this extension's Berth instead of ${found.target}.`
+        : 'Its Berth installation was removed, so restored iTerm2 panes are not reattached. Select to update it.',
+      install: () => this.host.installIterm2(),
+    }];
   }
 
   private tmuxItems(): SetupItem[] {

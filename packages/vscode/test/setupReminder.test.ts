@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { HookStatus } from '@berthdev/berth';
 import { SetupReminder, type SetupItem, type SetupReminderHost } from '../src/setupReminder.js';
 
-function host(options: { answer?: string; hooks?: HookStatus; otherHooks?: string; tmux?: 'current' | 'missing' | 'other'; declined?: string[] } = {}) {
+function host(options: { answer?: string; hooks?: HookStatus; otherHooks?: string; tmux?: 'current' | 'missing' | 'other'; iterm2?: 'current' | 'missing' | 'broken' | 'other'; declined?: string[] } = {}) {
   const calls = { notices: [] as string[], installed: [] as string[], declined: [...options.declined ?? []] };
   const fake: SetupReminderHost = {
     declined: () => calls.declined,
@@ -16,6 +16,8 @@ function host(options: { answer?: string; hooks?: HookStatus; otherHooks?: strin
     installAgentHooks: async agent => { calls.installed.push(agent); },
     tmuxHooks: () => ({ state: options.tmux ?? 'current', target: '/other/cli.js', key: options.tmux ?? 'current' }),
     installTmuxHooks: async () => { calls.installed.push('tmux'); },
+    iterm2: () => ({ state: options.iterm2 ?? 'missing', target: '/old/berth/main.js', key: options.iterm2 ?? 'missing' }),
+    installIterm2: async () => { calls.installed.push('iterm2'); },
   };
   return { fake, calls };
 }
@@ -70,4 +72,18 @@ test('agent hooks that run another Berth installation are offered once per targe
   const moved = host({ answer: 'Set Up…', hooks: 'installed', otherHooks: '/another/berth/main.js', declined: never.calls.declined });
   await new SetupReminder(moved.fake).offer(['claude']);
   assert.deepEqual(moved.calls.installed, ['claude'], 'a different installation is offered again');
+});
+
+test('an installed iTerm2 integration on another or a removed Berth is offered; none installed is not', async () => {
+  for (const state of ['other', 'broken'] as const) {
+    const { fake, calls } = host({ answer: 'Set Up…', hooks: 'installed', iterm2: state });
+    await new SetupReminder(fake).offer(['claude']);
+    assert.match(calls.notices[0], /iTerm2 integration/, state);
+    assert.deepEqual(calls.installed, ['iterm2'], state);
+  }
+  for (const state of ['missing', 'current'] as const) {
+    const { fake, calls } = host({ hooks: 'installed', iterm2: state });
+    await new SetupReminder(fake).offer(['claude']);
+    assert.deepEqual(calls.notices, [], state);
+  }
 });

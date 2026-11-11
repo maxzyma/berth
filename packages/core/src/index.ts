@@ -13,7 +13,7 @@ export { detectAgent, discover } from './registry/discover.js';
 export { ensure, restoreFrom, retryRecovery, relocateRecovery, setRecoveryProfile, setRecoveryOptions, type RestoreResult } from './restore/ensure.js';
 export { presentCurrentState, presentState, sequencesFor } from './present/state.js';
 export { inspectTmuxHooks, installTmux, uninstallTmux } from './tmux/install.js';
-export { installIterm2, uninstallIterm2, reattach, attachCommand, autoLaunchScript, type Tools } from './iterm2/install.js';
+export { installIterm2, uninstallIterm2, inspectIterm2, reattach, attachCommand, autoLaunchScript, type Tools } from './iterm2/install.js';
 export { clientAttached, PANE_VARIABLE } from './present/attach.js';
 export { toolsFor, resolveBinary } from './tools.js';
 

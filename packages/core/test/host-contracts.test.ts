@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { realpathSync, writeFileSync } from 'node:fs';
+import { realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { autoLaunchScript, attachCommand } from '../src/iterm2/install.js';
+import { autoLaunchScript, attachCommand, inspectIterm2, installIterm2 } from '../src/iterm2/install.js';
 import { toolsFor } from '../src/tools.js';
 import { createContext } from '../src/context.js';
 import { shellSplit } from '../src/shell.js';
@@ -86,4 +86,23 @@ print(json.dumps(results))
   const cases = JSON.parse(result.stdout.trim().split('\n').at(-1)!);
   assert.equal(Object.keys(cases).length, 9);
   assert.equal(cases.ready, 1);
+});
+
+test('the iTerm2 script reports which Berth it runs: current, another, removed or none', (t) => {
+  const sb = sandbox(t);
+  const env = { HOME: sb.env.HOME };
+  const cli = join(sb.root, 'berth cli.mjs');
+  writeFileSync(cli, '// synthetic CLI\n');
+  assert.equal(inspectIterm2(cli, env).state, 'missing');
+  installIterm2({ node: process.execPath, cli, tmux: '/usr/bin/true' }, env);
+  assert.equal(inspectIterm2(cli, env).state, 'current');
+  assert.deepEqual(inspectIterm2('/elsewhere/cli.mjs', env), { state: 'other', target: cli });
+  rmSync(cli);
+  assert.equal(inspectIterm2('/elsewhere/cli.mjs', env).state, 'broken');
+});
+
+test('an iTerm2 script installed under an editor runtime runs it as Node', () => {
+  const ctx = createContext({ HOME: '/fixture/home' });
+  assert.equal(toolsFor(ctx, '/fixture/cli.mjs', true).env?.ELECTRON_RUN_AS_NODE, '1');
+  assert.equal(toolsFor(ctx, '/fixture/cli.mjs', false).env?.ELECTRON_RUN_AS_NODE, undefined);
 });

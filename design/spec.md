@@ -1450,9 +1450,10 @@ Users are not expected to learn hook setup from documentation. The extension
 offers missing setup when it starts to matter: once startup and its own first-run
 prompts finish, for agents running in live sessions; and right after the user
 creates an agent session. One notification lists the missing items — agent hooks
-that are missing, unusable or run another Berth installation, and tmux hooks that
-are absent or run another Berth installation — and **Set Up…** installs the
-selected ones, replacing hooks that run another installation with ones that run
+that are missing, unusable or run another Berth installation, tmux hooks that
+are absent or run another Berth installation, and an installed iTerm2 AutoLaunch
+script that runs another or a removed Berth installation — and **Set Up…** installs
+the selected ones, replacing hooks that run another installation with ones that run
 this extension's Berth. An older standalone CLI that agent hooks still run would
 otherwise keep handling their events after the extension is upgraded. Each item
 is offered at most once per activation; **Don't Ask Again** is remembered per item
@@ -1600,7 +1601,9 @@ text.
 - iTerm2 3.7 or later (tab status sequence), Python API enabled, and window
   restoration on in iTerm2 and macOS.
 - iTerm2 starts AutoLaunch scripts with a minimal `PATH`; the installer records
-  absolute paths to `node`, `berth` and `tmux`.
+  absolute paths to `node`, `berth` and `tmux`. Installed from VS Code, the
+  script runs the extension's Berth with the editor runtime, as tmux hooks do,
+  so extension upgrades reach it.
 - Berth writes no profiles. Another script that reopens one tab per session
   at startup duplicates panes that iTerm2 already restores; keep only one.
 

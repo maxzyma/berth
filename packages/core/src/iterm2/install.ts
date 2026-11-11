@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { targetsExist } from '../agents/hook-health.js';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { Context } from '../context.js';
@@ -171,6 +172,25 @@ export function uninstallIterm2(env = process.env): Iterm2Paths {
   rmSync(paths.script, { force: true });
   rmSync(paths.legacyProfiles, { force: true });
   return paths;
+}
+
+/**
+ * Which Berth an installed AutoLaunch script runs: this CLI, another installation,
+ * a removed one, or none (spec §6 setup reminders).
+ */
+export function inspectIterm2(cliPath: string, env = process.env): { state: 'current' | 'missing' | 'broken' | 'other'; target?: string } {
+  const script = iterm2Paths(env).script;
+  if (!existsSync(script)) return { state: 'missing' };
+  const line = readFileSync(script, 'utf8').split('\n').find((candidate) => candidate.startsWith('BERTH = '));
+  let target: { runtime?: unknown; cli?: unknown } = {};
+  try {
+    const words: unknown = JSON.parse(line?.slice('BERTH = '.length) ?? '');
+    if (Array.isArray(words)) target = { runtime: words[0], cli: words[1] };
+  } catch { /* an unrecognised script is reported as removed */ }
+  if (typeof target.runtime !== 'string' || typeof target.cli !== 'string' || !targetsExist(target.runtime, target.cli)) {
+    return { state: 'broken', ...(typeof target.cli === 'string' ? { target: target.cli } : {}) };
+  }
+  return target.cli === cliPath ? { state: 'current' } : { state: 'other', target: target.cli };
 }
 
 export function iterm2Installed(env = process.env): boolean {

@@ -20,7 +20,11 @@ export function resolveBinary(name: string, env = process.env): string {
   return executableOnPath(name, env) ?? name;
 }
 
-export function toolsFor(ctx: Context, cliPath: string): Tools {
-  const env = Object.fromEntries(['HOME', 'XDG_CONFIG_HOME', 'XDG_STATE_HOME', 'BERTH_CONFIG', 'BERTH_STATE_DIR'].flatMap((key) => ctx.env[key] ? [[key, ctx.env[key]!]] : []));
+/** Paths a generated script runs Berth with; an editor runtime is run as Node (spec §7.5). */
+export function toolsFor(ctx: Context, cliPath: string, electron = Boolean(process.versions.electron)): Tools {
+  const env = {
+    ...Object.fromEntries(['HOME', 'XDG_CONFIG_HOME', 'XDG_STATE_HOME', 'BERTH_CONFIG', 'BERTH_STATE_DIR'].flatMap((key) => ctx.env[key] ? [[key, ctx.env[key]!]] : [])),
+    ...(electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}),
+  };
   return { node: process.execPath, cli: cliPath, tmux: resolveBinary(ctx.config.tmuxBin, ctx.env), socketPath: socketPathFor(ctx.config.tmuxSocket, ctx.config.tmuxSocketPath, ctx.env), path: ctx.env.PATH, env };
 }
