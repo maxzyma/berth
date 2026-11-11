@@ -837,6 +837,11 @@ Cases marked (human) need the maintainer's decision or accounts.
   step: confirm that npm, GitHub Releases and the Marketplace still lack the
   version, then rerun the failed jobs (`gh run rerun <run> --failed`). Keep the
   runner types unchanged.
+  After the workflow passes, `node scripts/verify-release.mjs <version> <dir>`
+  downloads the version from all three channels, compares the archives byte for
+  byte, checks the npm integrity, compares a local installation of that version
+  with the VSIX payload, and extracts both archives into `<dir>/x` for the
+  private-identifier and credential scans.
 - **R6** (human) Run the manual cases V8, V9, I5 following
   [manual-acceptance.md](manual-acceptance.md), and `npm run test:vscode`,
   before each release.

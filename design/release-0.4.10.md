@@ -29,7 +29,17 @@ macOS, 2026-11-11:
   re-run; the [recorded results](manual-acceptance.md#results) remain the latest.
 - The private-identifier check of the working tree found no matches.
 
-Publication is pending. The locally installed candidate is not the formal release.
+The [release workflow](https://github.com/maxzyma/berth/actions/runs/42987311005)
+passed on its first attempt: on macOS 15 and macOS 15 Intel, 414 tests passed,
+11 opt-in tests skipped, zero failures; the Linux and Windows jobs also passed.
+npm `latest`, [GitHub Releases](https://github.com/maxzyma/berth/releases/tag/v0.4.10)
+and the VS Code Marketplace publish 0.4.10. `scripts/verify-release.mjs` found
+the npm archive identical to the GitHub archive and to the registry's integrity,
+and the Marketplace VSIX identical to the GitHub one. Private-identifier and
+credential scans of the 209 published files found nothing. The official VSIX is
+installed locally, with all 33 extension payload files matching the archive
+(ignoring VS Code's installation metadata). See the
+[publication receipt](assets/code-review/release-0.4.10.json).
 
 ## Accepted limits
 
