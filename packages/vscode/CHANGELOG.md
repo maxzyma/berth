@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.9
+
+### Hook setup
+
+- Agent hooks that run another Berth installation, such as an older standalone CLI, are now offered a switch to this extension's Berth, as tmux hooks already were. Until you switch, those hooks keep handling agent events with the older Berth, so fixes in newer releases do not reach them. Declining is remembered until the hooks point somewhere else.
+
 ## 0.4.8
 
 ### Conversation identity
