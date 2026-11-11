@@ -42,6 +42,20 @@ archive (ignoring VS Code's installation metadata). See the
 
 ## Accepted limits
 
-The limits of [0.4.8](release-0.4.8.md#accepted-limits) still apply. Agents read
-hook configuration when they start, so sessions already running keep calling the
-previous target until they restart.
+Agents read hook configuration when they start, so sessions already running keep
+calling the previous target until they restart. A nested agent started by `exec`
+without a shell in between is indistinguishable from an agent's own launcher;
+agents' shell tools run commands through a shell, which the identity check relies
+on.
+
+Unbound default-footer Codex clients on a shared daemon lack a verified current
+conversation ID; display-only activity and prompt excerpts do not authorize exact
+recovery. Hook trust remains agent-owned. Gemini and Cursor conversations keep
+their own titles after a Berth rename; Copilot and Kimi Code rename commands are
+offered only from the verified versions. Completion of a new session can wait
+behind a background snapshot for the state lock; the terminal is already shown by
+then. The setup review that follows an incomplete creation check is covered by CLI
+and transport tests, not exercised in a native editor. Native review of the hook
+reminder and repair notices, broader native focus and accessibility, the remote
+Profile workflow, iTerm2 and remaining agent-version acceptance stay open, as
+listed in [iterations](iterations.md). Qoder missed-start support is deferred.

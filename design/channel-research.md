@@ -62,8 +62,8 @@ promotion or a particular posting time would reproduce that result.
 Berth's testable distinction is session management inside an existing VS Code
 workflow while terminal commands and custom launch scripts remain independent.
 Do not promote universal recovery, a replacement terminal app or agent orchestration.
-The [release record](release-0.4.5.md) describes the remaining Codex binding and
-native acceptance limits.
+The [release record](release-0.4.9.md#accepted-limits) describes the remaining
+Codex binding and native acceptance limits.
 
 A short demonstrated workflow and readable install/compatibility instructions
 should precede outreach. Start with V2EX and a suitable Reddit showcase, separately,
