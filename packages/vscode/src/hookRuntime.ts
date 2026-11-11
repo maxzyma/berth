@@ -5,8 +5,13 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+/** Where hooks installed by this extension find its Berth. */
+export function hookRuntimePath(storage: string): string {
+  return join(storage, 'hooks', 'cli.mjs');
+}
+
 export function prepareHookRuntime(bundle: string, storage: string): string {
-  const target = join(storage, 'hooks', 'cli.mjs');
+  const target = hookRuntimePath(storage);
   const content = readFileSync(bundle);
   if (existsSync(target) && readFileSync(target).equals(content)) return target;
   mkdirSync(join(storage, 'hooks'), { recursive: true });

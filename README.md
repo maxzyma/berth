@@ -63,8 +63,9 @@ Codex. Installing the configuration does not grant hook trust.
 
 Hooks installed from VS Code run the extension's own Berth, so extension updates
 reach them. If the tmux hooks point to a removed Berth installation, the
-extension repairs them on startup; if they run another installed Berth, it asks
-whether to switch them to the extension's Berth.
+extension repairs them on startup. If agent or tmux hooks run another installed
+Berth, such as an older standalone CLI, it asks whether to switch them to the
+extension's Berth.
 
 After a reboot, VS Code restores sessions explicitly owned by its workspace;
 legacy host-only records remain available for manual opening. iTerm2 reattaches

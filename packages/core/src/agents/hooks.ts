@@ -15,7 +15,8 @@ import { snapshotQuietly } from '../snapshot/take.js';
 import { nameConversation } from './naming.js';
 import { requireAdapter } from './commands.js';
 import { getAdapter, stateForEvent, type Adapter } from './registry.js';
-import { inspectHooks } from './hook-health.js';
+import { inspectHooks, inspectHookTarget, type HookTarget } from './hook-health.js';
+export type { HookTarget } from './hook-health.js';
 import { hookFormat, MARKER } from './hook-files.js';
 
 function hookEvents(adapter: Adapter): string[] {
@@ -66,6 +67,12 @@ export function hookStatus(agentId: string, env = process.env): HookStatus {
   } catch {
     return 'missing';
   }
+}
+
+/** The runtime and CLI an agent's installed Berth hooks run, if any. */
+export function hookTarget(agentId: string, env = process.env): HookTarget | undefined {
+  const adapter = getAdapter(agentId);
+  return adapter ? inspectHookTarget(adapter, env) : undefined;
 }
 
 /** Agent-owned activation that writing a hook file cannot complete. */

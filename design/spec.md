@@ -1450,10 +1450,13 @@ Users are not expected to learn hook setup from documentation. The extension
 offers missing setup when it starts to matter: once startup and its own first-run
 prompts finish, for agents running in live sessions; and right after the user
 creates an agent session. One notification lists the missing items — agent hooks
-that are missing or unusable, and tmux hooks that are absent or run another
-Berth installation — and **Set Up…** installs the selected ones. Each item is
-offered at most once per activation; **Don't Ask Again** is remembered per item
-(per block for another installation). A shell-only user is not prompted. The
+that are missing, unusable or run another Berth installation, and tmux hooks that
+are absent or run another Berth installation — and **Set Up…** installs the
+selected ones, replacing hooks that run another installation with ones that run
+this extension's Berth. An older standalone CLI that agent hooks still run would
+otherwise keep handling their events after the extension is upgraded. Each item
+is offered at most once per activation; **Don't Ask Again** is remembered per item
+(per runtime target for another installation). A shell-only user is not prompted. The
 standalone CLI is never prompted for: the extension does not need it.
 
 Healthy startup is silent. When required dependencies are missing, offer one

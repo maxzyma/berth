@@ -21,17 +21,23 @@ export function targetsExist(runtime: string, cli: string): boolean {
   return accessible(runtime, constants.X_OK) && accessible(cli, constants.R_OK);
 }
 
-/** Accept only the shell command shape Berth writes; never execute it to inspect it. */
-function validCommand(value: unknown, agent: string, event: string): boolean {
-  if (typeof value !== 'string' || !value.startsWith(`${MARKER} `)) return false;
+export interface HookTarget { runtime: string; cli: string }
+
+/** The runtime and CLI of a command in the exact shape Berth writes; never execute it to inspect it. */
+function commandTarget(value: unknown, agent: string, event?: string): HookTarget | undefined {
+  if (typeof value !== 'string' || !value.startsWith(`${MARKER} `)) return undefined;
   const words = shellSplit(value);
-  if (words[0] !== MARKER) return false;
+  if (words[0] !== MARKER) return undefined;
   const electron = words[1] === 'ELECTRON_RUN_AS_NODE=1';
-  const offset = electron ? 2 : 1;
-  const args = words.slice(offset);
-  if (args.length !== 5 || args[2] !== 'hook' || args[3] !== agent || args[4] !== event) return false;
-  const canonical = `${MARKER} ${electron ? 'ELECTRON_RUN_AS_NODE=1 ' : ''}${shellQuote(args[0])} ${shellQuote(args[1])} hook ${agent} ${shellQuote(event)}`;
-  return value === canonical && targetsExist(args[0], args[1]);
+  const args = words.slice(electron ? 2 : 1);
+  if (args.length !== 5 || args[2] !== 'hook' || args[3] !== agent || (event !== undefined && args[4] !== event)) return undefined;
+  const canonical = `${MARKER} ${electron ? 'ELECTRON_RUN_AS_NODE=1 ' : ''}${shellQuote(args[0])} ${shellQuote(args[1])} hook ${agent} ${shellQuote(args[4])}`;
+  return value === canonical ? { runtime: args[0], cli: args[1] } : undefined;
+}
+
+function validCommand(value: unknown, agent: string, event: string): boolean {
+  const target = commandTarget(value, agent, event);
+  return !!target && targetsExist(target.runtime, target.cli);
 }
 
 function jsonComplete(text: string, adapter: Adapter, events: string[]): boolean {
@@ -63,11 +69,48 @@ function tomlComplete(text: string, adapter: Adapter, events: string[]): boolean
   }));
 }
 
-function pluginComplete(text: string, events: string[]): boolean {
+function pluginTarget(text: string): HookTarget | undefined {
   const match = /const child = spawn\(("(?:[^"\\]|\\.)*"), \[("(?:[^"\\]|\\.)*"), 'hook', 'opencode', event\]/.exec(text);
-  if (!match) return false;
-  const runtime = JSON.parse(match[1]) as string, cli = JSON.parse(match[2]) as string;
-  return targetsExist(runtime, cli) && [false, true].some((electron) => text === opencodePlugin(runtime, cli, events, electron));
+  return match ? { runtime: JSON.parse(match[1]) as string, cli: JSON.parse(match[2]) as string } : undefined;
+}
+
+function pluginComplete(text: string, events: string[]): boolean {
+  const target = pluginTarget(text);
+  if (!target) return false;
+  return targetsExist(target.runtime, target.cli) && [false, true].some((electron) => text === opencodePlugin(target.runtime, target.cli, events, electron));
+}
+
+/** Every command string in a JSON or TOML hook configuration. */
+function hookCommands(text: string, adapter: Adapter): unknown[] {
+  if (adapter.hookTarget === 'kimi-config') {
+    const hooks = parseToml(text).hooks;
+    return Array.isArray(hooks) ? hooks.map((value) => record(value).command) : [];
+  }
+  const hooks = record(record(JSON.parse(text)).hooks);
+  return Object.values(hooks).flatMap((groups) => (Array.isArray(groups) ? groups : []).flatMap((value) => {
+    const group = record(value);
+    return Array.isArray(group.hooks) ? group.hooks.map((entry) => record(entry).command) : [group.command];
+  }));
+}
+
+/**
+ * The runtime and CLI that an agent's installed Berth hooks run, whether or not
+ * those files still exist; undefined when no Berth hook is installed (spec §6).
+ */
+export function inspectHookTarget(adapter: Adapter, env: NodeJS.ProcessEnv): HookTarget | undefined {
+  if (!adapter.hookTarget) return undefined;
+  const file = hookFormat(adapter.hookTarget).file(env);
+  try {
+    if (!existsSync(file)) return undefined;
+    const text = readFileSync(file, 'utf8');
+    if (!text.includes(MARKER)) return undefined;
+    if (adapter.hookTarget === 'opencode-plugin') return pluginTarget(text);
+    for (const command of hookCommands(text, adapter)) {
+      const target = commandTarget(command, adapter.id);
+      if (target) return target;
+    }
+    return undefined;
+  } catch { return undefined; }
 }
 
 /** Configuration health only; agent version and runtime delivery need separate evidence. */

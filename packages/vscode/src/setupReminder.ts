@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { ADAPTERS, type HookStatus } from '@berthdev/berth';
 
 /** globalState key for items the user asked not to be offered again. */
@@ -16,16 +17,19 @@ export interface SetupReminderHost {
   pick(items: SetupItem[]): PromiseLike<SetupItem[] | undefined>;
   failed(message: string): void;
   agentHooks(agent: string): HookStatus;
+  /** The CLI an agent's installed hooks run when it is another Berth installation. */
+  agentHookOther(agent: string): string | undefined;
   installAgentHooks(agent: string): Promise<void>;
   tmuxHooks(): TmuxState;
   installTmuxHooks(): Promise<void>;
 }
 
 /**
- * Offers missing hook setup when it starts to matter (spec §8): after startup
- * for agents with live sessions, and after creating an agent session. One
- * notification at a time; each item at most once per activation; "Don't Ask
- * Again" is remembered per item. Inventory refresh never prompts.
+ * Offers missing hook setup, and hooks that run another Berth installation,
+ * when it starts to matter (spec §6): after startup for agents with live
+ * sessions, and after creating an agent session. One notification at a time;
+ * each item at most once per activation; "Don't Ask Again" is remembered per
+ * item. Inventory refresh never prompts.
  */
 export class SetupReminder {
   private readonly offered = new Set<string>();
@@ -61,6 +65,12 @@ export class SetupReminder {
       const adapter = ADAPTERS.find(a => a.id === agent);
       if (!adapter?.hookTarget) return [];
       const status = this.host.agentHooks(agent);
+      const other = status === 'installed' ? this.host.agentHookOther(agent) : undefined;
+      if (other) return [{
+        key: `agent:${agent}:other:${createHash('sha256').update(other).digest('hex')}`, label: `${adapter.displayName} hooks`,
+        detail: `Run this extension's Berth instead of ${other}.`,
+        install: () => this.host.installAgentHooks(agent),
+      }];
       if (status !== 'missing' && status !== 'broken') return [];
       return [{
         key: `agent:${agent}`, label: `${adapter.displayName} hooks`,

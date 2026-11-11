@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { ADAPTERS } from '../src/agents/registry.js';
-import { hookStatus, hooksInstalled, installHooks } from '../src/agents/hooks.js';
+import { hookStatus, hookTarget, hooksInstalled, installHooks } from '../src/agents/hooks.js';
 import { create, stamp, bellRang, list } from '../src/registry/sessions.js';
 import { doctor } from '../src/registry/doctor.js';
 import { sandbox, CLI } from './helpers.js';
@@ -92,4 +92,17 @@ test('CR33 configured Codex waiting hooks retain bell fallback until native trus
   const full = JSON.parse(readFileSync(file, 'utf8'));
   writeFileSync(file, JSON.stringify({ hooks: { SessionStart: full.hooks.SessionStart, Stop: full.hooks.Stop } }));
   assert.equal(hookStatus('codex', sb.env), 'broken', 'legacy two-event installation offers repair');
+});
+
+test('installed hooks report the runtime and CLI they run, in every format', (t) => {
+  const sb = sandbox(t);
+  const env = { HOME: sb.env.HOME };
+  const cli = join(sb.root, 'hook cli.mjs');
+  writeFileSync(cli, '// synthetic runtime fixture\n');
+  for (const adapter of ADAPTERS.filter((adapter) => adapter.hookTarget)) {
+    assert.equal(hookTarget(adapter.id, env), undefined, `${adapter.id}: nothing installed`);
+    installHooks(adapter.id, cli, env);
+    assert.deepEqual(hookTarget(adapter.id, env), { runtime: process.execPath, cli }, adapter.id);
+  }
+  assert.equal(hookTarget('shell', env), undefined);
 });

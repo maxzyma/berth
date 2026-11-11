@@ -2,7 +2,7 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'node:crypto';
 import { executionHostSupported } from '@berthdev/berth';
-import { hookInstallNotice, hookStatus, limitSynchronousLockWait, renameCommand, versionInspector, ADAPTERS, shellSplit, captureProfile, profileAtRoot, profileEnvironment, type AgentProfile, HostRegistration, createContext, type SessionRow } from '@berthdev/berth';
+import { hookInstallNotice, hookStatus, hookTarget, limitSynchronousLockWait, renameCommand, versionInspector, ADAPTERS, shellSplit, captureProfile, profileAtRoot, profileEnvironment, type AgentProfile, HostRegistration, createContext, type SessionRow } from '@berthdev/berth';
 import { createSessionFollower } from './sessionFollow.js';
 import { EnvironmentSetup } from './environmentSetup.js';
 import { showUnsupportedHost } from './unsupportedHost.js';
@@ -18,7 +18,7 @@ import { compareFolders, folderLabel, sessionChoices, defaultFolder, explorerTar
 import { applyGroupOrder, moveGroup, savedGroupOrder, shiftGroup } from './groupOrder.js';
 import type { MenuContext } from './view/protocol.js';
 import { SessionsView, VIEW_ID } from './view/sessionsView.js';
-import { installBundledHooks, prepareHookRuntime } from './hookRuntime.js';
+import { hookRuntimePath, installBundledHooks, prepareHookRuntime } from './hookRuntime.js';
 import { TmuxHooks } from './tmuxHooks.js';
 import { SETUP_DECLINED, SetupReminder } from './setupReminder.js';
 import { TerminalHost, currentWorkspaceIdentity } from './terminalHost.js';
@@ -276,6 +276,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       { title: 'Berth Setup', canPickMany: true, placeHolder: 'Install the selected hooks' }))?.map(choice => choice.item),
     failed: message => void vscode.window.showErrorMessage(`Berth: ${message}`),
     agentHooks: agent => hookStatus(agent, profileEnvironment(agent, captureProfile(agent, ctx.env), ctx.env)),
+    agentHookOther: agent => {
+      const target = hookTarget(agent, profileEnvironment(agent, captureProfile(agent, ctx.env), ctx.env));
+      return target && target.cli !== hookRuntimePath(context.globalStorageUri.fsPath) ? target.cli : undefined;
+    },
     installAgentHooks: agent => installHooks(agent),
     tmuxHooks: () => { const found = tmuxHooks.inspect(); return { ...found, key: TmuxHooks.key(found) }; },
     installTmuxHooks: async () => {
