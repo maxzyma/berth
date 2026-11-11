@@ -4,6 +4,10 @@ Discover terminal coding agents, keep their processes running in tmux, and
 manage their sessions from VS Code. Berth can resume a recorded conversation
 after a restart when its identity, profile and launch options have been verified.
 
+![Agent sessions in the Berth sidebar, with an agent terminal beside the source file](docs/assets/sessions-beside-files.png)
+
+*Demo workspace; the agent replies are synthetic.*
+
 VS Code provides the session list and Editor terminals. The optional iTerm2
 integration reconnects panes restored by iTerm2 and shows agent state on tabs;
 it does not add a session sidebar or manage iTerm2 layouts.
