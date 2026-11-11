@@ -4,6 +4,7 @@
  "workflow": "https://github.com/maxzyma/berth/actions/runs/42987311005",
  "workflowAttempts": 1,
  "npmRegistry": "https://registry.npmjs.org",
+ "npmTarball": "https://registry.npmjs.org/@berthdev/berth/-/berth-0.4.10.tgz",
  "npmIntegrity": "sha512-f6ad718toJCdVxz5RDshODNlMWkvMirR4yg6ZMpU32voCMU8duSkRXoEAwDGf78sbhsrFq3eL6PcdKWR0k8sfQ==",
  "npmIntegrityMatchesRegistry": true,
  "npmGithubPayloadMatch": true,
@@ -26,7 +27,7 @@
    "sha256": "a7c1458fc977ea1e92384e5c75b6d2471b65902193057c3e010fa1860a1507d7"
   }
  ],
- "verifiedAt": "2026-11-11T08:59:43.335Z",
+ "verifiedAt": "2026-11-11T09:12:07.893Z",
  "ci": {
   "passed": 414,
   "skipped": 11,
@@ -47,7 +48,6 @@
   "reloadAcceptance": "not performed"
  },
  "npmDistTags": {
-  "next": "0.2.1-rc.0",
   "latest": "0.4.10"
  }
 }

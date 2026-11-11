@@ -19,6 +19,8 @@ if (!/^\d+\.\d+\.\d+$/.test(version ?? '') || !work) {
 }
 const repo = 'maxzyma/berth';
 const npmName = '@berthdev/berth';
+// The official registry, not a configured mirror whose copy may be stale.
+const registry = 'https://registry.npmjs.org';
 const extension = { publisher: 'berthdev', name: 'berth' };
 const tgzName = `berthdev-berth-${version}.tgz`;
 const vsixName = `berth-vscode-${version}.vsix`;
@@ -39,7 +41,7 @@ function files(root) {
   });
 }
 
-const meta = JSON.parse(run('npm', ['view', `${npmName}@${version}`, 'dist', 'dist-tags', '--json']));
+const meta = JSON.parse(run('npm', ['view', `${npmName}@${version}`, 'dist', 'dist-tags', '--json', '--registry', registry]));
 const npmFile = download(meta.dist.tarball, join(dir('npm'), tgzName));
 const npmIntegrity = `sha512-${sha('sha512', npmFile, 'base64')}`;
 
@@ -77,7 +79,8 @@ const artifacts = [[tgzName, ghTgz], [vsixName, ghVsix], [`npm-${version}.tgz`, 
   .map(([name, file]) => ({ name, sha256: sha('sha256', file) }));
 const receipt = {
   version,
-  npmRegistry: 'https://registry.npmjs.org',
+  npmRegistry: registry,
+  npmTarball: meta.dist.tarball,
   npmIntegrity,
   npmIntegrityMatchesRegistry: npmIntegrity === meta.dist.integrity,
   npmGithubPayloadMatch: artifacts[0].sha256 === artifacts[2].sha256,
