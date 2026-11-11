@@ -833,6 +833,10 @@ Cases marked (human) need the maintainer's decision or accounts.
   version already there is skipped). (human) Each registry trusts this
   repository and workflow once: npm with `npm trust github`, the Marketplace
   with a Trusted Publishing policy on the `berthdev` publisher.
+  A job that GitHub cancels because no hosted macOS runner was acquired ran no
+  step: confirm that npm, GitHub Releases and the Marketplace still lack the
+  version, then rerun the failed jobs (`gh run rerun <run> --failed`). Keep the
+  runner types unchanged.
 - **R6** (human) Run the manual cases V8, V9, I5 following
   [manual-acceptance.md](manual-acceptance.md), and `npm run test:vscode`,
   before each release.
