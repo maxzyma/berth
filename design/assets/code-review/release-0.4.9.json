@@ -1,0 +1,50 @@
+{
+  "version": "0.4.9",
+  "tagCommit": "edf203c91bb3f9a3dc4c1ab9aff09d7d93b24271",
+  "workflow": "https://github.com/maxzyma/berth/actions/runs/42952964099",
+  "workflowAttempts": 1,
+  "npmRegistry": "https://registry.npmjs.org",
+  "npmIntegrity": "sha512-hNcnQyF6OpFpMDEs+AWEJfZTCGKs7XVEOI4jNriwWXYzrkthB9U5auSBiJAs8DmnV6hRX+woVJ2Ay4ziQ+gLWA==",
+  "npmGithubPayloadMatch": true,
+  "marketplaceGithubPayloadMatch": true,
+  "artifacts": [
+    {
+      "name": "berthdev-berth-0.4.9.tgz",
+      "sha256": "9c212e0ba2c4818b3cf53dd38f25a1e7a5d75495791b3de54db0489ba2be0683"
+    },
+    {
+      "name": "berth-vscode-0.4.9.vsix",
+      "sha256": "45e726a907b343cddbc597ccd4a291ec75551dea9baec8bc74303d60de278e3f"
+    },
+    {
+      "name": "npm-0.4.9.tgz",
+      "sha256": "9c212e0ba2c4818b3cf53dd38f25a1e7a5d75495791b3de54db0489ba2be0683"
+    },
+    {
+      "name": "marketplace-0.4.9.vsix",
+      "sha256": "45e726a907b343cddbc597ccd4a291ec75551dea9baec8bc74303d60de278e3f"
+    }
+  ],
+  "verifiedAt": "2026-11-11T03:41:17.449738+00:00",
+  "ci": {
+    "passed": 411,
+    "skipped": 11,
+    "failed": 0,
+    "platforms": [
+      "macos-15",
+      "macos-15-intel"
+    ]
+  },
+  "officialArtifactFilesScanned": 209,
+  "artifactCredentialFindings": 0,
+  "artifactPrivateIdentifierFindings": 0,
+  "localInstall": {
+    "version": "0.4.9",
+    "verifiedPayloadFiles": 33,
+    "excludedComparison": "VS Code-added package.json __metadata",
+    "reloadAcceptance": "not performed"
+  },
+  "npmDistTags": {
+    "latest": "0.4.9"
+  }
+}
