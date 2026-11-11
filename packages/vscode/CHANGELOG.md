@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.10
+
+### Startup
+
+- After a window reload the session list appears as soon as Berth confirms its environment, about two seconds sooner with fifteen sessions. Startup restoration and discovery then update it in place instead of leaving the list empty.
+
+### iTerm2
+
+- The setup reminder now also offers to switch an installed iTerm2 integration that runs another or a removed Berth installation, such as an older standalone CLI, to this extension's Berth. An iTerm2 integration installed from VS Code now runs correctly; before, its editor runtime did not start as Node.
+
 ## 0.4.9
 
 ### Hook setup
