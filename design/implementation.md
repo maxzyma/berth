@@ -746,7 +746,9 @@ manual cases are recorded as checked, and the de-identification check passes.
   directory of its active pane.
 - **V4** On startup, missing `vscode`-origin sessions are rebuilt and one is
   shown in the session terminal; sessions of other origins are not.
-- **V5** Native tabs show state through `${progress}` and `${sequence}`.
+- **V5** Native tabs show state through `${sequence}`; the layout does not add
+  `${progress}` to the tab description, and a managed Profile drops the
+  description an earlier preset wrote while it is unchanged.
 - **V6** Waiting and done produce an in-editor notification. Native helper launch
   failures are contained by `notifications.ts`; missing executables and denied
   launches cannot interrupt the host or the in-editor action. macOS helper

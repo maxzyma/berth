@@ -124,7 +124,7 @@ export function seedClaude(dirs, version) {
 
 /**
  * VS Code user settings. The layout keys are the ones Berth's own layout
- * preset writes (except as noted) (packages/vscode/src/layoutSettings.ts); writing them here
+ * preset writes (packages/vscode/src/layoutSettings.ts); writing them here
  * avoids the preset's profile switch, which opens another window.
  */
 export function writeVsCodeSettings(dirs) {
@@ -156,9 +156,6 @@ export function writeVsCodeSettings(dirs) {
     'terminal.integrated.enablePersistentSessions': true,
     'terminal.integrated.persistentSessionReviveProcess': 'onExitAndWindowClose',
     'terminal.integrated.tabs.title': '${sequence}',
-    // The preset also prepends ${progress}; editor tabs render it as literal
-    // "$(loading~spin)" text while an agent works, so the demo leaves it out.
-    'terminal.integrated.tabs.description': '${task}${separator}${local}${separator}${cwdFolder}',
   };
   write(join(dirs.userData, 'User', 'settings.json'), `${JSON.stringify(settings, null, 2)}\n`);
 }

@@ -11,8 +11,9 @@ import type { Tmux } from '../tmux/client.js';
  * outer terminal sees them. Which ones depends on the terminal, read from
  * tmux's client_termtype:
  * - iTerm2: its tab status sequence (OSC 21337) — a dot and a subtitle;
- * - others (VS Code's xterm.js among them): OSC 9;4 progress, which VS Code
- *   shows through `${progress}`, and an OSC 2 title.
+ * - others (VS Code's xterm.js among them): OSC 9;4 progress and an OSC 2
+ *   title. VS Code shows state through the title (`${sequence}`); terminals
+ *   that draw OSC 9;4 natively also show the progress.
  */
 
 const GLYPH: Record<string, string> = { working: '●', waiting: '◐', done: '✓' };

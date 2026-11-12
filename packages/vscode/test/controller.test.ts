@@ -10,7 +10,7 @@ import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
 import { sessionChoices, buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, sessionNameProblem, type Transition } from '../src/model.js';
-import { layoutChanges } from '../src/layoutSettings.js';
+import { layoutChanges, staleProgressDescription, withoutProgressDescription } from '../src/layoutSettings.js';
 import { hoverDelay } from '../src/model.js';
 import { applyGroupOrder, moveGroup, savedGroupOrder, shiftGroup } from '../src/groupOrder.js';
 
@@ -211,11 +211,24 @@ test('V4 startup rebuilds vscode sessions and shows one in the main terminal', a
   assert.equal(await controller.startup(), undefined, 'a window that already shows a session is left alone');
 });
 
-test('V5 layout adds ${progress} to the tab description so state shows on native tabs', () => {
-  const custom = layoutChanges((k) => (k === 'terminal.integrated.tabs.description' ? '${local}${separator}${cwdFolder}' : undefined), false);
-  assert.equal(custom.find((c) => c.key === 'terminal.integrated.tabs.description')?.value, '${progress}${separator}${local}${separator}${cwdFolder}');
-  const already = layoutChanges(() => '${progress}', false);
-  assert.equal(already.find((c) => c.key === 'terminal.integrated.tabs.description')?.value, '${progress}');
+test('V5 layout leaves the tab description alone: terminal editor tabs show ${progress} as literal codicon text', () => {
+  for (const current of [undefined, '${local}${separator}${cwdFolder}']) {
+    const changes = layoutChanges((k) => (k === 'terminal.integrated.tabs.description' ? current : undefined), false);
+    assert.equal(changes.some((c) => c.key === 'terminal.integrated.tabs.description'), false);
+    assert.equal(changes.some((c) => String(c.value).includes('${progress}')), false);
+  }
+});
+
+test('V5 the managed Profile drops the ${progress} description only while it still holds the value Berth wrote', () => {
+  const written = '${progress}${separator}${task}${separator}${local}${separator}${cwdFolder}';
+  const recorded = { 'terminal.integrated.tabs.description': written, 'workbench.sideBar.location': 'right' };
+  assert.equal(staleProgressDescription(recorded, written), true);
+  assert.equal(staleProgressDescription(recorded, '${progress} ${local}'), false, 'a value the user changed stays');
+  assert.equal(staleProgressDescription(recorded, undefined), false, 'nothing to remove');
+  assert.equal(staleProgressDescription({ 'terminal.integrated.tabs.description': '${local}' }, '${local}'), false, 'Berth did not add ${progress}');
+  assert.equal(staleProgressDescription({}, written), false, 'a value Berth did not record is not Berth\'s');
+  assert.deepEqual(withoutProgressDescription(recorded), { 'workbench.sideBar.location': 'right' }, 'a retried preparation no longer writes it');
+  assert.deepEqual(withoutProgressDescription({ 'workbench.sideBar.location': 'right' }), { 'workbench.sideBar.location': 'right' });
 });
 
 test('V6 waiting and done produce one notification each and mark the row unread', async (t) => {
@@ -257,7 +270,6 @@ test('V7 the layout preset writes only its listed settings, tab hiding off by de
     'terminal.integrated.enablePersistentSessions',
     'terminal.integrated.persistentSessionReviveProcess',
     'terminal.integrated.tabs.title',
-    'terminal.integrated.tabs.description',
   ]);
   const hidden = layoutChanges(() => undefined, true);
   assert.deepEqual(hidden.at(-1), { key: 'terminal.integrated.tabs.enabled', value: false });

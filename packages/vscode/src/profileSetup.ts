@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { withAsyncLock } from '@berthdev/berth';
-import { layoutChanges } from './layoutSettings.js';
+import { layoutChanges, staleProgressDescription, tabDescriptionKey, withoutProgressDescription } from './layoutSettings.js';
 import { missingTerminalPersistence } from './terminalPersistence.js';
 import { installedVsix, localProfileStorage, nativeProfiles, nativeUserRoot, profileDirectory, readProfileSettings } from './profileFiles.js';
 import { cliEnvironment, savePreparation, type Preparation } from './profileBootstrap.js';
@@ -71,7 +71,7 @@ export async function usePreparedLayout(context: vscode.ExtensionContext): Promi
       id: retry ? previous.id : undefined, status: 'waiting', started: Date.now(),
       userRoot, cli, executable: process.execPath, workspace: target.toString(),
       extensionsRoot: dirname(context.extensionUri.fsPath), archive,
-      settings: retry ? previous.settings : Object.fromEntries(layoutChanges(() => undefined,
+      settings: retry ? withoutProgressDescription(previous.settings) : Object.fromEntries(layoutChanges(() => undefined,
         vscode.workspace.getConfiguration('berth').get<boolean>('layout.hideTerminalTabs', false)).map(x => [x.key, x.value])),
     };
     await savePreparation(file, state);
@@ -114,6 +114,13 @@ export async function finishPreparedLayout(context: vscode.ExtensionContext): Pr
           await config.update(key, value, vscode.ConfigurationTarget.Global);
         }
         await context.globalState.update('berth.terminalPersistenceMigrated', token);
+      }
+      if (context.globalState.get('berth.progressDescriptionRemoved') !== token) {
+        const config = vscode.workspace.getConfiguration();
+        if (staleProgressDescription(state.settings, config.inspect(tabDescriptionKey)?.globalValue)) {
+          await config.update(tabDescriptionKey, undefined, vscode.ConfigurationTarget.Global);
+        }
+        await context.globalState.update('berth.progressDescriptionRemoved', token);
       }
       if (context.globalState.get('berth.profileRevealed') === token) return;
       const current = vscode.workspace.workspaceFile ?? vscode.workspace.workspaceFolders?.[0]?.uri;

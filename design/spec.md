@@ -970,7 +970,7 @@ Berth runs with no config file.
   or a profile picker as part of this first-use action. User-created Profiles
   are managed separately through VS Code; they are not part of Berth onboarding.
   The preset places sessions on the left and Explorer on the right, locks
-  terminal editor groups and uses session titles/progress in terminal tabs.
+  terminal editor groups and uses session titles in terminal tabs.
   The optional `berth.layout.hideTerminalTabs` controls the preset's terminal tabs.
   Preserve the exact current folder or multi-root/untitled workspace. VS Code
   owns dirty-editor save prompts and reload. Do not open an unrelated window
@@ -986,7 +986,12 @@ Berth runs with no config file.
   The destination must acknowledge loading its settings before preparation is
   complete. Restore the saved workspace only during first preparation, never
   redirect later windows that intentionally use the prepared Profile elsewhere.
-  Existing settings and same-name collisions are never overwritten. Profile settings
+  Existing settings and same-name collisions are never overwritten. One cleanup
+  removes a value Berth itself wrote: earlier presets added `${progress}` to
+  `terminal.integrated.tabs.description` (see Native terminal tabs). Once per
+  preparation token, the managed Profile drops that setting only while it still
+  equals the value in the preparation record; any other value stays, and a
+  retried preparation no longer writes it. Profile settings
   accept VS Code JSONC comments and trailing commas; identity checks read them
   without rewriting user formatting. Malformed settings stop preparation. Record the
   Profile ID and preparation token, not just its display name; retries reuse the
@@ -1254,13 +1259,16 @@ name/title/task text is suppressed. Cards use at most
 - **Native terminal tabs.** Kept, never replaced: they stay the terminal
   surface the rest of the ecosystem works with. VS Code lets an extension set
   a tab's icon and colour only at creation, and offers no way to add content
-  to a tab row, so Berth adds state through the two channels that do update:
-  `${progress}` in `terminal.integrated.tabs.description`, driven by the
-  OSC 9;4 sequence (spinner / warning / error), and `${sequence}`, the OSC 2
-  title, which VS Code records only on unnamed terminals — another reason
-  Berth's terminals are unnamed. Berth turns on tmux's `set-titles` for its
-  sessions with the session name prefixed by the state glyph, and the layout
-  makes tab titles use `${sequence}`, so a tab reads like "● work" and follows its session state.
+  to a tab row, so Berth adds state through the channel that does update:
+  `${sequence}`, the OSC 2 title, which VS Code records only on unnamed
+  terminals — another reason Berth's terminals are unnamed. Berth turns on
+  tmux's `set-titles` for its sessions with the session name prefixed by the
+  state glyph, and the layout makes tab titles use `${sequence}`, so a tab
+  reads like "● work" and follows its session state. The layout leaves
+  `terminal.integrated.tabs.description` alone: `${progress}` resolves to
+  codicon syntax such as `$(loading~spin)`, which the terminal panel's tab
+  list draws as an icon but terminal editor tabs, where sessions open, print
+  as literal text.
 - **Notifications.** Initial inventory and extension reload do not replay old
   waiting/completion events. In a focused editor, the visible active terminal
   needs no popup; other sessions waiting for input receive an editor notification.

@@ -11,11 +11,11 @@ function asObject(value: unknown): Record<string, unknown> {
 }
 
 /**
- * Settings the layout preset writes (spec §6). `${progress}` is added to the
- * tab description so agent state shows on native tabs.
+ * Settings the layout preset writes (spec §6). State shows through the tab
+ * title alone: `${progress}` resolves to codicon syntax that terminal editor
+ * tabs, where sessions open, print as literal text.
  */
 export function layoutChanges(current: (key: string) => unknown, hideTerminalTabs: boolean): SettingChange[] {
-  const description = String(current('terminal.integrated.tabs.description') ?? '${task}${separator}${local}${separator}${cwdFolder}');
   const title = String(current('terminal.integrated.tabs.title') ?? '${process}');
   const changes: SettingChange[] = [
     // Session terminals open as editors in the first group, which locks so files open beside it.
@@ -28,11 +28,30 @@ export function layoutChanges(current: (key: string) => unknown, hideTerminalTab
       key: 'terminal.integrated.tabs.title',
       value: title.includes('${sequence}') ? title : '${sequence}',
     },
-    {
-      key: 'terminal.integrated.tabs.description',
-      value: description.includes('${progress}') ? description : `\${progress}\${separator}${description}`,
-    },
   ];
   if (hideTerminalTabs) changes.push({ key: 'terminal.integrated.tabs.enabled', value: false });
   return changes;
+}
+
+export const tabDescriptionKey = 'terminal.integrated.tabs.description';
+
+function progressDescription(settings: Record<string, unknown> | undefined): string | undefined {
+  const value = settings?.[tabDescriptionKey];
+  return typeof value === 'string' && value.includes('${progress}') ? value : undefined;
+}
+
+/**
+ * Earlier presets added `${progress}` to the tab description (spec §6). The
+ * managed Profile drops it only while it still equals the recorded value.
+ */
+export function staleProgressDescription(recorded: Record<string, unknown> | undefined, current: unknown): boolean {
+  const written = progressDescription(recorded);
+  return written !== undefined && current === written;
+}
+
+/** Recorded preset settings without the earlier `${progress}` description. */
+export function withoutProgressDescription(settings: Record<string, unknown>): Record<string, unknown> {
+  if (progressDescription(settings) === undefined) return settings;
+  const { [tabDescriptionKey]: _dropped, ...rest } = settings;
+  return rest;
 }
