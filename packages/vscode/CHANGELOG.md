@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.11
+
+### Layout
+
+- Session tabs no longer show `$(loading~spin)` as text while an agent works. The Berth layout used to add `${progress}` to terminal tab descriptions, which VS Code draws as an icon only in the terminal panel, not on the editor tabs where Berth opens sessions. State still shows through the ●, ◐ and ✓ in tab titles. A Berth Profile prepared by an earlier version drops that description once, only while it still holds the value Berth wrote.
+
 ## 0.4.10
 
 ### Startup
