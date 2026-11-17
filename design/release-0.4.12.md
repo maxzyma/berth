@@ -32,7 +32,24 @@ macOS, 2026-11-17:
   notification focus and iTerm2 restoration, which this change does not touch;
   the [0.4.6 results](manual-acceptance.md#results) remain the latest.
 
-Publication is pending.
+The first [release run](https://github.com/maxzyma/berth/actions/runs/44109403221)
+for a `v0.4.12` tag on `4f961ba` failed on macOS 15 Intel: the V1 view test
+asserted the positions of two sessions created a moment apart, which activity
+ordering can swap on a slow runner. Its release job was skipped, so nothing was
+published. The test now looks rows up by name (`8e24cbd`), and the tag moved to
+that commit. In the [second run](https://github.com/maxzyma/berth/actions/runs/44112369597)
+every verify job passed (macOS 15 and macOS 15 Intel: 419 passed, 11 opt-in
+skipped, zero failures; Linux and Windows also passed); GitHub cancelled the
+release job twice for lack of a hosted macOS runner, with no step run and the
+version absent from every channel, and the third attempt published. npm
+`latest`, [GitHub Releases](https://github.com/maxzyma/berth/releases/tag/v0.4.12)
+and the VS Code Marketplace publish 0.4.12. `scripts/verify-release.mjs` found
+the npm archive identical to the GitHub archive and to the registry's integrity,
+and the Marketplace VSIX identical to the GitHub one. Private-identifier and
+credential scans of the 209 published files found nothing. The official VSIX is
+installed locally, with all 33 extension payload files matching the archive
+(ignoring VS Code's installation metadata). See the
+[publication receipt](assets/code-review/release-0.4.12.json).
 
 ## Accepted limits
 
