@@ -26,6 +26,7 @@ import { TerminalHost, currentWorkspaceIdentity } from './terminalHost.js';
 
 const REFRESH_MS = 2000;
 const GROUP_ORDER = 'berth.groupOrder';
+const PINNED = 'berth.pinnedSessions';
 const LAYOUT_BACKUP = 'berth.layoutBackup';
 const LAYOUT_VALUES = 'berth.layoutAppliedValues';
 const BERTH_CONTAINER = 'workbench.view.extension.berth';
@@ -139,6 +140,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Folder group order is saved per workspace (spec §6).
   const groupOrder = () => savedGroupOrder(context.workspaceState.get(GROUP_ORDER));
   host.groupOrder = groupOrder;
+  // Pins are a view preference saved per workspace (spec §6).
+  host.pinned = () => new Set(context.workspaceState.get<string[]>(PINNED) ?? []);
+  host.savePinned = (names) => void context.workspaceState.update(PINNED, names).then(renderLocal);
   const reorderGroups = (next: (shown: readonly string[], saved: readonly string[]) => string[]) => {
     const shown = controller.tree().groups.map((group) => group.cwd);
     void context.workspaceState.update(GROUP_ORDER, next(shown, groupOrder())).then(renderLocal);
@@ -399,6 +403,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     ))?.id;
   };
   command('berth.markRead', guarded((name) => controller.markRead(name)));
+  command('berth.markUnread', guarded((name) => controller.markUnread(name)));
+  command('berth.pin', guarded((name) => controller.pin(name)));
+  command('berth.unpin', guarded((name) => controller.unpin(name)));
   command('berth.forget', guarded(async (name) => {
     const ok = await vscode.window.showWarningMessage(`Forget ${name}? It will not be restored.`, { modal: true }, 'Forget');
     if (ok === 'Forget') controller.forget(name);

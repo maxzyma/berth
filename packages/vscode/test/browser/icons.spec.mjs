@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { serveFixture } from './fixture.mjs';
+import { serveFixture, showAll } from './fixture.mjs';
 
 let server;
 test.beforeAll(async () => { server = await serveFixture(); });
@@ -16,6 +16,7 @@ for (const theme of ['dark', 'light', 'hc', 'hclight']) {
     const f = page.frameLocator('iframe');
     await expect(f.getByRole('tree')).toBeVisible();
     await f.locator('body').evaluate(() => window.sendModel(window.iconFixture));
+    await showAll(f);
     const names = ['claude', 'codex', 'gemini', 'cursor', 'copilot', 'kimi', 'opencode', 'qoder'];
     for (const name of names) {
       const row = f.locator(`[id="s:${name}"]`);

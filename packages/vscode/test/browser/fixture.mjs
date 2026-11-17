@@ -119,3 +119,9 @@ export async function serveFixture() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   return { url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise(resolve => server.close(resolve)) };
 }
+
+/** Activate every Show more row, for tests that need a group's full list (spec §6). */
+export async function showAll(frame) {
+  const more = frame.locator('[id^="m:"]');
+  while (await more.count()) await more.first().click();
+}

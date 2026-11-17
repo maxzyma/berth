@@ -54,6 +54,13 @@ class FakeHost implements Host {
     return true;
   }
 
+  pins = new Set<string>();
+  pinned() {
+    return this.pins;
+  }
+  savePinned(names: readonly string[]) {
+    this.pins = new Set(names);
+  }
   renameSession(from: string, to: string) {
     if (this.main === from) this.main = to;
     this.terminals = this.terminals.map((terminal) => terminal.session === from ? { ...terminal, session: to } : terminal);
@@ -453,6 +460,63 @@ test('V2 natural session order survives snapshot/live interleaving and unmanaged
     assert.deepEqual(buildTree(source.map(row => ({ ...row, managed: false })), input).unmanaged.map(row => row.name), expected);
   }
   assert.deepEqual(rows.map(row => row.name), names, 'does not reorder source data');
+});
+
+test('V16 rows list the most recently active first: tmux activity or the recorded state change, ties by name', () => {
+  const at = (minutes: number) => new Date(Date.UTC(2026, 10, 17, 12, minutes)).toISOString();
+  const row = (name: string, extra: object = {}) => ({ name, managed: true, agent: 'claude', cwd: '/p', conversation: '', origin: 'vscode', state: '', note: '', topic: '', attachedClients: 0, live: true, hooks: 'none' as const, ...extra });
+  const rows = [
+    row('job-10', { lastActivity: at(5) }),
+    row('job-2', { lastActivity: at(1), state: 'done', activityTiming: { state: 'done', stateSince: at(9) } }),
+    row('job-3', { lastActivity: at(7) }),
+    row('stopped', { live: false }),
+    row('job', { lastActivity: at(5) }),
+  ];
+  const input = { here: new Set<string>(), unread: new Set<string>(), branch: () => '' };
+  assert.deepEqual(buildTree(rows, input).groups[0].rows.map((r) => r.name), ['job-2', 'job-3', 'job', 'job-10', 'stopped']);
+  assert.deepEqual(buildTree(rows.map((r) => ({ ...r, managed: false })), input).unmanaged.map((r) => r.name), ['job-2', 'job-3', 'job', 'job-10', 'stopped']);
+  const waiting = [row('job-2', { state: 'waiting', lastActivity: at(1) }), row('job-13', { state: 'waiting', lastActivity: at(8) })];
+  assert.equal(nextAttention(waiting, new Set()), 'job-13', 'attention navigation follows the same order');
+});
+
+test('V16 pinned sessions lead their group, carry a pin mark and the Unpin menu', () => {
+  const at = (minutes: number) => new Date(Date.UTC(2026, 10, 17, 12, minutes)).toISOString();
+  const row = (name: string, minutes: number) => ({ name, managed: true, agent: 'claude', cwd: '/p', conversation: '', origin: 'vscode', state: '', note: '', topic: '', attachedClients: 0, live: true, hooks: 'none' as const, lastActivity: at(minutes) });
+  const rows = [row('fresh', 9), row('old-pin', 1), row('newer-pin', 3), row('mid', 5)];
+  const tree = buildTree(rows, { here: new Set(), unread: new Set(), branch: () => '', pinned: new Set(['old-pin', 'newer-pin']) });
+  const views = tree.groups[0].rows;
+  assert.deepEqual(views.map((r) => r.name), ['newer-pin', 'old-pin', 'fresh', 'mid']);
+  assert.deepEqual(views.map((r) => r.pinned), [true, true, false, false]);
+  assert.match(views[0].contextValue, / pinned\b/);
+  assert.doesNotMatch(views[2].contextValue, / pinned\b/);
+});
+
+test('V16 pins persist through the host and follow a rename; Mark as Unread returns a session to attention', async (t) => {
+  const { sb, host, controller } = setup(t);
+  const dir = sb.makeDir('p');
+  sb.cli('new', 'claude', '--cwd', dir, '--name', 'keep');
+  sb.cli('new', 'claude', '--cwd', dir, '--name', 'other');
+  controller.refresh();
+  controller.pin('keep');
+  assert.deepEqual([...host.pins], ['keep']);
+  assert.equal(controller.tree().groups[0].rows[0].name, 'keep');
+  await controller.rename('keep', 'kept');
+  assert.deepEqual([...host.pins], ['kept']);
+  controller.unpin('kept');
+  assert.deepEqual([...host.pins], []);
+
+  const other = () => controller.tree().groups[0].rows.find((r) => r.name === 'other');
+  assert.equal(other()?.attention, '');
+  controller.markUnread('other');
+  assert.equal(other()?.attention, 'unread');
+  assert.ok(controller.unread.has('other'), 'attention navigation reads the same set');
+});
+
+test('V16 Find a Session lists sessions in the sidebar order', () => {
+  const at = (minutes: number) => new Date(Date.UTC(2026, 10, 17, 12, minutes)).toISOString();
+  const row = (name: string, extra: object) => ({ name, managed: true, agent: 'claude', cwd: '/p', conversation: '', origin: 'vscode', state: '', note: '', topic: '', attachedClients: 0, live: true, hooks: 'none' as const, ...extra });
+  const choices = sessionChoices([row('job-2', { lastActivity: at(1) }), row('job-10', { lastActivity: at(8) }), row('stopped', { live: false })]);
+  assert.deepEqual(choices.map((c) => c.session), ['job-10', 'job-2', 'stopped']);
 });
 
 test('V10 attention navigation uses natural numbers within each priority', () => {

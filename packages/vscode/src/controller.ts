@@ -57,6 +57,9 @@ export interface Host {
   terminalPidsReady?(): boolean;
   activeTerminalPid?(): number | undefined;
   renameSession?(from: string, to: string): void;
+  /** Pinned sessions, saved per workspace (spec §6). */
+  pinned?(): ReadonlySet<string>;
+  savePinned?(names: readonly string[]): void;
   notify(transition: Transition): void;
   /** Called after a session is brought forward, e.g. to follow it in the explorer. */
   sessionShown?(row: SessionRow): void;
@@ -135,6 +138,7 @@ export class Controller {
       workspaceFolders: this.host.workspaceFolders?.() ?? [],
       home: process.env.HOME ?? '',
       groupOrder: this.host.groupOrder?.() ?? [],
+      pinned: this.host.pinned?.() ?? new Set(),
     });
   }
 
@@ -349,6 +353,7 @@ export class Controller {
     await this.renameSession(from, to);
     this.host.renameSession?.(from, to);
     if (this.unread.delete(from)) this.unread.add(to);
+    if (this.host.pinned?.().has(from)) this.savePins([...this.host.pinned!()].map((name) => name === from ? to : name));
     this.rows = this.rows.map((row) => row.name === from ? { ...row, name: to } : row);
   }
 
@@ -364,6 +369,23 @@ export class Controller {
   /** The user has seen it without opening it. */
   markRead(name: string): void {
     this.unread.delete(name);
+  }
+
+  /** Back into attention navigation, to come back to later. */
+  markUnread(name: string): void {
+    this.unread.add(name);
+  }
+
+  pin(name: string): void {
+    this.savePins([...(this.host.pinned?.() ?? []), name]);
+  }
+
+  unpin(name: string): void {
+    this.savePins([...(this.host.pinned?.() ?? [])].filter((pinned) => pinned !== name));
+  }
+
+  private savePins(names: string[]): void {
+    this.host.savePinned?.([...new Set(names)]);
   }
 
   /** Stop restoring a stopped session. */

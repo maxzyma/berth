@@ -38,6 +38,8 @@ export interface SessionRow extends RecoveryStatus {
   /** First line of the user's latest prompt (spec §4.2). */
   topic: string;
   activityTiming?: ActivityTiming;
+  /** tmux's last input or output in a live session, ISO time; orders the view (spec §6). */
+  lastActivity?: string;
   /** Ephemeral visible-terminal excerpt; not conversation or recovery evidence. */
   terminalPreview?: string;
   attachedClients: number;
@@ -84,6 +86,7 @@ export function list(ctx: Context): SessionRow[] {
     origin: s.meta.origin ?? (s.meta.agent ? 'none' : ''),
     state: s.meta.state ?? '',
     activityTiming: s.meta.bindingIssue ? undefined : readActivityTiming(s.meta.activityTiming, s.meta.state || ''),
+    ...(s.activity ? { lastActivity: new Date(s.activity * 1000).toISOString() } : {}),
     note: s.meta.note ?? '',
     topic: s.meta.topic ?? '',
     attachedClients: clients.get(s.name)?.length ?? 0,

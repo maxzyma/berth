@@ -102,6 +102,18 @@ body {
   padding-left: calc(4px + var(--berth-twistie) + var(--berth-indent) + 2px);
 }
 
+/* Pinned sessions: a small muted pin after the name (spec §6). */
+.pin-mark { flex: none; font-size: 12px; color: var(--vscode-descriptionForeground); }
+
+/* Show more: muted, aligned with session titles (spec §6). */
+.more.level-1 { padding-left: calc(4px + var(--berth-twistie) + 2px); }
+.more.level-2 { padding-left: calc(4px + var(--berth-twistie) + var(--berth-indent) + 2px); }
+.more .line { padding-left: 22px; }
+/* The hidden session's marker carries the attention colour; the words stay muted. */
+.row.more .name { color: var(--vscode-descriptionForeground); }
+.row.more:hover .name,
+.row.more:focus .name { color: var(--vscode-foreground); }
+
 .icon {
   width: 16px;
   height: 16px;

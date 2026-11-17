@@ -95,6 +95,8 @@ export class TerminalHost implements Host {
 
   focusSession?: (name: string) => void;
   groupOrder?: () => readonly string[];
+  pinned?: () => ReadonlySet<string>;
+  savePinned?: (names: readonly string[]) => void;
   onShown?: (row: SessionRow) => void;
 
   workspaceFolders(): string[] {

@@ -17,6 +17,8 @@ export interface LiveSession {
   /** The tmux server's start time and pid: names one server lifetime. */
   serverStart: string;
   sessionId: string;
+  /** tmux's session_activity: last input or output, in seconds since the epoch. */
+  activity?: number;
 }
 
 const TEST_SOCKET_PREFIX = 'berth-test-';
@@ -59,14 +61,14 @@ export class Tmux {
   }
 
   listSessions(): LiveSession[] {
-    const fields = ['session_name', 'session_attached', '?session_path,#{session_path},#{pane_current_path}', 'start_time', 'pid', 'session_id', ...META_KEYS.map((k) => `@berth_${k}`)];
+    const fields = ['session_name', 'session_attached', '?session_path,#{session_path},#{pane_current_path}', 'start_time', 'pid', 'session_id', 'session_activity', ...META_KEYS.map((k) => `@berth_${k}`)];
     const result = this.run(['list-sessions', '-F', formatFields(fields)], true);
     if (!result.ok) {
       if (/no server running|No such file or directory|Connection refused/i.test(result.stderr)) return [];
       throw new BerthError(`Cannot read tmux sessions: ${result.stderr.trim()}`, ExitCode.failure);
     }
     return readFields(result.stdout, fields.length).map((fields) => {
-        const [name, attached, path, start, pid, sessionId, ...values] = fields;
+        const [name, attached, path, start, pid, sessionId, activity, ...values] = fields;
         const serverStart = `${start}-${pid}`;
         const meta: SessionMeta = {};
         META_KEYS.forEach((key, i) => {
@@ -79,7 +81,7 @@ export class Tmux {
             } else meta[key] = value;
           }
         });
-        return { name, attachedClients: Number(attached) || 0, path, meta, serverStart, sessionId };
+        return { name, attachedClients: Number(attached) || 0, path, meta, serverStart, sessionId, ...(Number(activity) > 0 ? { activity: Number(activity) } : {}) };
       });
   }
 

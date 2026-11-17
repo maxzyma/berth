@@ -78,6 +78,24 @@
         "icon": "$(check)"
       },
       {
+        "command": "berth.markUnread",
+        "title": "Mark as Unread",
+        "category": "Berth",
+        "icon": "$(circle-filled)"
+      },
+      {
+        "command": "berth.pin",
+        "title": "Pin",
+        "category": "Berth",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "berth.unpin",
+        "title": "Unpin",
+        "category": "Berth",
+        "icon": "$(pinned)"
+      },
+      {
         "command": "berth.refresh",
         "title": "Refresh",
         "category": "Berth",
@@ -299,6 +317,18 @@
           "when": "false"
         },
         {
+          "command": "berth.markUnread",
+          "when": "false"
+        },
+        {
+          "command": "berth.pin",
+          "when": "false"
+        },
+        {
+          "command": "berth.unpin",
+          "when": "false"
+        },
+        {
           "command": "berth.retryRecovery",
           "when": "false"
         },
@@ -337,6 +367,21 @@
           "command": "berth.markRead",
           "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /unread/",
           "group": "1@1"
+        },
+        {
+          "command": "berth.markUnread",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /agent-session live/ && !(berthItem =~ /unread/)",
+          "group": "1@1"
+        },
+        {
+          "command": "berth.pin",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /^session/ && !(berthItem =~ / pinned/)",
+          "group": "1@4"
+        },
+        {
+          "command": "berth.unpin",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ / pinned/",
+          "group": "1@4"
         },
         {
           "command": "berth.newInFolder",

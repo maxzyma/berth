@@ -37,12 +37,20 @@ const STATE_WORDS: Record<RowView['icon'], string> = {
   unmanaged: 'not an agent session',
 };
 
-/** One focusable line: a group header or a session card. */
-type Item = { id: string; kind: 'group'; group: GroupView | Other } | { id: string; kind: 'card'; row: RowView; level: number; group?: string };
+/** One focusable line: a group header, a session card or a group's Show more. */
+type Item = { id: string; kind: 'group'; group: GroupView | Other }
+  | { id: string; kind: 'card'; row: RowView; level: number; group?: string }
+  | { id: string; kind: 'more'; key: string; level: number; group?: string; attention: RowView['attention'] };
 type Other = { cwd: string; label: string; rows: RowView[]; other: true };
 
 /** Details follow keyboard focus only; focus left by a mouse click opens nothing (spec §6). */
 const keyboardFocus = (e: FocusEvent) => (e.currentTarget as HTMLElement).matches(':focus-visible');
+
+/** Rows a group shows before Show more, and how many each activation adds (spec §6). */
+const FIRST_ROWS = 5;
+const MORE_ROWS = 10;
+/** The Show more key of the flattened top level. */
+const TOP = '\u0000top';
 
 /** Drag data private to this view, so dropping a header in an editor or terminal inserts nothing. */
 const GROUP_MIME = 'application/x-berth-group';
@@ -55,6 +63,8 @@ class BerthSessions extends LitElement {
   private error = '';
   declare focusId: string | undefined;
   private collapsed: Set<string>;
+  /** Rows shown per group beyond the first five; not saved, so a reload starts at five. */
+  private readonly shown = new Map<string, number>();
   /** The folder group being dragged, and where it would land (spec §6). */
   private dragging?: string;
   declare drop: { cwd: string; after: boolean } | undefined;
@@ -114,7 +124,7 @@ class BerthSessions extends LitElement {
     if (!id) return;
     const item = this.items().find((entry) => entry.id === id);
     const anchor = document.getElementById(id);
-    if (!item || !anchor || (item.kind === 'group' && 'other' in item.group)) {
+    if (!item || !anchor || item.kind === 'more' || (item.kind === 'group' && 'other' in item.group)) {
       this.hover.update();
       return;
     }
@@ -137,13 +147,25 @@ class BerthSessions extends LitElement {
     const { tree, flatten } = this.model;
     const out: Item[] = [];
     const groups: (GroupView | Other)[] = flatten ? [] : [...tree.groups];
-    if (flatten) for (const row of tree.groups[0].rows) out.push({ id: `s:${row.name}`, kind: 'card', row, level: 1 });
+    if (flatten) this.limited(out, TOP, tree.groups[0].rows, 1);
     if (tree.unmanaged.length) groups.push({ cwd: OTHER, label: 'Other tmux sessions', rows: tree.unmanaged, other: true });
     for (const group of groups) {
       out.push({ id: `g:${group.cwd}`, kind: 'group', group });
-      if (!this.collapsed.has(group.cwd)) for (const row of group.rows) out.push({ id: `s:${row.name}`, kind: 'card', row, level: 2, group: group.cwd });
+      if (!this.collapsed.has(group.cwd)) this.limited(out, group.cwd, group.rows, 2, group.cwd);
     }
     return out;
+  }
+
+  /** A group's first rows, then Show more carrying any hidden waiting or unread mark. */
+  private limited(out: Item[], key: string, rows: RowView[], level: number, group?: string): void {
+    // Pinned rows lead the list and do not count toward the limit (spec §6).
+    const pinned = rows.filter((row) => row.pinned).length;
+    const limit = pinned + (this.shown.get(key) ?? FIRST_ROWS);
+    for (const row of rows.slice(0, limit)) out.push({ id: `s:${row.name}`, kind: 'card', row, level, group });
+    const hidden = rows.slice(limit);
+    if (!hidden.length) return;
+    const attention = hidden.some((r) => r.attention === 'waiting') ? 'waiting' : hidden.some((r) => r.attention === 'unread') ? 'unread' : '';
+    out.push({ id: `m:${key}`, kind: 'more', key, level, group, attention });
   }
 
   /** The drop line: above a group's header, or below its last visible row. */
@@ -153,7 +175,7 @@ class BerthSessions extends LitElement {
     if (start < 0) return undefined;
     if (!this.drop.after) return { id: items[start].id, mark: 'drop-before' };
     let end = start;
-    while (items[end + 1]?.kind === 'card' && (items[end + 1] as { group?: string }).group === this.drop.cwd) end++;
+    while (items[end + 1]?.kind !== 'group' && (items[end + 1] as { group?: string } | undefined)?.group === this.drop.cwd) end++;
     return { id: items[end].id, mark: 'drop-after' };
   }
 
@@ -174,7 +196,9 @@ class BerthSessions extends LitElement {
         @dragleave=${(e: DragEvent) => { if (!(e.relatedTarget instanceof Node && (e.currentTarget as Node).contains(e.relatedTarget))) this.drop = undefined; }}>
         ${repeat(items, (item) => item.id, (item) => (item.kind === 'group'
           ? this.groupRow(item.group, item.id === focus, mark(item.id))
-          : this.card(item.row, item.level, item.id === focus, mark(item.id))))}
+          : item.kind === 'more'
+            ? this.moreRow(item, item.id === focus, mark(item.id))
+            : this.card(item.row, item.level, item.id === focus, mark(item.id))))}
       </div>
       ${items.length === 0 && this.model ? html`
         <div class="empty">
@@ -241,7 +265,7 @@ class BerthSessions extends LitElement {
   private card(row: RowView, level: number, focused: boolean, dropMark: string): TemplateResult {
     const context: MenuContext = { webviewSection: 'session', session: row.name, berthItem: row.contextValue };
     const selected = this.selectedSession === row.name;
-    const words = [row.name, row.hover.find(line => line.kind === 'title')?.sub, row.agent ? `${STATE_WORDS[row.icon]}` : STATE_WORDS.unmanaged, row.subtitle, row.details, row.active ? 'Active terminal' : ''].filter(Boolean).join(', ');
+    const words = [row.name, row.pinned ? 'pinned' : '', row.hover.find(line => line.kind === 'title')?.sub, row.agent ? `${STATE_WORDS[row.icon]}` : STATE_WORDS.unmanaged, row.subtitle, row.details, row.active ? 'Active terminal' : ''].filter(Boolean).join(', ');
     return html`<div
       class="row card ${dropMark} level-${level} state-${row.icon} ${row.attention ? `attention-${row.attention}` : ''} ${selected ? 'selected' : ''} ${row.active ? 'terminal-active' : ''}"
       id=${`s:${row.name}`}
@@ -263,6 +287,7 @@ class BerthSessions extends LitElement {
       <div class="line title">
         ${agentIcon(row.agent, this.settings?.agentIcons)}
         <span class="name">${row.label}</span>
+        ${row.pinned ? html`<span class="pin-mark codicon codicon-pinned" role="img" aria-label="Pinned"></span>` : nothing}
         <span class="activity-slot">${row.badge ? html`<span class="badge" role="img" aria-label=${STATE_WORDS[row.icon]}>${row.icon === 'working' ? codicon(WORKING_ICON) : row.attention === 'unread' ? codicon('pass-filled') : row.badge}</span>` : nothing}</span>
         ${this.settings?.details && row.details ? html`
           <span class=${`details${row.location.additional ? ' multiple-connections' : ''}`} role="img" aria-label=${row.details}>
@@ -274,11 +299,35 @@ class BerthSessions extends LitElement {
     </div>`;
   }
 
+  private moreRow(item: Extract<Item, { kind: 'more' }>, focused: boolean, dropMark: string): TemplateResult {
+    const words = `Show more${item.attention === 'waiting' ? ', a hidden session is waiting for you' : item.attention === 'unread' ? ', a hidden session is unread' : ''}`;
+    return html`<div
+      class="row more level-${item.level} ${item.attention ? `attention-${item.attention}` : ''} ${dropMark}"
+      id=${item.id}
+      role="treeitem"
+      aria-level=${item.level}
+      aria-label=${words}
+      tabindex=${focused ? 0 : -1}
+      @click=${() => this.showMore(item.key)}
+      @focus=${() => { this.focusId = item.id; }}
+    >
+      <div class="line"><span class="name">Show more</span>${item.attention
+        ? html`<span class="badge">${item.attention === 'waiting' ? '!' : codicon('pass-filled')}</span>` : nothing}</div>
+    </div>`;
+  }
+
+  private showMore(key: string): void {
+    this.hover.hide();
+    this.shown.set(key, (this.shown.get(key) ?? FIRST_ROWS) + MORE_ROWS);
+    this.requestUpdate();
+  }
+
   private toggle(cwd: string, open?: boolean): void {
     this.hover.hide();
     const isOpen = !this.collapsed.has(cwd);
     if (open === isOpen) return;
-    if (isOpen) this.collapsed.add(cwd);
+    // Collapsing returns the group to its first rows (spec §6, Show more).
+    if (isOpen) { this.collapsed.add(cwd); this.shown.delete(cwd); }
     else this.collapsed.delete(cwd);
     this.save();
     this.requestUpdate();
@@ -295,12 +344,12 @@ class BerthSessions extends LitElement {
     if (!this.dragging) return;
     const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('.row');
     const item = row && items.find((i) => i.id === row.id);
-    const cwd = item?.kind === 'group' ? item.group.cwd : item?.kind === 'card' ? item.group : undefined;
+    const cwd = item?.kind === 'group' ? item.group.cwd : item?.group;
     if (!row || !cwd || cwd === OTHER || cwd === this.dragging) { this.drop = undefined; return; }
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
     const box = row.getBoundingClientRect();
-    const after = item?.kind === 'card' || e.clientY > box.top + box.height / 2;
+    const after = item?.kind !== 'group' || e.clientY > box.top + box.height / 2;
     if (this.drop?.cwd !== cwd || this.drop.after !== after) this.drop = { cwd, after };
   }
 
@@ -342,6 +391,7 @@ class BerthSessions extends LitElement {
       case 'Enter':
       case ' ':
         if (item?.kind === 'card') this.show(item.row.name);
+        else if (item?.kind === 'more') this.showMore(item.key);
         else if (item) this.toggle(item.group.cwd);
         break;
       case 'ArrowRight':
@@ -349,7 +399,7 @@ class BerthSessions extends LitElement {
         break;
       case 'ArrowLeft':
         if (item?.kind === 'group') this.toggle(item.group.cwd, false);
-        else if (item?.kind === 'card' && item.level === 2) move(items.slice(0, index).map((i) => i.kind).lastIndexOf('group'));
+        else if (item?.level === 2) move(items.slice(0, index).map((i) => i.kind).lastIndexOf('group'));
         break;
       default:
         return;

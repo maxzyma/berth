@@ -255,8 +255,10 @@ An array; one object per tmux session:
 ```
 
 `live: false` rows come from the newest snapshot (stopped sessions). A stopped
-row whose folder no longer exists carries `cwdMissing: true`. Unmanaged
-rows carry `managed: false` and empty Berth fields.
+row whose folder no longer exists carries `cwdMissing: true`. Live rows carry
+`lastActivity`, tmux's `session_activity` as an ISO time; the view orders rows by
+it and the recorded state change (spec §6, Order). Unmanaged rows carry
+`managed: false` and empty Berth fields.
 
 Connection rows add optional `connections` entries (`pid`, `terminal`, `application`,
 `ancestors`) and `conversationTitle`. Client ancestry is captured once per list
@@ -757,7 +759,14 @@ manual cases are recorded as checked, and the de-identification check passes.
   settings, all-profile values and legacy journals. Cancellation changes nothing;
   switching back selects the original profile without restoring cached settings.
 - **V10** *Go to Next Session Needing You* shows waiting sessions first, then
-  unread ones, in name order, wrapping around.
+  unread ones, most recently active first, wrapping around.
+- **V16** Rows within a group are ordered by most recent activity, ties by
+  natural name; each group shows five, *Show more* adds ten per activation and
+  carries a hidden session's attention marker, and collapsing a group resets it
+  to five.
+  Pinned sessions lead their group, stay outside the limit, survive a reload
+  and follow a rename; *Mark as Unread* returns a live agent session to
+  attention navigation; Find a Session lists sessions in the same order.
 - **V12** A plain shell never goes through the custom launcher; a launcher
   without `{agent}` is started without asking, and its session is adopted with
   the agent running in its pane. *New Session* takes the shown session's

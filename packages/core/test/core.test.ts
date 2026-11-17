@@ -37,6 +37,10 @@ test('C1 ls lists managed, unmanaged and stopped sessions', async (t) => {
   for (const key of ['name', 'managed', 'agent', 'cwd', 'conversation', 'origin', 'state', 'note', 'attachedClients', 'live']) {
     assert.ok(key in (web1 ?? {}), `missing field ${key}`);
   }
+  // Live rows carry tmux's session activity time; stopped rows have none (spec §6, Order).
+  const age = Date.now() - Date.parse(web1?.lastActivity ?? '');
+  assert.ok(age >= 0 && age < 120_000, `recent lastActivity, got ${web1?.lastActivity}`);
+  assert.equal(gone?.lastActivity, undefined);
 });
 
 test('C2 new runs the launch template, stamps metadata, picks a unique name', async (t) => {

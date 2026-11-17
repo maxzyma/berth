@@ -1105,10 +1105,25 @@ name/title/task text is suppressed. Cards use at most
     licenses are recorded in the extension third-party notices. Functional
     icons remain Codicons; modifiers such as `~spin` map to the web font
     modifier classes and respect reduced motion.
-  - **Order.** Sessions within each folder, and unmanaged sessions, use natural
-    name order: `job`, `job-2`, `job-3`, `job-10`, `job-13`. Live and restored
-    entries follow the same order. Attention navigation uses that ordering
+  - **Order.** Sessions within each folder, and unmanaged sessions, list the most
+    recently active first, as Codex lists a project's threads. A live session's
+    activity time is the latest of tmux's session activity (input or output in
+    the session) and the agent state change Berth last recorded; a session
+    without one, such as a restorable stopped session, follows the live ones.
+    Ties use natural name order: `job`, `job-2`, `job-3`, `job-10`, `job-13`.
+    *Pin* keeps a session first in its group, most recent first among pinned
+    ones, and outside the Show more limit; a small pin mark shows it and *Unpin*
+    returns it to the activity order. Pins are saved per workspace, follow a
+    rename, and are a view preference, not session metadata.
+    Rows move as activity changes; selection and keyboard focus follow the
+    session, not the position. Attention navigation uses the same ordering
     within each priority (waiting first, then unread).
+  - **Show more.** Each folder, the flattened top level and the unmanaged group
+    show their pinned sessions and the five most recent others. A *Show more* row below them reveals
+    ten more per activation, by click or Enter, until every session shows; it
+    carries the waiting or unread marker when a hidden session has one.
+    Collapsing a folder and expanding it again returns it to five; the expanded
+    count is not saved across view reloads.
   - **Attention hierarchy.** Waiting uses an amber exclamation marker, name and
     actionable note on the second line when available. An unread finished turn
     uses a blue, normal-weight title and a 12px blue filled-circle check in the
@@ -1126,7 +1141,8 @@ name/title/task text is suppressed. Cards use at most
     then looks idle, since it is the normal resting state; a new state
     replaces the notification, so a finished card never shows an old
     permission request. *Mark as Read* clears unread without opening the
-    session.
+    session; *Mark as Unread* sets it again on a live agent session, so a result
+    the user means to come back to stays in attention navigation.
   - **Groups.** A group header shows the folder's name with an icon for its
     place: this window's workspace folder, inside it, or outside it (the
     words are in its hover), ordered in that order by default. The user can
@@ -1142,8 +1158,9 @@ name/title/task text is suppressed. Cards use at most
     the workspace folder its cards sit at the top level and the view's title
     shows the folder. A collapsed group shows its most urgent session
     (waiting, else unread) with the same badge and colour.
-  - **Activity time.** Keep timestamps out of the default session rows and retain
-    natural ordering. Hover may show the current turn start, current waiting
+  - **Activity time.** Keep timestamps out of the default session rows; the
+    ordering uses its own activity time (see Order). The rules below govern times
+    shown to the user. Hover may show the current turn start, current waiting
     duration and completion time, with relative time plus local date/time and a
     copyable ISO timestamp. Use validated lifecycle-hook receipt times or exact-bound
     native event timestamps; never polling, file mtime, terminal output or inferred
@@ -1241,7 +1258,8 @@ name/title/task text is suppressed. Cards use at most
   terminals are never disposed or assigned ownership. “Open to the Side” explicitly adds an Editor view. Startup opens
   at most one eligible session, not tabs for every background session.
 - **Find a session.** A native Quick Pick searches session name, exact-bound
-  conversation title and folder across live and stopped inventory. Results show
+  conversation title and folder across live and stopped inventory, listed in
+  the sidebar's activity order. Results show
   product identity and lifecycle/recovery state. Selection uses the same guarded
   open action; cancellation leaves selection and terminals unchanged. Removed
   selections report a refresh instruction. The sidebar title exposes New Session, New Session in Folder and Search.

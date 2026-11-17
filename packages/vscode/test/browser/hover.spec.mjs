@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { serveFixture } from './fixture.mjs';
+import { serveFixture, showAll } from './fixture.mjs';
 
 let server;
 test.beforeAll(async () => { server = await serveFixture(); });
@@ -158,7 +158,7 @@ test('refresh: unrelated changes preserve selection, source changes update, remo
 });
 
 test('environment: upward opening, list scroll, window blur and context menu close', async ({ page }, info) => {
-  const f=await load(page);const row=await open(page,f,'14-session');
+  const f=await load(page);await showAll(f);const row=await open(page,f,'14-session');
   await expect(f.getByRole('dialog')).toHaveAttribute('data-side','above');
   await enter(page,f,row);
   await page.locator('iframe').screenshot({path:info.outputPath('above.png')});
@@ -209,7 +209,7 @@ test('rapid switching, folder details and outside click keep the correct owner',
 });
 
 test('selection remains on its session across insertion and reordering', async ({ page }) => {
-  const f=await load(page);const row=await open(page,f);await enter(page,f,row);
+  const f=await load(page);await showAll(f);const row=await open(page,f);await enter(page,f,row);
   await f.locator('.hover-line.path .text').dblclick();
   await f.locator('body').evaluate(()=>{const m=structuredClone(fixture);m.groups[0].rows=m.groups[0].rows.toReversed();sendModel(m);});
   await expect(f.getByRole('dialog')).toContainText('03-session');

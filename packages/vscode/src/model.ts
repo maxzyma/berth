@@ -50,6 +50,8 @@ export interface RowView {
   /** Colour goes only to what needs the user; everything else stays grey. */
   attention: Attention;
   unread: boolean;
+  /** Pinned first in its group, outside the Show more limit (spec §6). */
+  pinned?: boolean;
   active?: boolean;
 }
 
@@ -193,6 +195,8 @@ export interface ViewInput {
   home?: string;
   /** Folder groups in the order the user placed them, saved per workspace. */
   groupOrder?: readonly string[];
+  /** Sessions the user pinned, saved per workspace. */
+  pinned?: ReadonlySet<string>;
   now?: number;
 }
 
@@ -328,16 +332,39 @@ export function compareSessionNames(a: string, b: string): number {
   return sessionNames.compare(a, b) || (a < b ? -1 : a > b ? 1 : 0);
 }
 
+function time(value: string | undefined): number {
+  const parsed = value ? Date.parse(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** When a session last saw activity: tmux input or output, or a recorded state change. */
+function activityTime(row: SessionRow): number {
+  if (!row.live) return 0;
+  const timing = row.activityTiming;
+  return Math.max(time(row.lastActivity), time(timing?.stateSince), time(timing?.turnStartedAt));
+}
+
+/** Most recently active first; sessions without a time, and ties, in natural name order (spec §6). */
+export function compareRecent(a: SessionRow, b: SessionRow): number {
+  return activityTime(b) - activityTime(a) || compareSessionNames(a.name, b.name);
+}
+
 export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
   const groups = new Map<string, RowView[]>();
   const unmanaged: RowView[] = [];
-  for (const row of rows) {
+  const pinned = input.pinned ?? new Set<string>();
+  const view = (row: SessionRow): RowView => {
+    const shown = rowView(row, input);
+    return pinned.has(row.name) ? { ...shown, pinned: true, contextValue: `${shown.contextValue} pinned` } : { ...shown, pinned: false };
+  };
+  const byActivity = [...rows].sort((a, b) => Number(pinned.has(b.name)) - Number(pinned.has(a.name)) || compareRecent(a, b));
+  for (const row of byActivity) {
     if (!row.managed) {
-      unmanaged.push(rowView(row, input));
+      unmanaged.push(view(row));
       continue;
     }
     const list = groups.get(row.cwd) ?? [];
-    list.push(rowView(row, input));
+    list.push(view(row));
     groups.set(row.cwd, list);
   }
   const folders = input.workspaceFolders ?? [];
@@ -354,12 +381,12 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
         { icon: PLACE_CODICON[placeOf(cwd, folders)], text: PLACE_TEXT[placeOf(cwd, folders)] },
       ],
       attention: (list.some((r) => r.attention === 'waiting') ? 'waiting' : list.some((r) => r.attention === 'unread') ? 'unread' : '') as Attention,
-      rows: [...list].sort((x, y) => compareSessionNames(x.name, y.name)),
+      rows: list,
     }))
     .sort(compareFolders);
   return {
     groups: applyGroupOrder(ordered, input.groupOrder ?? []),
-    unmanaged: [...unmanaged].sort((x, y) => compareSessionNames(x.name, y.name)),
+    unmanaged,
     waiting: rows.filter((r) => r.live && r.state === 'waiting').length,
   };
 }
@@ -391,12 +418,12 @@ export function explorerTarget(cwd: string, workspaceFolders: string[]): string 
 
 /**
  * The next session needing the user, after `current`: sessions waiting for
- * them first, then unread ones, each in name order, wrapping around.
+ * them first, then unread ones, each most recently active first, wrapping around.
  */
 export function nextAttention(rows: SessionRow[], unread: ReadonlySet<string>, current?: string): string | undefined {
   const live = rows.filter((r) => r.live && r.managed);
-  const waiting = live.filter((r) => r.state === 'waiting').map((r) => r.name).sort(compareSessionNames);
-  const others = live.filter((r) => r.state !== 'waiting' && unread.has(r.name)).map((r) => r.name).sort(compareSessionNames);
+  const waiting = live.filter((r) => r.state === 'waiting').sort(compareRecent).map((r) => r.name);
+  const others = live.filter((r) => r.state !== 'waiting' && unread.has(r.name)).sort(compareRecent).map((r) => r.name);
   const order = [...waiting, ...others];
   if (order.length === 0) return undefined;
   const at = current ? order.indexOf(current) : -1;
@@ -458,7 +485,7 @@ export function relativeToWorkspace(cwd: string, workspaceFolders: string[]): st
 
 /** Native quick-pick data; names remain exact identity keys even with duplicate titles. */
 export function sessionChoices(rows: readonly SessionRow[]): { label: string; description: string; detail: string; session: string }[] {
-  return [...rows].sort((a, b) => compareSessionNames(a.name, b.name)).map((row) => ({
+  return [...rows].sort(compareRecent).map((row) => ({
     label: row.name,
     description: [getAdapter(row.agent)?.displayName ?? row.agent, row.live ? 'Running' : 'Stopped', row.recovery && row.recovery !== 'confirmed' ? `Recovery ${row.recovery}` : ''].filter(Boolean).join(' · '),
     detail: [row.conversationTitle || row.topic, row.cwd].filter(Boolean).join(' · '),
