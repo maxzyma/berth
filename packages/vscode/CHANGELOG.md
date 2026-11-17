@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.12
+
+### Session list
+
+- Sessions in each folder now list the most recently active first, like a project's threads in Codex. Activity is the latest input or output in the tmux session or the agent's last recorded state change; stopped sessions follow, and ties keep natural name order.
+- Each folder shows five sessions. Show more adds ten at a time and carries the waiting or unread mark of a session it hides; collapsing the folder returns it to five.
+- Pin keeps a session first in its folder, outside the five-session limit. Pins are saved per workspace and follow a rename.
+- Mark as Unread puts a running agent session back in Go to Next Session Needing You.
+- Find a Session lists sessions in the same order as the sidebar.
+
 ## 0.4.11
 
 ### Layout
