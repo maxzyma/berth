@@ -103,29 +103,32 @@ test('V1 the session view groups by cwd, shows state and counts waiting sessions
   sb.tmux('new-session', '-d', '-s', 'plain', 'sleep 3600');
   sb.cli('stamp', '--session', 'a1', 'state=waiting', 'note=needs approval', 'conversation=x');
   const { tree } = controller.refresh();
-  assert.deepEqual(tree.groups.map((g) => [g.label, g.rows.map((r) => r.name)]), [
+  assert.deepEqual(tree.groups.map((g) => [g.label, g.rows.map((r) => r.name).sort()]), [
     ['alpha', ['a1', 'a2']],
     ['beta', ['b1']],
   ]);
   // Line one: name, agent, badge; line two: what the agent said; the hover card has the rest.
-  const a1 = tree.groups[0].rows[0];
+  // Order within a group follows activity (V16); look rows up by name.
+  const row = (name: string) => tree.groups[0].rows.find((r) => r.name === name)!;
+  const a1 = row('a1');
+  const a2 = row('a2');
   assert.deepEqual([a1.label, a1.agent, a1.icon, a1.badge, a1.subtitle, a1.subtitleKind], ['a1', 'claude', 'waiting', '!', 'needs approval', 'note']);
-  assert.equal(tree.groups[0].rows[1].subtitle, '', 'nothing to read while idle without a topic');
+  assert.equal(a2.subtitle, '', 'nothing to read while idle without a topic');
   assert.deepEqual(a1.hover.map((l) => [l.kind ?? '', l.icon, l.text]).slice(0, 3), [
     ['title', '', 'a1'],
     ['quote', 'comment', 'needs approval'],
     ['rule', '', ''],
   ]);
   assert.deepEqual(a1.hover[0].chip, { icon: 'bell-dot', text: 'Waiting for you', tone: 'waiting' }, 'state is a chip on the title');
-  assert.equal(tree.groups[0].rows[1].hover[0].chip, undefined, 'idle shows no chip');
+  assert.equal(a2.hover[0].chip, undefined, 'idle shows no chip');
   assert.equal(shortPath('/h/ws/projects/x', ['/h/ws'], '/h'), 'ws/projects/x');
   assert.equal(shortPath('/h/other', ['/h/ws'], '/h'), '~/other');
   assert.ok(a1.hover.filter((l) => l.kind !== 'title' && l.kind !== 'rule').every((l) => l.icon), 'every detail line has its icon');
   assert.equal(a1.attention, 'waiting');
   assert.equal(tree.groups[0].attention, 'waiting', 'a group carries its most urgent session');
   assert.equal(tree.groups[1].attention, '');
-  assert.ok(!tree.groups[0].rows[1].hover.some((l) => /automatic recovery is unavailable/.test(l.text)), 'live details do not delegate recovery diagnosis');
-  assert.equal(tree.groups[0].rows[1].badge, '', 'idle and read: no badge');
+  assert.ok(!a2.hover.some((l) => /automatic recovery is unavailable/.test(l.text)), 'live details do not delegate recovery diagnosis');
+  assert.equal(a2.badge, '', 'idle and read: no badge');
   assert.deepEqual(tree.unmanaged.map((r) => r.name), ['plain']);
   assert.equal(tree.waiting, 1);
 });
