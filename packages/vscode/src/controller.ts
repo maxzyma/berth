@@ -60,6 +60,9 @@ export interface Host {
   /** Pinned sessions, saved per workspace (spec §6). */
   pinned?(): ReadonlySet<string>;
   savePinned?(names: readonly string[]): void;
+  /** Pending reminders: session name to due time in ms, saved per workspace. */
+  reminders?(): ReadonlyMap<string, number>;
+  saveReminders?(entries: ReadonlyMap<string, number>): void;
   notify(transition: Transition): void;
   /** Called after a session is brought forward, e.g. to follow it in the explorer. */
   sessionShown?(row: SessionRow): void;
@@ -107,6 +110,12 @@ export class Controller {
     if (branches) this.branches = new Map(branches);
     const changed = transitions(this.rows, next);
     this.rows = next;
+    const listed = new Set(next.map((row) => row.name));
+    const reminders = this.host.reminders?.() ?? new Map<string, number>();
+    // An empty inventory, such as before tmux starts, is no evidence a session is gone.
+    if (next.length && [...reminders.keys()].some((name) => !listed.has(name))) {
+      this.host.saveReminders?.(new Map([...reminders].filter(([name]) => listed.has(name))));
+    }
     for (const t of changed) {
       this.unread.add(t.name);
       this.host.notify(t);
@@ -139,6 +148,7 @@ export class Controller {
       home: process.env.HOME ?? '',
       groupOrder: this.host.groupOrder?.() ?? [],
       pinned: this.host.pinned?.() ?? new Set(),
+      reminders: this.host.reminders?.() ?? new Map(),
     });
   }
 
@@ -353,6 +363,8 @@ export class Controller {
     await this.renameSession(from, to);
     this.host.renameSession?.(from, to);
     if (this.unread.delete(from)) this.unread.add(to);
+    const reminder = this.host.reminders?.().get(from);
+    if (reminder !== undefined) this.host.saveReminders?.(new Map([...this.host.reminders!()].map(([name, at]) => [name === from ? to : name, at])));
     if (this.host.pinned?.().has(from)) this.savePins([...this.host.pinned!()].map((name) => name === from ? to : name));
     this.rows = this.rows.map((row) => row.name === from ? { ...row, name: to } : row);
   }
@@ -382,6 +394,28 @@ export class Controller {
 
   unpin(name: string): void {
     this.savePins([...(this.host.pinned?.() ?? [])].filter((pinned) => pinned !== name));
+  }
+
+  /** Bring a session back to attention at `at` (ms). */
+  remind(name: string, at: number): void {
+    this.host.saveReminders?.(new Map([...(this.host.reminders?.() ?? []), [name, at]]));
+  }
+
+  cancelReminder(name: string): void {
+    this.host.saveReminders?.(new Map([...(this.host.reminders?.() ?? [])].filter(([session]) => session !== name)));
+  }
+
+  /** Due reminders mark their session unread and notify once. */
+  fireDueReminders(now = Date.now()): string[] {
+    const reminders = [...(this.host.reminders?.() ?? [])];
+    const due = reminders.filter(([, at]) => at <= now).map(([name]) => name);
+    if (!due.length) return [];
+    this.host.saveReminders?.(new Map(reminders.filter(([name]) => !due.includes(name))));
+    for (const name of due) {
+      this.unread.add(name);
+      this.host.notify({ name, state: 'reminder', note: '' });
+    }
+    return due;
   }
 
   private savePins(names: string[]): void {

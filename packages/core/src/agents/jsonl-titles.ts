@@ -33,7 +33,7 @@ function save(file: string | undefined, source: string, ids: string[], titles: M
 }
 
 /** Complete records in reverse order, including records split across UTF-8 chunks. */
-function* reverseLines(fd: number, size: number, count: (bytes: number) => void): Generator<string> {
+export function* reverseLines(fd: number, size: number, count: (bytes: number) => void): Generator<string> {
   let position = size;
   let fragments: Buffer[] = [];
   while (position > 0) {

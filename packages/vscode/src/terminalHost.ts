@@ -97,6 +97,8 @@ export class TerminalHost implements Host {
   groupOrder?: () => readonly string[];
   pinned?: () => ReadonlySet<string>;
   savePinned?: (names: readonly string[]) => void;
+  reminders?: () => ReadonlyMap<string, number>;
+  saveReminders?: (entries: ReadonlyMap<string, number>) => void;
   onShown?: (row: SessionRow) => void;
 
   workspaceFolders(): string[] {
@@ -234,7 +236,7 @@ export class TerminalHost implements Host {
   }
 
   notify(t: Transition): void {
-    const text = t.state === 'waiting' ? `${t.name} is waiting for you` : `${t.name} finished`;
+    const text = t.state === 'waiting' ? `${t.name} is waiting for you` : t.state === 'reminder' ? `Reminder: ${t.name}` : `${t.name} finished`;
     const detail = t.note ? `: ${t.note}` : '';
     const activePid = this.activeTerminalPid();
     const current = activePid !== undefined && this.sessionsByPid.get(activePid) === t.name;

@@ -11,6 +11,8 @@ import { usableDirectory } from './directory.js';
 import { wasClosed } from '../snapshot/lifecycle.js';
 import { recoveryStatus, type RecoveryStatus } from '../restore/status.js';
 import { profiledTitleLookup } from '../agents/titles.js';
+import { claudeHooksSilent } from '../agents/hook-silence.js';
+import { conversationKey, sharedConversationIssue, sharedConversations } from './shared.js';
 import { connections, type ConnectionInfo } from '../tmux/connections.js';
 import { basename, join } from 'node:path';
 import type { Context } from '../context.js';
@@ -38,7 +40,7 @@ export interface SessionRow extends RecoveryStatus {
   /** First line of the user's latest prompt (spec §4.2). */
   topic: string;
   activityTiming?: ActivityTiming;
-  /** tmux's last input or output in a live session, ISO time; orders the view (spec §6). */
+  /** The last recorded prompt, reply or request, ISO time; orders the view (spec §6). */
   lastActivity?: string;
   /** Ephemeral visible-terminal excerpt; not conversation or recovery evidence. */
   terminalPreview?: string;
@@ -55,6 +57,10 @@ export interface SessionRow extends RecoveryStatus {
   recoveryOptionsRequired?: boolean;
   /** A stopped session whose folder no longer exists (spec §6). */
   cwdMissing?: boolean;
+  /** Installed hooks this live session no longer reports through (spec §4.2). */
+  hooksSilent?: boolean;
+  /** Other live Berth sessions bound to the same agent conversation (spec §4.2). */
+  sharedWith?: string[];
 }
 
 export const ORIGINS = ['vscode', 'iterm2', 'none'] as const;
@@ -72,6 +78,10 @@ export function list(ctx: Context): SessionRow[] {
     if (!statuses.has(key)) statuses.set(key, hookStatus(agent, profileEnvironment(agent, profile, ctx.env)));
     return statuses.get(key)!;
   };
+  const meta = new Map(live.map((s) => [s.name, s.meta]));
+  const shared = sharedConversations(live);
+  const silent = (row: SessionRow) => row.agent === 'claude' && row.hooks === 'installed' && !!row.conversation && !!row.profile
+    && claudeHooksSilent(row.cwd, row.conversation, meta.get(row.name)?.topic ?? '', profileEnvironment('claude', row.profile, ctx.env));
   const rows: SessionRow[] = live.map((s) => ({
     name: s.name,
     profile: readProfile(s.meta.agent ?? '', s.meta.profile),
@@ -86,17 +96,23 @@ export function list(ctx: Context): SessionRow[] {
     origin: s.meta.origin ?? (s.meta.agent ? 'none' : ''),
     state: s.meta.state ?? '',
     activityTiming: s.meta.bindingIssue ? undefined : readActivityTiming(s.meta.activityTiming, s.meta.state || ''),
-    ...(s.activity ? { lastActivity: new Date(s.activity * 1000).toISOString() } : {}),
+    ...(s.meta.messageAt ? { lastActivity: s.meta.messageAt } : {}),
     note: s.meta.note ?? '',
     topic: s.meta.topic ?? '',
     attachedClients: clients.get(s.name)?.length ?? 0,
     connections: clients.get(s.name) ?? [],
     live: true,
     hooks: hooks(s.meta.agent ?? '', readProfile(s.meta.agent ?? '', s.meta.profile)),
-  }));
+  })).map((row) => silent(row) ? { ...row, hooksSilent: true } : row).map((row) => {
+    const share = shared.get(row.name);
+    if (!share) return row;
+    return { ...row, sharedWith: share.with, ...(share.keeper !== row.name && !row.bindingIssue ? { bindingIssue: sharedConversationIssue(share.keeper) } : {}) };
+  });
   const liveNames = new Set(live.map((s) => s.name));
+  const liveConversations = new Set(live.map((s) => conversationKey(s.meta.agent, s.meta.conversation)).filter(Boolean));
   for (const s of saved) {
-    if (liveNames.has(s.name) || wasClosed(ctx, s)) continue;
+    // A stopped record whose agent conversation runs live elsewhere would start it twice.
+    if (liveNames.has(s.name) || wasClosed(ctx, s) || liveConversations.has(conversationKey(s.agent, s.conversation))) continue;
     rows.push({ ...s, ...(usableDirectory(s.cwd) ? {} : { cwdMissing: true }), recoveryOptionsRequired: recoveryOptionsRequired(s.agent, s.argv, s.argvVerified), conversationTitle: title(s.agent, s.cwd, s.conversation, readProfile(s.agent, s.profile)), managed: true, state: '', note: '', topic: '', attachedClients: 0, live: false, hooks: hooks(s.agent, readProfile(s.agent, s.profile)) });
   }
   return rows.map((row) => row.hooks === 'installed' ? { ...row, hookSetup: hookSetupGuidance(row.agent) } : row);
@@ -310,8 +326,10 @@ function renameLocked(ctx: Context, from: string, to: string): void {
     snapshotQuietly(ctx);
     throw error;
   }
-  // The agent's own conversation name follows by protocol or its next hook (spec §4.2.1).
-  if (namesConversations(live.meta.agent)) ctx.tmux.setMeta(to, { nameSync: '1' });
+  // The agent's own conversation name follows by protocol or its next hook (spec §4.2.1),
+  // only from the Berth session that keeps a shared agent conversation (spec §4.2).
+  const share = sharedConversations(ctx.tmux.listSessions()).get(to);
+  if (namesConversations(live.meta.agent) && (!share || share.keeper === to)) ctx.tmux.setMeta(to, { nameSync: '1' });
 }
 
 /** Intentional end must not be mistaken for the last server disappearing. */

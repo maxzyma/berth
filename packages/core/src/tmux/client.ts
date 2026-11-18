@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { BerthError, ExitCode } from '../errors.js';
 
 /** Berth metadata stored on a tmux session as user options (spec §4). */
-export const META_KEYS = ['agent', 'cwd', 'argv', 'argvVerified', 'conversation', 'origin', 'state', 'stateRevision', 'activityTiming', 'nativeCheckedAt', 'nativeTranscript', 'nativeCodexSelection', 'note', 'topic', 'producerPane', 'producerLifetime', 'bindingIssue', 'recovery', 'recoveryAt', 'recoveryDetail', 'ownerWorkspace', 'restoreSource', 'profile', 'nameSync'] as const;
+export const META_KEYS = ['agent', 'cwd', 'argv', 'argvVerified', 'conversation', 'origin', 'state', 'stateRevision', 'activityTiming', 'nativeCheckedAt', 'nativeTranscript', 'nativeCodexSelection', 'note', 'topic', 'producerPane', 'producerLifetime', 'bindingIssue', 'recovery', 'recoveryAt', 'recoveryDetail', 'ownerWorkspace', 'restoreSource', 'profile', 'nameSync', 'messageAt', 'boundAt'] as const;
 export type MetaKey = (typeof META_KEYS)[number];
 export type SessionMeta = Partial<Record<MetaKey, string>>;
 
@@ -17,8 +17,6 @@ export interface LiveSession {
   /** The tmux server's start time and pid: names one server lifetime. */
   serverStart: string;
   sessionId: string;
-  /** tmux's session_activity: last input or output, in seconds since the epoch. */
-  activity?: number;
 }
 
 const TEST_SOCKET_PREFIX = 'berth-test-';
@@ -61,14 +59,14 @@ export class Tmux {
   }
 
   listSessions(): LiveSession[] {
-    const fields = ['session_name', 'session_attached', '?session_path,#{session_path},#{pane_current_path}', 'start_time', 'pid', 'session_id', 'session_activity', ...META_KEYS.map((k) => `@berth_${k}`)];
+    const fields = ['session_name', 'session_attached', '?session_path,#{session_path},#{pane_current_path}', 'start_time', 'pid', 'session_id', ...META_KEYS.map((k) => `@berth_${k}`)];
     const result = this.run(['list-sessions', '-F', formatFields(fields)], true);
     if (!result.ok) {
       if (/no server running|No such file or directory|Connection refused/i.test(result.stderr)) return [];
       throw new BerthError(`Cannot read tmux sessions: ${result.stderr.trim()}`, ExitCode.failure);
     }
     return readFields(result.stdout, fields.length).map((fields) => {
-        const [name, attached, path, start, pid, sessionId, activity, ...values] = fields;
+        const [name, attached, path, start, pid, sessionId, ...values] = fields;
         const serverStart = `${start}-${pid}`;
         const meta: SessionMeta = {};
         META_KEYS.forEach((key, i) => {
@@ -81,7 +79,7 @@ export class Tmux {
             } else meta[key] = value;
           }
         });
-        return { name, attachedClients: Number(attached) || 0, path, meta, serverStart, sessionId, ...(Number(activity) > 0 ? { activity: Number(activity) } : {}) };
+        return { name, attachedClients: Number(attached) || 0, path, meta, serverStart, sessionId };
       });
   }
 
@@ -117,8 +115,19 @@ export class Tmux {
     }
   }
 
+  /** One Berth option of a live session; empty when unset. */
+  private option(name: string, key: MetaKey): string {
+    return this.run(['show-options', '-v', '-q', '-t', `=${name}:`, `@berth_${key}`], true).stdout.replace(/\n$/, '');
+  }
+
   setMeta(name: string, meta: SessionMeta): void {
-    const values = meta.state === undefined ? meta : { ...meta, activityTiming: meta.activityTiming ?? '', stateRevision: randomUUID() };
+    const timed = meta.state === undefined ? meta : { ...meta, activityTiming: meta.activityTiming ?? '', stateRevision: randomUUID() };
+    // A recorded prompt, reply or request moves the last message time; clearing state keeps it (spec §6, Order).
+    const messageAt = latestEventTime(timed.activityTiming);
+    const messaged = messageAt ? { ...timed, messageAt } : timed;
+    // A binding that changes to another conversation ID records when (spec §4.2).
+    const rebound = meta.conversation !== undefined && meta.conversation !== this.option(name, 'conversation');
+    const values = rebound ? { ...messaged, boundAt: meta.conversation ? new Date().toISOString() : '' } : messaged;
     const commands = Object.entries(values).flatMap(([key, value]) => {
       if (value === undefined) return [];
       // Argument values must survive the line-delimited tmux transport unchanged.
@@ -164,5 +173,17 @@ export class Tmux {
       throw new BerthError('refusing to kill a tmux server that is not a Berth test server');
     }
     this.run(['kill-server'], true);
+  }
+}
+
+/** The latest time in serialized activity timing, ISO; undefined when there is none. */
+function latestEventTime(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  try {
+    const timing = JSON.parse(raw) as { turnStartedAt?: unknown; stateSince?: unknown };
+    const times = [timing.turnStartedAt, timing.stateSince].filter((t): t is string => typeof t === 'string' && Number.isFinite(Date.parse(t)));
+    return times.sort().at(-1);
+  } catch {
+    return undefined;
   }
 }

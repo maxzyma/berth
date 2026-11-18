@@ -30,6 +30,8 @@ export class SessionsView implements vscode.WebviewViewProvider, vscode.Disposab
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (WATCHED.some((key) => e.affectsConfiguration(key))) this.post({ type: 'settings', settings: this.settings() });
       }),
+      // A webview without focus gets no blur when the editor window loses focus, so the host closes details (spec §6).
+      vscode.window.onDidChangeWindowState((state) => { if (!state.focused) this.dismissDetails(); }),
     );
   }
 

@@ -23,3 +23,6 @@ Each is defined in the spec; listed here because it is easy to miss.
 2. Passive discovery does not change agent configuration. Hook installation and
    conservative legacy-hook upgrades follow the explicit boundaries in spec §9.
 3. No directory layout is assumed anywhere — not in code, tests or docs (spec §9).
+4. Use the terms of spec §4 with one meaning each — Berth session, agent
+   conversation, conversation ID, conversation title, binding. "Session" alone
+   means a Berth session; an agent session is a Berth session running an agent.

@@ -16,6 +16,7 @@ import { nameConversation } from './naming.js';
 import { requireAdapter } from './commands.js';
 import { getAdapter, stateForEvent, type Adapter } from './registry.js';
 import { inspectHooks, inspectHookTarget, type HookTarget } from './hook-health.js';
+import { promptTopic } from './hook-silence.js';
 export type { HookTarget } from './hook-health.js';
 import { hookFormat, MARKER } from './hook-files.js';
 
@@ -115,13 +116,9 @@ export function metaForEvent(adapter: Adapter, event: string, payload: Record<st
   }
   // The session's subtitle: the first line of the prompt the user just sent (spec §4.2).
   // Text the agent injects itself (`<task-notification>`, `<command-name>`…) is not the user's.
-  if (state === 'working' && typeof payload.prompt === 'string' && !/^\s*<[a-z][\w-]*[\s>]/i.test(payload.prompt)) {
-    // Attachment placeholders such as `[Image #3]` say nothing about the topic.
-    const first = payload.prompt
-      .split('\n')
-      .map((l) => l.replace(/\[(Image|Pasted text) #\d+[^\]]*\]/g, '').replace(/\s+/g, ' ').trim())
-      .find(Boolean);
-    if (first) meta.topic = first.slice(0, 120);
+  if (state === 'working' && typeof payload.prompt === 'string') {
+    const topic = promptTopic(payload.prompt);
+    if (topic) meta.topic = topic;
   }
   return meta;
 }

@@ -10,6 +10,7 @@ import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Controller, type Host, type TerminalRole } from '../src/controller.js';
 import { sessionChoices, buildTree, defaultFolder, explorerTarget, shortPath, launcherPicksAgent, nextAttention, orderAgents, placeOf, relativeToWorkspace, renderLauncher, sessionNameProblem, type Transition } from '../src/model.js';
+import { reminderChoices } from '../src/reminders.js';
 import { layoutChanges, staleProgressDescription, withoutProgressDescription } from '../src/layoutSettings.js';
 import { hoverDelay } from '../src/model.js';
 import { applyGroupOrder, moveGroup, savedGroupOrder, shiftGroup } from '../src/groupOrder.js';
@@ -55,6 +56,13 @@ class FakeHost implements Host {
   }
 
   pins = new Set<string>();
+  reminderTimes = new Map<string, number>();
+  reminders() {
+    return this.reminderTimes;
+  }
+  saveReminders(entries: ReadonlyMap<string, number>) {
+    this.reminderTimes = new Map(entries);
+  }
   pinned() {
     return this.pins;
   }
@@ -465,7 +473,7 @@ test('V2 natural session order survives snapshot/live interleaving and unmanaged
   assert.deepEqual(rows.map(row => row.name), names, 'does not reorder source data');
 });
 
-test('V16 rows list the most recently active first: tmux activity or the recorded state change, ties by name', () => {
+test('V16 rows list the most recently active first: the last recorded message, ties by name', () => {
   const at = (minutes: number) => new Date(Date.UTC(2026, 10, 17, 12, minutes)).toISOString();
   const row = (name: string, extra: object = {}) => ({ name, managed: true, agent: 'claude', cwd: '/p', conversation: '', origin: 'vscode', state: '', note: '', topic: '', attachedClients: 0, live: true, hooks: 'none' as const, ...extra });
   const rows = [
@@ -513,6 +521,72 @@ test('V16 pins persist through the host and follow a rename; Mark as Unread retu
   controller.markUnread('other');
   assert.equal(other()?.attention, 'unread');
   assert.ok(controller.unread.has('other'), 'attention navigation reads the same set');
+});
+
+test('V16 a reminder marks its session unread and notifies once when due, follows a rename and is dropped with the session', async (t) => {
+  const { sb, host, controller } = setup(t);
+  const dir = sb.makeDir('p');
+  sb.cli('new', 'claude', '--cwd', dir, '--name', 'later');
+  sb.cli('new', 'claude', '--cwd', dir, '--name', 'gone');
+  controller.refresh();
+  const now = Date.UTC(2026, 10, 18, 12, 0);
+  controller.remind('later', now + 60_000);
+  controller.remind('gone', now + 60_000);
+  const later = () => controller.tree().groups[0].rows.find((r) => r.name === 'later');
+  assert.equal(later()?.reminder, new Date(now + 60_000).toISOString());
+  assert.match(later()?.contextValue ?? '', / reminder\b/);
+  assert.ok(later()?.hover.some((l) => l.icon === 'clock'), 'the hover states the reminder');
+
+  controller.fireDueReminders(now);
+  assert.equal(host.notified.length, 0, 'not yet due');
+
+  await controller.rename('later', 'later-2');
+  assert.deepEqual([...host.reminderTimes.keys()].sort(), ['gone', 'later-2']);
+  sb.tmux('kill-session', '-t', '=gone');
+  sb.cli('forget', 'gone');
+  controller.refresh();
+  assert.deepEqual([...host.reminderTimes.keys()], ['later-2'], 'a session no longer listed drops its reminder');
+
+  controller.fireDueReminders(now + 60_000);
+  assert.deepEqual(host.notified, [{ name: 'later-2', state: 'reminder', note: '' }]);
+  assert.ok(controller.unread.has('later-2'));
+  assert.equal(host.reminderTimes.size, 0);
+  controller.fireDueReminders(now + 120_000);
+  assert.equal(host.notified.length, 1, 'fires once');
+
+  controller.remind('later-2', now + 600_000);
+  controller.cancelReminder('later-2');
+  assert.equal(host.reminderTimes.size, 0);
+});
+
+test('V16 Remind Me Later offers 30 minutes, 1 hour, 3 hours and tomorrow at 9:00', () => {
+  const now = new Date(2026, 10, 18, 22, 15);
+  assert.deepEqual(reminderChoices(now).map((c) => [c.label, new Date(c.at).toString()]), [
+    ['In 30 minutes', new Date(2026, 10, 18, 22, 45).toString()],
+    ['In 1 hour', new Date(2026, 10, 18, 23, 15).toString()],
+    ['In 3 hours', new Date(2026, 10, 19, 1, 15).toString()],
+    ['Tomorrow at 9:00', new Date(2026, 10, 19, 9, 0).toString()],
+  ]);
+});
+
+test('V16 a session whose hooks stopped reporting says so in its details', () => {
+  const row = { name: 'old', managed: true, agent: 'claude', cwd: '/p', conversation: 'c', origin: 'vscode', state: 'done', note: '', topic: '', attachedClients: 0, live: true, hooks: 'installed' as const, hooksSilent: true };
+  const hover = buildTree([row], { here: new Set(), unread: new Set(), branch: () => '' }).groups[0].rows[0].hover;
+  assert.ok(hover.some((l) => l.kind === 'warning' && /hooks are not reporting/.test(l.text) && /Restart it/.test(l.text)));
+});
+
+test('V1 Berth sessions sharing one agent conversation both warn; the keeper says it keeps it', () => {
+  const base = { managed: true, agent: 'claude', cwd: '/p', conversation: 'x', origin: 'vscode', state: '', note: '', topic: '', attachedClients: 0, live: true, hooks: 'installed' as const };
+  const rows = [
+    { ...base, name: 'keeper', sharedWith: ['other'] },
+    { ...base, name: 'other', sharedWith: ['keeper'], bindingIssue: 'This agent conversation is also open in keeper, which keeps it. Two processes writing one agent conversation can lose messages: close one, or branch in one of them.' },
+  ];
+  const views = buildTree(rows, { here: new Set(), unread: new Set(), branch: () => '' }).groups[0].rows;
+  const warning = (name: string) => views.find((r) => r.name === name)!.hover.find((l) => l.kind === 'warning')?.text ?? '';
+  assert.match(warning('keeper'), /also open in other/);
+  assert.match(warning('keeper'), /keeps it for recovery/);
+  assert.match(warning('other'), /also open in keeper, which keeps it/);
+  assert.deepEqual(views.map((r) => r.sharedWith), [['other'], ['keeper']]);
 });
 
 test('V16 Find a Session lists sessions in the sidebar order', () => {

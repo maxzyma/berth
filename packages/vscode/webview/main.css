@@ -102,8 +102,10 @@ body {
   padding-left: calc(4px + var(--berth-twistie) + var(--berth-indent) + 2px);
 }
 
-/* Pinned sessions: a small muted pin after the name (spec §6). */
+/* Session markers (pin, reminder, silent hooks) sit beside the host icon, after the fixed activity slot (spec §6). */
 .pin-mark { flex: none; font-size: 12px; color: var(--vscode-descriptionForeground); }
+/* Hooks that stopped reporting: a warning-coloured mark, readable without the hover (spec §4.2). */
+.warn-mark { flex: none; font-size: 12px; color: var(--vscode-list-warningForeground, var(--vscode-editorWarning-foreground)); }
 
 /* Show more: muted, aligned with session titles (spec §6). */
 .more.level-1 { padding-left: calc(4px + var(--berth-twistie) + 2px); }

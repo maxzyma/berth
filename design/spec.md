@@ -148,13 +148,21 @@ uses the same avatar as GitHub so supporters can recognize its owner.
 
 ## 4. Concepts
 
+These terms are used with one meaning throughout this spec, the code and
+user-facing text. "Session" alone always means a Berth session; an agent's own
+session is always called an agent conversation.
+
 | Term | Meaning |
 |---|---|
-| **Session** | One tmux session. Berth keys everything by its name. |
-| **Managed session** | A session carrying Berth metadata (below). Created by `berth new`, adopted with `berth adopt`, or discovered running an agent (§4.3). |
+| **Berth session** | One tmux session. Its name is the tmux session name, the same name in lists, rename and restore; Berth keys everything by it. |
+| **Managed session** | A Berth session carrying Berth metadata (below). Created by `berth new`, adopted with `berth adopt`, or discovered running an agent (§4.3). |
 | **Unmanaged session** | Any other tmux session. Listed, attachable, never snapshotted or restored. |
-| **Agent** | The CLI running in the session: an adapter id (`claude`, `codex`, `gemini`, …) or `shell`. |
-| **Conversation id** | The agent's own id for the conversation, used to resume it. |
+| **Agent** | The CLI running in the Berth session: an adapter id (`claude`, `codex`, `gemini`, …) or `shell`. |
+| **Agent session** | A Berth session whose agent is not `shell`, as in *New Agent Session*. It is never the agent's own conversation, which is an agent conversation. |
+| **Agent conversation** | The agent's own conversation, which the agent may call a session or thread. Identified by its conversation ID. |
+| **Conversation ID** | The agent's own id for an agent conversation, used to resume it. |
+| **Conversation title** | The name the agent shows for an agent conversation. Display only; it may differ from the Berth session name (§4.2.1). |
+| **Binding** | Which agent conversation a Berth session runs, recorded as its conversation ID. A Berth session is bound to at most one agent conversation at a time and may be rebound, for example when the user resumes another conversation inside the agent. An agent conversation belongs to at most one Berth session (§4.2). |
 | **Origin** | The frontend that owns reopening the session: `vscode`, `iterm2`, or `none`. |
 | **Snapshot** | A dated record of all managed sessions, enough to rebuild them. |
 
@@ -167,11 +175,13 @@ session and any tool can read it:
 | `@berth_cwd` | working directory at launch |
 | `@berth_argv` | Berth launch command or shell-quoted OS argument vector; control characters use the `berth-json:` JSON string encoding |
 | `@berth_argvVerified` | `1` when arguments come from launch, exact process capture or explicit review |
-| `@berth_conversation` | conversation id, or empty if not yet known |
+| `@berth_conversation` | conversation ID of the binding, or empty if not yet known |
+| `@berth_boundAt` | when the binding last changed to its current conversation ID; decides which Berth session keeps a shared agent conversation (§4.2) |
 | `@berth_origin` | `vscode` / `iterm2` / `none` |
 | `@berth_state` | `working` / `waiting` (needs the user) / `done` / empty when inactive or unknown; written by hooks and verified native observations |
 | `@berth_stateRevision` | opaque revision advanced on every activity write |
 | `@berth_activityTiming` | live-only JSON: current state, optional turn start and state-event time; never restored |
+| `@berth_messageAt` | time of the last recorded prompt, reply or request; orders the session list (§6) |
 | `@berth_nativeCheckedAt` | last native observation attempt; scheduling only, never restored |
 | `@berth_nativeTranscript` | Gemini request cursor: canonical path, file identity, byte offset, prefix fingerprint and capture time; live-only |
 | `@berth_nativeCodexSelection` | verified native footer ID, profile root and rollout revision; live-only, never restored |
@@ -226,6 +236,21 @@ retain the pane-level guard and cannot replace a different existing ID: the
 row reports a binding conflict instead. They are not process-verified. Verified
 start events may update the ID after a native fork or clear operation.
 
+**One agent conversation, one Berth session.** Inside an agent the user can
+resume any agent conversation, including one another Berth session already
+runs or a stopped Berth session would recover. Berth follows the agent and
+never blocks or ends either side. When live Berth sessions are bound to the
+same agent and conversation ID, the one whose binding changed to it last keeps
+the agent conversation: it alone is recovered and receives rename naming. Every
+other one shows a binding conflict naming the session that keeps it, is skipped
+by automatic recovery and recovers again once the user separates them. All of
+them carry a warning mark: two processes writing one agent conversation can
+lose messages, so the user closes one, or branches in one (Claude Code's
+`/branch` or `--fork-session`;
+[Claude Code sessions](https://code.claude.com/docs/en/sessions)). A stopped
+Berth session's recovery record whose agent conversation a live Berth session
+now runs is dropped, so restore never starts it twice.
+
 Binding authority:
 
 1. **Agent hook.** The agent reports its own id at session start (Claude Code
@@ -270,6 +295,27 @@ agent per tmux server (sessions started by a custom launcher reach the user
 this way); VS Code offers to install them (§6). Session rows carry the
 agent's hook status so every frontend decides the same way. Installing still
 needs the user's go-ahead, because it edits the agent's own configuration.
+
+A running agent can keep using hook configuration it loaded earlier and call a
+removed target while the configuration itself looks installed. Claude Code
+watches its settings files, but some versions stop noticing a file replaced
+through a temporary file and a rename, as Berth's writes and many editors' saves
+are, and offer no in-session reload
+([anthropics/claude-code#57852](https://github.com/anthropics/claude-code/issues/57852));
+`/hooks` only displays hooks. Only restarting the session loads the current
+configuration. For a live Claude Code session with a
+bound conversation and installed hooks, Berth compares the latest prompt in the
+conversation's transcript with the subtitle its hooks last reported. When the
+transcript holds a newer prompt, older than two minutes, that the hooks never
+reported, the row carries `hooksSilent`: a warning mark on the row, its
+details and `berth doctor` say the
+session's hooks are not reporting and that restarting it, such as exiting the
+agent and resuming the conversation, loads the current configuration. Only records
+the transcript marks as typed by a person count, including messages queued
+while the agent works; summaries, subagent turns, messages from other agent
+sessions and meta records are the agent's own and are skipped. A transcript
+without that mark is not judged. Berth reads the transcript tail only and
+changes nothing in the agent.
 
 #### Late first-install binding
 
@@ -344,6 +390,17 @@ and spaces, except what tmux refuses (`:` and `.`), control characters and
 surrounding spaces; rename explains these while typing, and `--name` replaces
 them with `-`. Default names generated from a folder stay within
 `[A-Za-z0-9_-]`.
+
+A Berth session name addresses one Berth session among those that exist at the
+same time; sessions are usually short-lived, so a name may return once its
+session is gone. The default is `<base>`, then `<base>-2`, `<base>-3`, … with
+the lowest number no live session uses, where `<base>` is the short name of the
+folder; Berth also skips names its recovery records hold. Launchers that create
+tmux sessions are encouraged to follow the same shape. Whoever creates a Berth
+session names it: a launcher or tool that reuses an existing session does not
+rename it, and nothing infers identity from a name. A project, an agent or a
+conversation is recorded on the session or found through its binding, never
+parsed from the name.
 
 A rename reaches an agent's own conversation name by the paths that agent
 offers, declared per adapter. Protocol naming uses the agent's own interface at
@@ -1107,9 +1164,12 @@ name/title/task text is suppressed. Cards use at most
     modifier classes and respect reduced motion.
   - **Order.** Sessions within each folder, and unmanaged sessions, list the most
     recently active first, as Codex lists a project's threads. A live session's
-    activity time is the latest of tmux's session activity (input or output in
-    the session) and the agent state change Berth last recorded; a session
-    without one, such as a restorable stopped session, follows the live ones.
+    activity time is the last message Berth recorded for it: a prompt the user
+    sent (a turn start) or the agent's reply or request (finished or waiting),
+    from validated hooks or exact-bound native events. Opening, attaching to or
+    typing in a session without sending is not activity, and answering a waiting
+    session keeps its time. A session without a recorded message, such as one
+    without hooks or a restorable stopped session, follows the others.
     Ties use natural name order: `job`, `job-2`, `job-3`, `job-10`, `job-13`.
     *Pin* keeps a session first in its group, most recent first among pinned
     ones, and outside the Show more limit; a small pin mark shows it and *Unpin*
@@ -1143,6 +1203,13 @@ name/title/task text is suppressed. Cards use at most
     permission request. *Mark as Read* clears unread without opening the
     session; *Mark as Unread* sets it again on a live agent session, so a result
     the user means to come back to stays in attention navigation.
+    *Remind Me Later…* on a session offers in 30 minutes, in 1 hour, in 3 hours
+    or tomorrow at 9:00. When it is due the session becomes unread and a
+    notification names it, with Open. The session is not hidden meanwhile: a
+    small clock mark shows the pending reminder, its hover states the time, and
+    *Cancel Reminder* removes it. Reminders are saved per workspace, follow a
+    rename, fire on the next activation when they fell due while the editor was
+    closed, and are dropped when the session is no longer listed.
   - **Groups.** A group header shows the folder's name with an icon for its
     place: this window's workspace folder, inside it, or outside it (the
     words are in its hover), ordered in that order by default. The user can
@@ -1159,8 +1226,7 @@ name/title/task text is suppressed. Cards use at most
     shows the folder. A collapsed group shows its most urgent session
     (waiting, else unread) with the same badge and colour.
   - **Activity time.** Keep timestamps out of the default session rows; the
-    ordering uses its own activity time (see Order). The rules below govern times
-    shown to the user. Hover may show the current turn start, current waiting
+    message time orders them (see Order). Hover may show the current turn start, current waiting
     duration and completion time, with relative time plus local date/time and a
     copyable ISO timestamp. Use validated lifecycle-hook receipt times or exact-bound
     native event timestamps; never polling, file mtime, terminal output or inferred
@@ -1204,7 +1270,9 @@ name/title/task text is suppressed. Cards use at most
     the available space below or above the row. Long content scrolls inside
     the card. If neither side has useful space, it fits inside the viewport
     without an arrow. Resize repositions it; list scroll, outside click,
-    context menu, window blur, or removal of the source closes it. Scrolling
+    context menu, window blur, the editor window losing focus (reported by
+    the host, since an unfocused webview receives no blur), or removal of the
+    source closes it. Scrolling
     inside the card preserves it. Unrelated refreshes preserve selection;
     changes to its source update the displayed details. Updates retain keyboard
     focus on the same value action and preserve scroll position. If that action

@@ -52,6 +52,12 @@ export interface RowView {
   unread: boolean;
   /** Pinned first in its group, outside the Show more limit (spec §6). */
   pinned?: boolean;
+  /** When a pending reminder falls due, ISO time (spec §6). */
+  reminder?: string;
+  /** Installed hooks this live session no longer reports through (spec §4.2). */
+  hooksSilent?: boolean;
+  /** Other live Berth sessions bound to the same agent conversation (spec §4.2). */
+  sharedWith?: string[];
   active?: boolean;
 }
 
@@ -197,6 +203,8 @@ export interface ViewInput {
   groupOrder?: readonly string[];
   /** Sessions the user pinned, saved per workspace. */
   pinned?: ReadonlySet<string>;
+  /** Pending reminders: session name to due time in ms, saved per workspace. */
+  reminders?: ReadonlyMap<string, number>;
   now?: number;
 }
 
@@ -302,6 +310,9 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
     ...(hooksMissing
       ? [{ icon: 'warning', text: row.hooks === 'broken' ? 'Agent hooks are incomplete or their runtime files are unavailable. Reinstall hooks to repair state updates and conversation binding.' : HOOKS_MISSING, kind: 'warning' as const }]
       : []),
+    ...(row.sharedWith?.length ? [{ icon: 'warning', kind: 'warning' as const, text: row.bindingIssue
+      ?? `This agent conversation is also open in ${row.sharedWith.join(', ')}; this session keeps it for recovery. Two processes writing one agent conversation can lose messages: close one, or branch in one of them.` }] : []),
+    ...(row.hooksSilent ? [{ icon: 'warning', text: "This session's hooks are not reporting: it is still using hook configuration it loaded earlier. Restart it, for example by exiting the agent and resuming the conversation, to load the current configuration.", kind: 'warning' as const }] : []),
     ...(row.hookSetup ? [{ icon: 'info', text: row.hookSetup }] : []),
     ...(!row.live && row.agent !== 'shell' && !row.conversation
       ? [{ icon: 'info', text: 'Conversation not bound: automatic recovery is unavailable. Use the agent conversation picker or start a new session explicitly.' }]
@@ -322,6 +333,8 @@ export function rowView(row: SessionRow, input: ViewInput): RowView {
     badge: BADGE[icon] ?? (unread ? '•' : ''),
     attention: icon === 'waiting' ? 'waiting' : unread && icon !== 'working' ? 'unread' : '',
     unread,
+    ...(row.hooksSilent ? { hooksSilent: true } : {}),
+    ...(row.sharedWith?.length ? { sharedWith: row.sharedWith } : {}),
   };
 }
 
@@ -337,7 +350,7 @@ function time(value: string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/** When a session last saw activity: tmux input or output, or a recorded state change. */
+/** When a session last sent or received a message, as Berth recorded it (spec §6, Order). */
 function activityTime(row: SessionRow): number {
   if (!row.live) return 0;
   const timing = row.activityTiming;
@@ -354,8 +367,17 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
   const unmanaged: RowView[] = [];
   const pinned = input.pinned ?? new Set<string>();
   const view = (row: SessionRow): RowView => {
-    const shown = rowView(row, input);
-    return pinned.has(row.name) ? { ...shown, pinned: true, contextValue: `${shown.contextValue} pinned` } : { ...shown, pinned: false };
+    const shown = { ...rowView(row, input), pinned: pinned.has(row.name) };
+    const pinnedView = shown.pinned ? { ...shown, contextValue: `${shown.contextValue} pinned` } : shown;
+    const due = input.reminders?.get(row.name);
+    if (due === undefined) return pinnedView;
+    const at = new Date(due);
+    return {
+      ...pinnedView,
+      reminder: at.toISOString(),
+      contextValue: `${pinnedView.contextValue} reminder`,
+      hover: [...pinnedView.hover, { icon: 'clock', text: `Reminder at ${at.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}` }],
+    };
   };
   const byActivity = [...rows].sort((a, b) => Number(pinned.has(b.name)) - Number(pinned.has(a.name)) || compareRecent(a, b));
   for (const row of byActivity) {
@@ -393,7 +415,8 @@ export function buildTree(rows: SessionRow[], input: ViewInput): TreeView {
 
 export interface Transition {
   name: string;
-  state: 'waiting' | 'done';
+  /** A reminder is not a state change; it notifies like one (spec §6). */
+  state: 'waiting' | 'done' | 'reminder';
   note: string;
 }
 

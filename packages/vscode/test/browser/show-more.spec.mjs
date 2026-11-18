@@ -58,12 +58,32 @@ test('a pinned session leads its group with a pin mark and stays outside the lim
     const group = source.groups[0];
     const plain = { ...group.rows[0], icon: 'idle', badge: '', attention: '', unread: false, pinned: false };
     const rows = Array.from({ length: 8 }, (_, i) => ({ ...plain, name: `s-${i + 1}`, label: `s-${i + 1}` }));
-    rows.unshift({ ...plain, name: 'pinned', label: 'pinned', pinned: true });
+    rows.unshift({ ...plain, name: 'pinned', label: 'pinned', pinned: true, reminder: '2026-11-18T13:00:00.000Z' });
     window.sendModel({ ...source, groups: [{ ...group, cwd: '/a', label: 'a', rows }], unmanaged: [] }, false);
   });
   await expect(frame.locator('.row.card').first()).toHaveId('s:pinned');
-  await expect(frame.locator('[id="s:pinned"] .pin-mark')).toBeVisible();
+  await expect(frame.locator('[id="s:pinned"] .codicon-pinned')).toBeVisible();
+  await expect(frame.locator('[id="s:pinned"] .codicon-clock')).toBeVisible();
   await expect(frame.locator('[id="s:s-1"] .pin-mark')).toHaveCount(0);
   await expect(frame.locator('.row.card[id^="s:s-"]')).toHaveCount(5);
   await page.locator('iframe').screenshot({ path: info.outputPath('pinned.png') });
+});
+
+test('a session whose hooks stopped reporting shows a warning mark without hovering', async ({ page }, info) => {
+  await page.goto(`${server.url}/frame?theme=dark&width=300`);
+  const frame = page.frameLocator('iframe');
+  await expect(frame.getByRole('tree')).toBeVisible();
+  await frame.locator('body').evaluate(() => {
+    const source = window.fixture;
+    const group = source.groups[0];
+    const plain = { ...group.rows[0], icon: 'idle', badge: '', attention: '', unread: false, pinned: false };
+    const rows = [{ ...plain, name: 'silent', label: 'silent', hooksSilent: true }, { ...plain, name: 'fine', label: 'fine' }, { ...plain, name: 'shared', label: 'shared', sharedWith: ['other'] }];
+    window.sendModel({ ...source, groups: [{ ...group, cwd: '/a', label: 'a', rows }], unmanaged: [] }, false);
+  });
+  const mark = frame.locator('[id="s:silent"] .warn-mark');
+  await expect(mark).toBeVisible();
+  await expect(mark).toHaveAttribute('aria-label', /hooks are not reporting/);
+  await expect(frame.locator('[id="s:fine"] .warn-mark')).toHaveCount(0);
+  await expect(frame.locator('[id="s:shared"] .warn-mark')).toHaveAttribute('aria-label', /also open in other/);
+  await page.locator('iframe').screenshot({ path: info.outputPath('hooks-silent.png') });
 });

@@ -1,4 +1,5 @@
 import { readProfile } from '../agents/profile.js';
+import { conversationKey, sharedConversationIssue, sharedConversations } from '../registry/shared.js';
 import { nameCollision } from './identity.js';
 import { watchClosures, wasClosed } from './lifecycle.js';
 import { recoveryStatus } from '../restore/status.js';
@@ -60,17 +61,25 @@ function collectSnapshot(ctx: Context, now: Date, forget: readonly string[], pen
   const serverStart = live[0]?.serverStart;
   const previous = ctx.store.newest();
   const collisions = new Set(live.filter((session) => nameCollision(ctx, session, previous?.sessions ?? [])).map((session) => session.name));
+  const shared = sharedConversations(live);
   for (const s of live) {
     if (!s.meta.agent || collisions.has(s.name)) continue;
     const cwd = s.meta.cwd ?? s.path;
     const conversation = s.meta.conversation ?? '';
     sessions.push({ profile: readProfile(s.meta.agent, s.meta.profile), ...recoveryStatus(ctx.tmux, s.name, s.meta), ...(s.meta.ownerWorkspace ? { ownerWorkspace: s.meta.ownerWorkspace } : {}), name: s.name, cwd, agent: s.meta.agent, argv: s.meta.argv ?? '', argvVerified: s.meta.argvVerified === '1', conversation, origin: s.meta.origin ?? 'none', serverStart: s.serverStart, sessionId: s.sessionId, ...(s.meta.bindingIssue ? { bindingIssue: s.meta.bindingIssue } : {}) });
+    // Only the Berth session that keeps a shared agent conversation recovers it (spec §4.2).
+    const share = shared.get(s.name);
+    const saved = sessions[sessions.length - 1];
+    if (share && share.keeper !== s.name && !saved.bindingIssue) sessions[sessions.length - 1] = { ...saved, bindingIssue: sharedConversationIssue(share.keeper) };
   }
+  const liveConversations = new Set(live.map((s) => conversationKey(s.meta.agent, s.meta.conversation)).filter(Boolean));
   const liveNames = new Set(live.filter((s) => !collisions.has(s.name)).map((s) => s.name));
   const pendingNames = new Set(pending.map((session) => session.name));
   const records = [...pending, ...(previous?.sessions ?? []).filter((session) => !pendingNames.has(session.name))];
   for (const old of records) {
     if (liveNames.has(old.name) || forget.includes(old.name) || (!pendingNames.has(old.name) && wasClosed(ctx, old))) continue;
+    // A stopped record whose agent conversation runs live elsewhere would start it twice (spec §4.2).
+    if (liveConversations.has(conversationKey(old.agent, old.conversation))) continue;
     // Older snapshots do not say which server they saw: keep the old behaviour.
     if (!pendingNames.has(old.name) && !collisions.has(old.name) && !old.retained && old.recovery !== 'failed' && (!old.serverStart || old.serverStart === serverStart)) continue;
     sessions.push(collisions.has(old.name) || pendingNames.has(old.name) ? { ...old, retained: true } : old);

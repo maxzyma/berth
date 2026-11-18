@@ -256,8 +256,9 @@ An array; one object per tmux session:
 
 `live: false` rows come from the newest snapshot (stopped sessions). A stopped
 row whose folder no longer exists carries `cwdMissing: true`. Live rows carry
-`lastActivity`, tmux's `session_activity` as an ISO time; the view orders rows by
-it and the recorded state change (spec §6, Order). Unmanaged rows carry
+`lastActivity`, the last recorded prompt, reply or request as an ISO time, kept
+in `@berth_messageAt`; `setMeta` moves it whenever it writes activity timing,
+and clearing state keeps it. The view orders rows by it (spec §6, Order). Unmanaged rows carry
 `managed: false` and empty Berth fields.
 
 Connection rows add optional `connections` entries (`pid`, `terminal`, `application`,
@@ -767,6 +768,13 @@ manual cases are recorded as checked, and the de-identification check passes.
   Pinned sessions lead their group, stay outside the limit, survive a reload
   and follow a rename; *Mark as Unread* returns a live agent session to
   attention navigation; Find a Session lists sessions in the same order.
+  A reminder marks its session unread and notifies once when due, including
+  after a reload past its time, follows a rename, is cancelled from the menu
+  and is dropped when the session disappears.
+- **V17** Two live Berth sessions bound to one agent conversation both carry
+  a warning; the one whose binding changed last keeps recovery and rename
+  naming, the other shows a binding conflict and is skipped by recovery, and a
+  stopped record of a conversation that runs live elsewhere is dropped.
 - **V12** A plain shell never goes through the custom launcher; a launcher
   without `{agent}` is started without asking, and its session is adopted with
   the agent running in its pane. *New Session* takes the shown session's

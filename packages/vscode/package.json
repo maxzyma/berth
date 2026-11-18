@@ -96,6 +96,18 @@
         "icon": "$(pinned)"
       },
       {
+        "command": "berth.remindLater",
+        "title": "Remind Me Later…",
+        "category": "Berth",
+        "icon": "$(clock)"
+      },
+      {
+        "command": "berth.cancelReminder",
+        "title": "Cancel Reminder",
+        "category": "Berth",
+        "icon": "$(close)"
+      },
+      {
         "command": "berth.refresh",
         "title": "Refresh",
         "category": "Berth",
@@ -329,6 +341,14 @@
           "when": "false"
         },
         {
+          "command": "berth.remindLater",
+          "when": "false"
+        },
+        {
+          "command": "berth.cancelReminder",
+          "when": "false"
+        },
+        {
           "command": "berth.retryRecovery",
           "when": "false"
         },
@@ -382,6 +402,16 @@
           "command": "berth.unpin",
           "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ / pinned/",
           "group": "1@4"
+        },
+        {
+          "command": "berth.remindLater",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ /^session managed/ && !(berthItem =~ / reminder/)",
+          "group": "1@5"
+        },
+        {
+          "command": "berth.cancelReminder",
+          "when": "webviewId == 'berth.sessions' && webviewSection == 'session' && berthItem =~ / reminder/",
+          "group": "1@5"
         },
         {
           "command": "berth.newInFolder",

@@ -16,6 +16,7 @@ import { LayoutStore } from './layoutStore.js';
 import { Controller } from './controller.js';
 import { compareFolders, folderLabel, sessionChoices, defaultFolder, explorerTarget, launcherPicksAgent, orderAgents, placeOf, sessionNameProblem, type Place } from './model.js';
 import { applyGroupOrder, moveGroup, savedGroupOrder, shiftGroup } from './groupOrder.js';
+import { reminderChoices } from './reminders.js';
 import type { MenuContext } from './view/protocol.js';
 import { SessionsView, VIEW_ID } from './view/sessionsView.js';
 import { hookRuntimePath, installBundledHooks, prepareHookRuntime } from './hookRuntime.js';
@@ -27,6 +28,7 @@ import { TerminalHost, currentWorkspaceIdentity } from './terminalHost.js';
 const REFRESH_MS = 2000;
 const GROUP_ORDER = 'berth.groupOrder';
 const PINNED = 'berth.pinnedSessions';
+const REMINDERS = 'berth.reminders';
 const LAYOUT_BACKUP = 'berth.layoutBackup';
 const LAYOUT_VALUES = 'berth.layoutAppliedValues';
 const BERTH_CONTAINER = 'workbench.view.extension.berth';
@@ -143,6 +145,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Pins are a view preference saved per workspace (spec §6).
   host.pinned = () => new Set(context.workspaceState.get<string[]>(PINNED) ?? []);
   host.savePinned = (names) => void context.workspaceState.update(PINNED, names).then(renderLocal);
+  // Reminders: session name to due time, saved per workspace; checked every 30 s (spec §6).
+  host.reminders = () => new Map(Object.entries(context.workspaceState.get<Record<string, number>>(REMINDERS) ?? {}));
+  host.saveReminders = (entries) => void context.workspaceState.update(REMINDERS, Object.fromEntries(entries)).then(renderLocal);
+  const reminderTimer = setInterval(() => { if (controller.fireDueReminders().length) renderLocal(); }, 30_000);
+  context.subscriptions.push({ dispose: () => clearInterval(reminderTimer) });
   const reorderGroups = (next: (shown: readonly string[], saved: readonly string[]) => string[]) => {
     const shown = controller.tree().groups.map((group) => group.cwd);
     void context.workspaceState.update(GROUP_ORDER, next(shown, groupOrder())).then(renderLocal);
@@ -406,6 +413,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   command('berth.markUnread', guarded((name) => controller.markUnread(name)));
   command('berth.pin', guarded((name) => controller.pin(name)));
   command('berth.unpin', guarded((name) => controller.unpin(name)));
+  command('berth.remindLater', guarded(async (name) => {
+    const choice = await vscode.window.showQuickPick(reminderChoices(new Date()), { title: `Remind Me About ${name}`, placeHolder: 'When should this session come back to your attention?' });
+    if (choice) controller.remind(name, choice.at);
+  }));
+  command('berth.cancelReminder', guarded((name) => controller.cancelReminder(name)));
   command('berth.forget', guarded(async (name) => {
     const ok = await vscode.window.showWarningMessage(`Forget ${name}? It will not be restored.`, { modal: true }, 'Forget');
     if (ok === 'Forget') controller.forget(name);

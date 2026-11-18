@@ -20,7 +20,7 @@ test('packaged Windows activation shows guidance before accessing Unix state', (
     const stub={ThemeIcon:class{},ThemeColor:class{},
       workspace:{onDidChangeConfiguration:()=>disposable},
       commands:{registerCommand:(id,fn)=>{commands.set(id,fn);return disposable;}},
-      window:{registerWebviewViewProvider:(id,value)=>{view=value;return disposable;},
+      window:{onDidChangeWindowState:()=>disposable,registerWebviewViewProvider:(id,value)=>{view=value;return disposable;},
         showInformationMessage:async text=>{notices.push(text);}},
     };
     const original=Module._load;

@@ -37,10 +37,19 @@ test('C1 ls lists managed, unmanaged and stopped sessions', async (t) => {
   for (const key of ['name', 'managed', 'agent', 'cwd', 'conversation', 'origin', 'state', 'note', 'attachedClients', 'live']) {
     assert.ok(key in (web1 ?? {}), `missing field ${key}`);
   }
-  // Live rows carry tmux's session activity time; stopped rows have none (spec §6, Order).
-  const age = Date.now() - Date.parse(web1?.lastActivity ?? '');
-  assert.ok(age >= 0 && age < 120_000, `recent lastActivity, got ${web1?.lastActivity}`);
-  assert.equal(gone?.lastActivity, undefined);
+});
+
+test('C1 lastActivity is the last recorded prompt or reply; opening or clearing state does not move it', async (t) => {
+  const sb = sandbox(t);
+  assert.equal(sb.cli('new', 'claude', '--cwd', sb.makeDir('work'), '--name', 'work').status, 0);
+  const work = () => rows(sb).find((r) => r.name === 'work');
+  assert.equal(work()?.lastActivity, undefined, 'starting or attaching is not a message');
+  const tmux = sb.ctx().tmux;
+  tmux.setMeta('work', { state: 'working', activityTiming: JSON.stringify({ state: 'working', turnStartedAt: '2026-11-18T10:00:00.000Z', stateSince: '2026-11-18T10:00:00.000Z' }) });
+  tmux.setMeta('work', { state: 'done', activityTiming: JSON.stringify({ state: 'done', turnStartedAt: '2026-11-18T10:00:00.000Z', stateSince: '2026-11-18T10:05:00.000Z' }) });
+  assert.equal(work()?.lastActivity, '2026-11-18T10:05:00.000Z');
+  tmux.setMeta('work', { state: '', note: '' });
+  assert.equal(work()?.lastActivity, '2026-11-18T10:05:00.000Z', 'answering the bell keeps the time');
 });
 
 test('C2 new runs the launch template, stamps metadata, picks a unique name', async (t) => {

@@ -265,7 +265,7 @@ class BerthSessions extends LitElement {
   private card(row: RowView, level: number, focused: boolean, dropMark: string): TemplateResult {
     const context: MenuContext = { webviewSection: 'session', session: row.name, berthItem: row.contextValue };
     const selected = this.selectedSession === row.name;
-    const words = [row.name, row.pinned ? 'pinned' : '', row.hover.find(line => line.kind === 'title')?.sub, row.agent ? `${STATE_WORDS[row.icon]}` : STATE_WORDS.unmanaged, row.subtitle, row.details, row.active ? 'Active terminal' : ''].filter(Boolean).join(', ');
+    const words = [row.name, row.pinned ? 'pinned' : '', row.reminder ? 'reminder pending' : '', row.hooksSilent ? 'hooks not reporting' : '', row.sharedWith?.length ? 'agent conversation shared' : '', row.hover.find(line => line.kind === 'title')?.sub, row.agent ? `${STATE_WORDS[row.icon]}` : STATE_WORDS.unmanaged, row.subtitle, row.details, row.active ? 'Active terminal' : ''].filter(Boolean).join(', ');
     return html`<div
       class="row card ${dropMark} level-${level} state-${row.icon} ${row.attention ? `attention-${row.attention}` : ''} ${selected ? 'selected' : ''} ${row.active ? 'terminal-active' : ''}"
       id=${`s:${row.name}`}
@@ -287,8 +287,12 @@ class BerthSessions extends LitElement {
       <div class="line title">
         ${agentIcon(row.agent, this.settings?.agentIcons)}
         <span class="name">${row.label}</span>
-        ${row.pinned ? html`<span class="pin-mark codicon codicon-pinned" role="img" aria-label="Pinned"></span>` : nothing}
         <span class="activity-slot">${row.badge ? html`<span class="badge" role="img" aria-label=${STATE_WORDS[row.icon]}>${row.icon === 'working' ? codicon(WORKING_ICON) : row.attention === 'unread' ? codicon('pass-filled') : row.badge}</span>` : nothing}</span>
+        ${row.pinned ? html`<span class="pin-mark codicon codicon-pinned" role="img" aria-label="Pinned"></span>` : nothing}
+        ${row.reminder ? html`<span class="pin-mark codicon codicon-clock" role="img" aria-label="Reminder pending"></span>` : nothing}
+        ${row.hooksSilent || row.sharedWith?.length ? html`<span class="warn-mark codicon codicon-warning" role="img" aria-label=${[
+          row.hooksSilent ? "This session's hooks are not reporting" : '',
+          row.sharedWith?.length ? `Agent conversation also open in ${row.sharedWith.join(', ')}` : ''].filter(Boolean).join('; ')}></span>` : nothing}
         ${this.settings?.details && row.details ? html`
           <span class=${`details${row.location.additional ? ' multiple-connections' : ''}`} role="img" aria-label=${row.details}>
             ${hostIcon(row.location.icon, row.location.hostApplication, this.settings?.hostIcons, row.location.currentWindow)}

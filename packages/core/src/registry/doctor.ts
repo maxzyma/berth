@@ -11,10 +11,13 @@ import { list } from './sessions.js';
 
 /** What a finding is about, so hosts act on it without parsing its wording. */
 export type FindingCode = 'environment' | 'legacy-snapshots' | 'unknown-agent' | 'agent-version' | 'cwd-missing'
-  | 'binding' | 'recovery' | 'executable-missing' | 'profile-unknown' | 'hooks' | 'conversation-unbound';
+  | 'binding' | 'recovery' | 'executable-missing' | 'profile-unknown' | 'hooks' | 'hooks-silent' | 'conversation-unbound';
 
 /** Findings that restate a `SessionRow` field, so a host showing the row need not repeat them. */
-export const ROW_FINDING_CODES: ReadonlySet<FindingCode> = new Set(['binding', 'hooks', 'profile-unknown', 'conversation-unbound', 'recovery']);
+/** A live session that keeps a stale hook configuration (spec §4.2). */
+const HOOKS_SILENT = 'hooks are not reporting from this session: it is still using hook configuration it loaded earlier. Restart the session, for example by exiting the agent and resuming the conversation, to load the current configuration';
+
+export const ROW_FINDING_CODES: ReadonlySet<FindingCode> = new Set(['binding', 'hooks', 'hooks-silent', 'profile-unknown', 'conversation-unbound', 'recovery']);
 
 export interface Finding {
   session?: string;
@@ -70,6 +73,7 @@ export function doctor(ctx: Context, env = ctx.env): Finding[] {
         findings.push({ session: row.name, code: 'hooks', installHooksFor: row.agent, profile: row.profile, problem: `hooks for ${adapter.displayName} ${row.hooks === 'broken' ? 'are incomplete or have missing runtime files' : 'are not installed'} in this session profile` });
       }
     }
+    if (row.hooksSilent) findings.push({ session: row.name, code: 'hooks-silent', problem: HOOKS_SILENT });
     if (adapter.resume && !row.conversation) findings.push({ session: row.name, code: 'conversation-unbound', problem: 'conversation not bound; automatic recovery is unavailable. Use the agent conversation picker or start a new session explicitly' });
   }
   return findings;

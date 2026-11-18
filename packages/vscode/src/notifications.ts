@@ -42,7 +42,7 @@ export async function notifySystem(title: string, body: string, appName: string)
 }
 
 /** Choose the attention channel; the originating editor retains the session action. */
-export function notificationChannel(state: 'waiting' | 'done', focused: boolean,
+export function notificationChannel(state: 'waiting' | 'done' | 'reminder', focused: boolean,
   current: boolean, systemEnabled: boolean, remote = false): 'none' | 'editor' | 'system' {
   if (focused) return current || state === 'done' ? 'none' : 'editor';
   return systemEnabled && !remote ? 'system' : 'editor';
