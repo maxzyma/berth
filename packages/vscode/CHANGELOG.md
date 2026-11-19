@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.13
+
+### Session list
+
+- Sessions now order by the last message Berth recorded: a prompt you sent, or the agent's reply or request. Opening or attaching to a session no longer moves it, and answering a waiting session keeps its place. Sessions without hooks follow in name order.
+- Remind Me Later brings a session back in 30 minutes, 1 hour, 3 hours or tomorrow at 9:00: it becomes unread and a notification names it. A clock mark shows a pending reminder; Cancel Reminder removes it.
+- A Claude Code session whose hooks stopped reporting shows a warning mark. It is still using hook configuration it loaded earlier; restarting the session loads the current one.
+- When two running sessions hold the same agent conversation, both show a warning: two processes writing one conversation can lose messages. The session that switched to it last keeps it for recovery and renaming; the other shows a binding conflict and is skipped by recovery.
+- Pin, reminder and warning marks sit beside the terminal location icon, and session details close when the editor window loses focus.
+
 ## 0.4.12
 
 ### Session list
