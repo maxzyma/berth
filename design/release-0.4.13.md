@@ -38,7 +38,17 @@ macOS, 2026-11-19:
 - Manual cases V8, V9 and I5 were not re-run; the
   [0.4.6 results](manual-acceptance.md#results) remain the latest.
 
-Publication is pending.
+The [release workflow](https://github.com/maxzyma/berth/actions/runs/44449103383)
+passed on its first attempt for tag `v0.4.13`: on macOS 15 and macOS 15 Intel,
+429 tests passed, 11 opt-in tests skipped, zero failures; the Linux and Windows
+jobs also passed. npm `latest`, [GitHub Releases](https://github.com/maxzyma/berth/releases/tag/v0.4.13)
+and the VS Code Marketplace publish 0.4.13. `scripts/verify-release.mjs` found
+the npm archive identical to the GitHub archive and to the registry's integrity,
+and the Marketplace VSIX identical to the GitHub one. Private-identifier and
+credential scans of the 215 published files found nothing. The official VSIX is
+installed locally, with all 33 extension payload files matching the archive
+(ignoring VS Code's installation metadata). See the
+[publication receipt](assets/code-review/release-0.4.13.json).
 
 ## Accepted limits
 
